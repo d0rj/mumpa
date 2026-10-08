@@ -27,6 +27,10 @@ For redistribution, keep this notice, the GPL text, dependency notices and corre
 
 ## Other dependencies
 
+Windows includes the unmodified **Jackett v0.24.2806** binaries as a separate managed process. Jackett is GPL-2.0; its LICENSE remains inside the bundled archive and extracted runtime. Matching source: https://github.com/Jackett/Jackett/tree/v0.24.2806; source archive: https://github.com/Jackett/Jackett/archive/refs/tags/v0.24.2806.zip. Binary provenance and pinned SHA-256 are in `tools/prepare-jackett.ps1`. The release includes the matching Jackett source archive alongside Mumpa and TorrServer sources.
+
+`flutter_inappwebview` (Apache-2.0), `html`, `enough_convert` and `archive` retain their upstream licenses; their versioned notices are recorded in Flutter's license registry. Windows native browser uses the installed Microsoft Edge WebView2 runtime.
+
 Flutter (BSD-3-Clause): https://github.com/flutter/flutter. `audio_service`, `audio_session`, `file_picker`, `path_provider`, `path`, `crypto`, `http`, `audio_metadata_reader` and `xml` retain their respective package licenses. Exact versions and transitive packages are recorded by `pubspec.lock`; notices are included in Flutter's `NOTICES` asset.
 
 ## Development skills

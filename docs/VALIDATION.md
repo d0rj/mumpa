@@ -1,4 +1,22 @@
-# Mumpa 1.0.0 verification — 2026-10-08
+# Mumpa verification — 2026-10-08
+
+## 1.1 catalog and engine correction
+
+The user reported that the actual release engine did not start and that a demo album with manually configured search did not meet the desired catalog flow. Jackett is now the default provider, including support for RuTracker.org configured with the user's own account. Windows bundles unchanged Jackett v0.24.2806 as a private, lazily started backend; Android can connect to an external Jackett. Direct RuTracker WebView access is an additional option. New installations do not receive demo tracks automatically.
+
+- `flutter analyze`: no issues. `flutter test`: 41 passing unit/widget tests, with one opt-in native Jackett test skipped in the ordinary run. New cases cover joint UDP/TCP candidates and lifecycle failures; catalog parsers/CP1251/login verification; Jackett extraction/profile guards; caps verification, magnet redirects, metainfo downloads and invalid HTML.
+- Opt-in real Windows Jackett test passed independently: bundled process serves caps, exposes RuTracker in the indexer inventory, uses private/update-disabled config, shuts down and omits its API key from startup diagnostics. This is not a test of authenticated RuTracker search.
+- A real Windows WebView loaded six music categories, 29 top-level forums and 96 subforums in the music category. The next public forum displayed site verification. The probe confirmed the visible verification action; authenticated search/magnet retrieval still needs the user's own account and any site challenge.
+- The actual Windows log showed UDP bind error 10013. TCP port zero can return consecutive ports inside an entire UDP exclusion block; unique random candidates now reserve TCP and UDP together, and the chosen address is passed to the native engine. No machine firewall rules were altered.
+- Android uses AGP 8.13.2 / Gradle 8.13 with Kotlin 2.3.20. AGP 9 rejects the stable WebView plugin's old default ProGuard configuration; a supported build-tool version avoids modifying global package caches.
+
+Final 1.1 native reruns pass on Windows and Android API 35 x86_64: local/torrent playback, seeking, exact HTTP Range, verified complete download, real engine restart and offline playback with engine and seeder stopped. Android also registers its native audio service. Each local seeder served 130 piece requests. The Windows native Jackett dashboard additionally opens, renders the actual Add indexer interface and closes correctly through WebView2. Logs: `test-output/windows-e2e-v11.log`, `android-e2e-v11-dds.log` and `jackett-ui-v11.log`.
+
+Two initial Android test launches stalled while starting host DDS. After clearing the orphaned test DDS, the ordinary integration command completed with exit code zero. A diagnostic `--no-dds` run completed all app assertions but Flutter's golden-event proxy rejected its missing DDS stream; that diagnostic run is not counted as a passing test.
+
+Windows release 1.1.0+2 and all three Android ABI release APKs build successfully. The installed x86_64 release APK (versionCode 4002) imports the original WAV through Android's real SAF file picker. After Home, system media commands produce PLAYING at 29 ms, PAUSED at 1249 ms and PLAYING at 1500 ms, with no app runtime exception. Delivered APKs contain their own `libtorrserver.so` and `libmpv.so`, exclude Windows assets, and the Windows ZIP includes the engine, Jackett archive and libmpv DLL. Physical Android devices and authenticated RuTracker account searches remain untested.
+
+The following 1.0 verification record is retained as historical evidence.
 
 Verified locally with Flutter 3.44.4 stable / Dart 3.12.2 on Windows, plus the Android API 35 x86_64 emulator. These checks establish the listed behavior; they do not establish that every public swarm, codec or physical phone works.
 

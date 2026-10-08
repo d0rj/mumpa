@@ -7,6 +7,72 @@ import 'package:mumpa/data/torrent_service.dart';
 import 'package:mumpa/domain/models.dart';
 
 void main() {
+  test(
+    'Jackett download redirect resolves magnet before calling the engine',
+    () async {
+      final service = IndexerService(
+        client: MockClient(
+          (request) async => http.Response(
+            '',
+            302,
+            headers: {'location': 'magnet:?xt=urn:btih:abc&dn=Album'},
+          ),
+        ),
+      );
+      final source = await service.resolve(
+        'http://localhost/download',
+        Directory.systemTemp,
+      );
+      expect(source.file, isFalse);
+      expect(source.source, 'magnet:?xt=urn:btih:abc&dn=Album');
+      service.dispose();
+    },
+  );
+  test('Jackett downloads metainfo and rejects an HTML response', () async {
+    final root = await Directory.systemTemp.createTemp('mumpa-indexer-source-');
+    var body = 'd4:name5:Albume';
+    final service = IndexerService(
+      client: MockClient((request) async => http.Response(body, 200)),
+    );
+    try {
+      final source = await service.resolve('http://localhost/download', root);
+      expect(source.file, isTrue);
+      expect(await File(source.source).readAsString(), body);
+      body = '<html>login</html>';
+      await expectLater(
+        service.resolve('http://localhost/download', root),
+        throwsFormatException,
+      );
+    } finally {
+      service.dispose();
+      await root.delete(recursive: true);
+    }
+  });
+  test(
+    'Jackett connection verifies caps, rejects dashboard and API errors',
+    () async {
+      var body =
+          '<caps><categories><category id="3000" name="Audio"/></categories></caps>';
+      final service = IndexerService(
+        client: MockClient((request) async {
+          expect(request.url.queryParameters['t'], 'caps');
+          return http.Response(body, 200);
+        }),
+      );
+      await service.check('http://localhost/api', 'key');
+      body = '<html>dashboard</html>';
+      await expectLater(
+        service.check('http://localhost/api', 'key'),
+        throwsFormatException,
+      );
+      body = '<error description="Invalid key"/>';
+      await expectLater(
+        service.check('http://localhost/api', 'key'),
+        throwsA(isA<HttpException>()),
+      );
+      service.dispose();
+    },
+  );
   test('waits for live files after a cold engine reload', () async {
     var gets = 0;
     final service = TorrentService(

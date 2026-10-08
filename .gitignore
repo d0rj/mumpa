@@ -1,7 +1,9 @@
 # Miscellaneous
 assets/engine/*.exe
+assets/jackett/*.zip
 android/app/src/main/jniLibs/
 artifacts/
+.local/
 test-output/
 *.download
 *.class
@@ -36,6 +38,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+/android/build/
 /coverage/
 
 # Symbolication related

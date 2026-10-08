@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../data/download_repository.dart';
 import '../data/library_repository.dart';
+import '../data/jackett_service.dart';
+import '../data/rutracker_service.dart';
 import '../data/torrent_service.dart';
 import '../domain/models.dart';
 import 'playback_controller.dart';
@@ -33,7 +35,11 @@ class AppController extends ChangeNotifier {
     required this.torrents,
     required this.engine,
     IndexerService? indexer,
-  }) : indexer = indexer ?? IndexerService() {
+    RuTrackerService? catalog,
+    JackettService? jackett,
+  }) : indexer = indexer ?? IndexerService(),
+       catalog = catalog ?? RuTrackerService(),
+       jackett = jackett ?? JackettService(library.root) {
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
@@ -44,6 +50,22 @@ class AppController extends ChangeNotifier {
   final TorrentService torrents;
   final TorrentEngine engine;
   final IndexerService indexer;
+  final RuTrackerService catalog;
+  final JackettService jackett;
+  JackettConnection? jackettConnection;
+  List<SearchRelease> sourceFeed = [];
+  String? indexerError;
+  bool indexerLoading = false;
+  bool get indexerConnected =>
+      (library.settings['indexerUrl'] as String? ?? '').isNotEmpty;
+  bool catalogLoading = false,
+      catalogNeedsConnection = false,
+      catalogNeedsLogin = false;
+  String? catalogError, catalogNextPath;
+  List<CatalogSection> catalogSections = [], catalogTrail = [];
+  List<SearchRelease> catalogReleases = [];
+  int _catalogId = 0;
+  bool get usesIndexer => library.settings['searchProvider'] != 'rutracker';
   AppPage page = AppPage.home;
   LibraryFilter filter = LibraryFilter.all;
   LibrarySort sort = LibrarySort.added;
@@ -286,9 +308,10 @@ class AppController extends ChangeNotifier {
 
   Future<void> searchSources() async {
     final endpoint = library.settings['indexerUrl'] as String? ?? '';
-    if (endpoint.isEmpty) {
+    if (usesIndexer && endpoint.isEmpty) {
       navigate(AppPage.settings);
-      message = 'Подключите свой Torznab-источник для поиска музыки.';
+      message =
+          'Настрой Jackett: добавь RuTracker и войди в свой аккаунт. На Windows можно запустить Jackett из Mumpa.';
       notifyListeners();
       return;
     }
@@ -298,14 +321,26 @@ class AppController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      final items = await indexer.search(
-        endpoint,
-        library.settings['indexerKey'] as String? ?? '',
-        query.trim(),
-      );
-      if (id == _searchId) releases = items;
+      final items = usesIndexer
+          ? await indexer.search(
+              endpoint,
+              library.settings['indexerKey'] as String? ?? '',
+              query.trim(),
+            )
+          : (await catalog.search(query.trim())).releases;
+      if (id == _searchId) {
+        releases = items;
+        catalogNeedsConnection = false;
+        catalogError = null;
+      }
     } catch (e) {
-      if (id == _searchId) error = e.toString();
+      if (id == _searchId) {
+        if (!usesIndexer) {
+          _catalogFailure(e);
+        } else {
+          error = e.toString();
+        }
+      }
     } finally {
       if (id == _searchId) {
         searching = false;
@@ -313,6 +348,249 @@ class AppController extends ChangeNotifier {
       }
     }
   }
+
+  Future<void> initializeSources() async {
+    if (library.settings['managedJackett'] == true && Platform.isWindows) {
+      try {
+        await _startJackett();
+      } catch (e) {
+        indexerError = e.toString();
+        notifyListeners();
+        return;
+      }
+    }
+    if (indexerConnected) await refreshSourceFeed();
+  }
+
+  Future<JackettConnection> _startJackett() async {
+    final connection = await jackett.start();
+    jackettConnection = connection;
+    await library.setSetting('indexerUrl', connection.torznabUrl);
+    await library.setSetting('indexerKey', connection.apiKey);
+    await library.setSetting('managedJackett', true);
+    await library.setSetting('searchProvider', 'torznab');
+    return connection;
+  }
+
+  Future<void> setSearchProvider(String provider) async {
+    setQuery(query);
+    await library.setSetting('searchProvider', provider);
+    if (provider == 'rutracker') {
+      if (catalog.sections.isEmpty) await initializeCatalog();
+    } else {
+      await refreshSourceFeed();
+    }
+  }
+
+  Future<JackettConnection?> prepareJackett() =>
+      run('Запускаем Jackett…', _startJackett);
+
+  Future<void> finishJackettSetup() async {
+    final connection = jackettConnection;
+    if (connection == null) return;
+    await run('Проверяем RuTracker в Jackett', () async {
+      final configured = await jackett.isRuTrackerConfigured(connection);
+      message = configured
+          ? 'RuTracker подключён через Jackett.'
+          : 'Jackett готов. Добавь индексатор RuTracker.org и сохрани настройки аккаунта.';
+    });
+    await refreshSourceFeed();
+    if (query.trim().isNotEmpty) await searchSources();
+  }
+
+  Future<void> refreshSourceFeed() async {
+    if (!indexerConnected || indexerLoading) return;
+    indexerLoading = true;
+    indexerError = null;
+    notifyListeners();
+    try {
+      sourceFeed = await indexer.search(
+        library.settings['indexerUrl'] as String,
+        library.settings['indexerKey'] as String? ?? '',
+        '',
+      );
+    } catch (e) {
+      indexerError = e.toString();
+    } finally {
+      indexerLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> saveIndexer(String endpoint, String key) async {
+    await run('Проверяем Jackett…', () async {
+      var uri = Uri.tryParse(endpoint.trim());
+      if (uri == null ||
+          !{'http', 'https'}.contains(uri.scheme) ||
+          uri.host.isEmpty) {
+        throw const FormatException(
+          'Укажи корректный HTTP/HTTPS адрес Jackett.',
+        );
+      }
+      if (uri.path.isEmpty || uri.path == '/' || uri.path.startsWith('/UI/')) {
+        uri = uri.replace(path: '/api/v2.0/indexers/all/results/torznab/api');
+      }
+      final apiKey = key.trim().isNotEmpty
+          ? key.trim()
+          : uri.queryParameters['apikey'] ?? '';
+      final params = {...uri.queryParameters}..remove('apikey');
+      uri = uri.replace(queryParameters: params.isEmpty ? null : params);
+      await indexer.check(uri.toString(), apiKey);
+      await library.setSetting('indexerUrl', uri.toString());
+      await library.setSetting('indexerKey', apiKey);
+      await library.setSetting('managedJackett', false);
+      await library.setSetting('searchProvider', 'torznab');
+      message = 'Jackett подключён. Поиск ограничен музыкальными раздачами.';
+    });
+    if (indexerConnected) await refreshSourceFeed();
+  }
+
+  void _catalogFailure(Object e) {
+    catalogError = e is CatalogException
+        ? e.message
+        : 'Не удалось загрузить RuTracker. Проверь соединение и повтори попытку.';
+    catalogNeedsConnection = e is CatalogException && e.connect;
+    catalogNeedsLogin =
+        catalogNeedsConnection &&
+        RegExp(
+          'вход|войди|аккаунт',
+          caseSensitive: false,
+        ).hasMatch(catalogError!);
+  }
+
+  Future<void> initializeCatalog() async {
+    await catalog.restore();
+    catalogSections = catalog.sections;
+    notifyListeners();
+    await refreshCatalog();
+  }
+
+  Future<void> refreshCatalog() async {
+    final id = ++_catalogId;
+    catalogLoading = true;
+    catalogError = null;
+    notifyListeners();
+    try {
+      final sections = await catalog.refresh();
+      if (id != _catalogId) return;
+      catalogSections = sections;
+      catalogTrail = [];
+      catalogReleases = [];
+      catalogNextPath = null;
+      catalogNeedsConnection = false;
+    } catch (e) {
+      if (id == _catalogId) _catalogFailure(e);
+    } finally {
+      if (id == _catalogId) {
+        catalogLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> browseCatalog(
+    CatalogSection section, {
+    bool back = false,
+  }) async {
+    setQuery('');
+    navigate(AppPage.search);
+    final id = ++_catalogId;
+    if (!back) catalogTrail.add(section);
+    catalogSections = section.children;
+    catalogReleases = [];
+    catalogNextPath = null;
+    catalogError = null;
+    if (section.children.isNotEmpty) {
+      catalogLoading = false;
+      notifyListeners();
+      return;
+    }
+    catalogLoading = true;
+    notifyListeners();
+    try {
+      final listing = await catalog.browse(section.path);
+      if (id != _catalogId) return;
+      catalogSections = listing.sections;
+      catalogReleases = listing.releases;
+      catalogNextPath = listing.nextPath;
+      catalogNeedsConnection = false;
+    } catch (e) {
+      if (id == _catalogId) _catalogFailure(e);
+    } finally {
+      if (id == _catalogId) {
+        catalogLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> catalogBack() async {
+    if (catalogTrail.isNotEmpty) catalogTrail.removeLast();
+    if (catalogTrail.isEmpty) {
+      ++_catalogId;
+      catalogSections = catalog.sections;
+      catalogReleases = [];
+      catalogNextPath = null;
+      catalogLoading = false;
+      catalogError = null;
+      notifyListeners();
+    } else {
+      await browseCatalog(catalogTrail.last, back: true);
+    }
+  }
+
+  Future<void> loadMoreCatalog() async {
+    final path = catalogNextPath;
+    if (path == null || catalogLoading) return;
+    final id = ++_catalogId;
+    catalogLoading = true;
+    notifyListeners();
+    try {
+      final listing = await catalog.browse(path);
+      if (id != _catalogId) return;
+      final seen = catalogReleases.map((r) => r.link).toSet();
+      catalogReleases.addAll(listing.releases.where((r) => seen.add(r.link)));
+      catalogNextPath = listing.nextPath;
+    } catch (e) {
+      if (id == _catalogId) _catalogFailure(e);
+    } finally {
+      if (id == _catalogId) {
+        catalogLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> connectCatalog({bool login = true}) async {
+    await run(
+      login ? 'Вход в RuTracker' : 'Проверка доступа к RuTracker',
+      () async {
+        await catalog.connect(login: login);
+      },
+    );
+    await refreshCatalog();
+    if (query.trim().isNotEmpty) await searchSources();
+  }
+
+  Future<({TorrentInfo info, String? link})?> inspectRelease(
+    SearchRelease release,
+  ) => run('Открываем альбом…', () async {
+    if (release.rutracker) {
+      final link = await catalog.magnet(release);
+      return (info: await torrents.add(link, title: release.title), link: link);
+    }
+    final resolved = await indexer.resolve(
+      release.link,
+      Directory('${library.root.path}/torrents'),
+    );
+    if (resolved.file) {
+      return (info: await torrents.upload(resolved.source), link: null);
+    }
+    return (
+      info: await torrents.add(resolved.source, title: release.title),
+      link: resolved.source,
+    );
+  });
 
   Future<void> checkEngine() async {
     await run('Проверяем торрент-движок', () async {
@@ -327,6 +605,8 @@ class AppController extends ChangeNotifier {
     downloads.removeListener(_changed);
     playback.removeListener(_onPlayback);
     indexer.dispose();
+    unawaited(catalog.dispose());
+    unawaited(jackett.stop());
     super.dispose();
   }
 }

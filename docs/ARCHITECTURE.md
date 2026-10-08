@@ -8,7 +8,7 @@ Mumpa is a music player with a library, albums, artists, search, playlists, like
 
 The same track can have a local-file source, a torrent source and a completed offline copy. Playback chooses a valid offline/local path before asking the torrent engine for a stream. No catalog subscription or cloud account is needed for local albums or user-provided magnet/.torrent sources.
 
-A search result in the local library is immediately playable. Searching a remote music catalog requires an explicitly configured provider; a torrent engine alone cannot provide Spotify's commercial catalog. V1 must label library search and source import accurately rather than render nonfunctional catalog cards.
+A search result in the local library is immediately playable. Jackett is the default remote music provider. A pinned Windows backend is launched lazily; Android connects to an external Jackett endpoint. RuTracker.org still requires its user account configured in Jackett; a torrent engine alone cannot provide Spotify's commercial catalog. V1 must label library search and source import accurately rather than render nonfunctional catalog cards.
 
 ## Main decisions
 
@@ -148,4 +148,12 @@ Environment inventory at design time: Flutter/Dart, Go, Python and Node commands
 
 TorrServer is GPL-3.0. A distribution that includes it must retain its license and provide the corresponding engine source/version and notices; inspect package/player licenses in the release notices as well. Packaging and transport must be documented concretely with the shipped artifact. This is a distribution requirement, not a restriction on ordinary local-file or user-source playback.
 
-Remote source discovery, metadata enrichment, lyrics, recommendations, cross-device sync, equalization and crossfade are separate improvements. iOS is outside the agreed v1 scope. These should not delay a working Windows/Android local+torrent+offline player or be represented as implemented controls before their real adapters exist.
+Remote source discovery is implemented through Jackett/Torznab and the optional direct RuTracker catalog. Metadata enrichment, lyrics, recommendations, cross-device sync, equalization and crossfade remain separate improvements. iOS is outside the agreed v1 scope. These should not delay a working Windows/Android local+torrent+offline player or be represented as implemented controls before their real adapters exist.
+
+## Catalog update — 2026-10-08
+
+User explicitly chose Jackett as the default, including RuTracker.org support. `JackettService` verifies/extracts the v0.24.2806 archive in an isolate, starts a fixed executable with an app-owned private profile, disables updates and exposes its Torznab connection. Existing Jackett/Prowlarr URL/API-key connections remain supported. A guard prevents upstream migration of an unrelated Roaming profile. Readiness uses authenticated Torznab caps; configured RuTracker status uses the API-key indexer inventory. Credentials remain in Jackett's own profile and are never captured in notes.
+
+`IndexerService` handles Audio searches, capability validation, magnet redirects and app-owned metainfo downloads. Home shows real feed results after a tracker is configured. A direct optional `RuTrackerService` parses live music categories, public forums and authenticated tracker rows, preserving CP1251 queries and lazy topic magnet resolution. `BrowserCatalogTransport` uses the platform WebView and lets the user complete ordinary site verification/login. It is initialized only when direct access is selected.
+
+Windows UDP excluded ranges can reject a port that TCP accepts. `TorrentEngine` chooses unique random candidates and binds IPv4 TCP and UDP together before passing `--torrentaddr`; it detects early exits, cleans failed processes and records startup diagnostics. Sampling TCP port zero repeatedly is insufficient because Windows can allocate consecutive ports inside an entire UDP exclusion block.

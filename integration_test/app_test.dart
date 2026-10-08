@@ -158,7 +158,11 @@ void main() {
       final root = await Directory(
         '${temp.path}/mumpa-e2e-${DateTime.now().microsecondsSinceEpoch}',
       ).create();
-      final app = await createApplication(dataDirectory: root);
+      final app = await createApplication(
+        dataDirectory: root,
+        demo: true,
+        catalogEnabled: false,
+      );
       final evidence = <String, Object>{'platform': Platform.operatingSystem};
       HttpServer? seed;
       TestSeeder? peerSeed;

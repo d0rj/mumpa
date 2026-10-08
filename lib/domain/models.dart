@@ -253,7 +253,10 @@ class SearchRelease {
     required this.link,
     this.bytes = 0,
     this.seeders = 0,
+    this.rutracker = false,
+    this.category = '',
   });
-  final String title, link;
+  final String title, link, category;
   final int bytes, seeders;
+  final bool rutracker;
 }

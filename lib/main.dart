@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,9 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'data/download_repository.dart';
 import 'data/library_repository.dart';
+import 'data/jackett_service.dart';
+import 'data/rutracker_service.dart';
+import 'data/browser_catalog_transport.dart';
 import 'data/torrent_service.dart';
 import 'domain/models.dart';
 import 'logic/app_controller.dart';
@@ -16,7 +20,8 @@ import 'ui/theme.dart';
 
 Future<AppController> createApplication({
   Directory? dataDirectory,
-  bool demo = true,
+  bool demo = false,
+  bool catalogEnabled = true,
 }) async {
   final root =
       dataDirectory ??
@@ -76,13 +81,30 @@ Future<AppController> createApplication({
   await playback.initialize();
   final downloads = DownloadRepository(library, torrents);
   await downloads.restore();
-  return AppController(
+  final catalog = RuTrackerService(
+    cacheDirectory: Directory(p.join(root.path, 'catalog')),
+    baseUrl:
+        library.settings['rutrackerMirror'] as String? ??
+        'https://rutracker.org/',
+    transport: BrowserCatalogTransport(Directory(p.join(root.path, 'catalog'))),
+  );
+  final controller = AppController(
     library: library,
     playback: playback,
     downloads: downloads,
     torrents: torrents,
     engine: engine,
+    catalog: catalog,
+    jackett: JackettService(
+      root,
+      binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
+    ),
   );
+  if (catalogEnabled) {
+    if (!controller.usesIndexer) unawaited(controller.initializeCatalog());
+    unawaited(controller.initializeSources());
+  }
+  return controller;
 }
 
 void main() {

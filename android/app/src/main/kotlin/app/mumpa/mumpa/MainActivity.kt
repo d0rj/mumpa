@@ -23,6 +23,7 @@ class MainActivity : AudioServiceActivity() {
                 "start" -> {
                     val port = call.argument<Int>("port")!!
                     val directory = call.argument<String>("directory")!!
+                    val peerPort = call.argument<Int>("torrentPort")!!
                     Thread {
                         try {
                             synchronized(MainActivity::class.java) {
@@ -34,7 +35,7 @@ class MainActivity : AudioServiceActivity() {
                                     val binary = File(applicationInfo.nativeLibraryDir, "libtorrserver.so")
                                     require(binary.exists()) { "Packaged torrent engine is missing for this ABI" }
                                     File(directory).mkdirs()
-                                    torrentProcess = ProcessBuilder(binary.absolutePath, "-p", port.toString(), "-i", "127.0.0.1", "-d", directory,
+                                    torrentProcess = ProcessBuilder(binary.absolutePath, "-p", port.toString(), "-i", "127.0.0.1", "--torrentaddr", "0.0.0.0:$peerPort", "-d", directory,
                                         "-l", File(directory,"server.log").absolutePath)
                                         .redirectErrorStream(true).redirectOutput(File(directory,"process.log")).start()
                                     torrentPort = port

@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
 import '../domain/models.dart';
+import '../data/rutracker_service.dart';
+import 'catalog_widgets.dart';
+import 'jackett_setup.dart';
 import '../logic/app_controller.dart';
 import 'components.dart';
 import 'dialogs.dart';
@@ -117,97 +120,66 @@ class _HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _PageBody(
     children: [
-      const SizedBox(height: 8),
+      const SizedBox(height: 12),
+      const BadgePill(
+        icon: Icons.graphic_eq_rounded,
+        label: 'МУЗЫКА В ТВОЁМ РИТМЕ',
+      ),
+      const SizedBox(height: 18),
+      Text(
+        'Что сегодня слушаем?',
+        style: Theme.of(context).textTheme.headlineLarge,
+      ),
+      const SizedBox(height: 18),
+      TextField(
+        key: const Key('catalog-home-search'),
+        onChanged: app.setQuery,
+        onSubmitted: (_) {
+          app.navigate(AppPage.search);
+          app.searchSources();
+        },
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search_rounded),
+          hintText: 'Исполнитель или альбом',
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.arrow_forward_rounded),
+            tooltip: 'Найти музыку',
+            onPressed: () {
+              app.navigate(AppPage.search);
+              app.searchSources();
+            },
+          ),
+        ),
+      ),
+      const SizedBox(height: 14),
       Wrap(
-        spacing: 8,
+        spacing: 12,
+        runSpacing: 8,
         children: [
-          _Tab('Всё', true, () {}),
-          _Tab('Альбомы', false, () => app.navigate(AppPage.library)),
-          _Tab('Офлайн', false, () {
-            app.setFilter(LibraryFilter.offline);
-            app.navigate(AppPage.library);
-          }),
+          if (!app.usesIndexer)
+            TextButton.icon(
+              onPressed: () => app.connectCatalog(),
+              icon: const Icon(Icons.login_rounded, size: 18),
+              label: Text(
+                app.catalog.username == null
+                    ? 'Войти в RuTracker'
+                    : 'RuTracker · ${app.catalog.username}',
+              ),
+            ),
+          TextButton.icon(
+            onPressed: () => showAddMusic(context, app),
+            icon: const Icon(Icons.folder_open_rounded, size: 18),
+            label: const Text('Моя музыка с диска'),
+          ),
         ],
       ),
-      const SizedBox(height: 22),
-      LayoutBuilder(
-        builder: (_, c) => Container(
-          width: double.infinity,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: const Color(0xFF263425),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Stack(
-            children: [
-              if (c.maxWidth > 620)
-                Positioned(
-                  right: -45,
-                  top: -38,
-                  bottom: -45,
-                  child: Opacity(
-                    opacity: .55,
-                    child: Transform.rotate(
-                      angle: -.15,
-                      child: const CoverArt(
-                        seed: 'Mumpa Sessions',
-                        size: 380,
-                        radius: 0,
-                      ),
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: EdgeInsets.all(c.maxWidth > 620 ? 36 : 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const BadgePill(
-                      icon: Icons.graphic_eq_rounded,
-                      label: 'МУЗЫКА БЕЗ ГРАНИЦ',
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Твоя музыка.\nТвои правила.',
-                      style: TextStyle(
-                        fontSize: c.maxWidth > 700 ? 48 : 34,
-                        height: 1.05,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1.7,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const SizedBox(
-                      width: 330,
-                      child: Text(
-                        'Любимые альбомы с диска и из торрентов.\nВ одной коллекции, в твоём ритме.',
-                        style: TextStyle(
-                          color: Color(0xFFBCC6B6),
-                          height: 1.6,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: app.busy == null
-                          ? () => showAddMusic(context, app)
-                          : null,
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text('Добавить музыку'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      SearchProviderPicker(app: app),
+      if (app.usesIndexer)
+        ...sourceContent(context, app)
+      else
+        ...catalogContent(context, app, home: true),
       if (app.recentAlbums.isNotEmpty) ...[
-        const SectionTitle(
-          'Снова в твоих наушниках',
-          subtitle: 'Недавно слушал',
-        ),
+        const SectionTitle('Недавно слушал'),
         albumGrid(app, app.recentAlbums, limit: 6),
       ],
       SectionTitle(
@@ -216,27 +188,21 @@ class _HomePage extends StatelessWidget {
             '${app.library.tracks.length} треков · ${app.albums.length} альбомов',
         action: TextButton(
           onPressed: () => app.navigate(AppPage.library),
-          child: const Text(
-            'Открыть всё',
-            style: TextStyle(color: muted, fontSize: 11),
-          ),
+          child: const Text('Открыть всё'),
         ),
       ),
-      if (app.albums.isEmpty)
-        EmptyState(
-          icon: Icons.library_music_rounded,
-          title: 'Начни с любимого альбома',
-          description:
-              'Выбери папку с музыкой, аудиофайлы или вставь magnet-ссылку.',
-          action: FilledButton(
-            onPressed: () => showAddMusic(context, app),
-            child: const Text('Добавить музыку'),
-          ),
-        )
+      if (app.albums.isNotEmpty)
+        albumGrid(app, app.albums, limit: 6)
       else
-        albumGrid(app, app.albums, limit: 12),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 18),
+          child: Text(
+            'Добавь альбом из каталога или выбери папку с локальной музыкой.',
+            style: TextStyle(color: muted),
+          ),
+        ),
       if (app.library.playlists.isNotEmpty) ...[
-        const SectionTitle('Плейлисты на любой момент'),
+        const SectionTitle('Плейлисты'),
         _PlaylistGrid(app),
       ],
     ],
@@ -661,78 +627,83 @@ class _SearchPage extends StatelessWidget {
     children: [
       SectionTitle(
         'Найди свой звук',
-        subtitle: 'Поиск по трекам, альбомам и исполнителям',
+        subtitle: app.usesIndexer
+            ? 'Твоя медиатека и музыкальные трекеры Jackett'
+            : 'Твоя медиатека и музыкальный каталог RuTracker',
       ),
       TextFormField(
-        key: const Key('music-search'),
+        key: ValueKey('music-search'),
         initialValue: app.query,
-        autofocus: true,
+        autofocus: app.catalogTrail.isEmpty,
         onChanged: app.setQuery,
         onFieldSubmitted: (_) => app.searchSources(),
         decoration: const InputDecoration(
           prefixIcon: Icon(Icons.search_rounded),
-          hintText: 'Что хочешь послушать?',
+          hintText: 'Исполнитель, альбом или трек',
         ),
       ),
       const SizedBox(height: 16),
-      OutlinedButton.icon(
-        onPressed: app.searching ? null : app.searchSources,
-        icon: app.searching
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.travel_explore_rounded, size: 18),
-        label: const Text('Искать в подключённых источниках'),
+      SearchProviderPicker(app: app),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.icon(
+            onPressed: app.searching ? null : app.searchSources,
+            icon: app.searching
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.search_rounded, size: 18),
+            label: Text(
+              app.usesIndexer ? 'Искать через Jackett' : 'Искать на RuTracker',
+            ),
+          ),
+          if (!app.usesIndexer && app.catalog.username == null)
+            TextButton(
+              onPressed: () => app.connectCatalog(),
+              child: const Text('Войти в RuTracker'),
+            ),
+        ],
       ),
       if (app.query.trim().isEmpty)
-        const EmptyState(
-          icon: Icons.search_rounded,
-          title: 'Музыка начинается с поиска',
-          description:
-              'Введи название трека, альбома или исполнителя. Подключи свой Torznab API в настройках, чтобы искать торрент-релизы.',
-        )
+        ...(app.usesIndexer
+            ? sourceContent(context, app)
+            : catalogContent(context, app))
       else ...[
+        if (!app.usesIndexer && app.catalogError != null)
+          CatalogNotice(app: app),
+        SectionTitle(
+          app.usesIndexer ? 'В трекерах Jackett' : 'На RuTracker',
+          subtitle: 'Найдено: ${app.releases.length}',
+        ),
+        if (app.releases.isNotEmpty)
+          ReleaseRows(app: app, releases: app.releases)
+        else if (!app.searching && app.catalogError == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Нажми «Искать», чтобы найти альбомы в каталоге.',
+              style: TextStyle(color: muted),
+            ),
+          ),
         SectionTitle(
           'В твоей медиатеке',
           subtitle: 'Найдено: ${app.searchTracks.length}',
         ),
-        if (app.searchTracks.isEmpty)
+        if (app.searchTracks.isNotEmpty)
+          TrackList(app: app, tracks: app.searchTracks)
+        else
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
+            padding: EdgeInsets.symmetric(vertical: 18),
             child: Text(
-              'Пока ничего не найдено.',
+              'В локальной медиатеке пока ничего не найдено.',
               style: TextStyle(color: muted),
             ),
-          )
-        else
-          TrackList(app: app, tracks: app.searchTracks),
-        if (app.releases.isNotEmpty) ...[
-          const SectionTitle('В подключённых источниках'),
-          LazyRows(
-            count: app.releases.length,
-            builder: (context, i) {
-              final item = app.releases[i];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.album_outlined, color: accent),
-                title: Text(item.title, style: const TextStyle(fontSize: 13)),
-                subtitle: Text(
-                  '${formatBytes(item.bytes)} · ${item.seeders} сидов',
-                  style: const TextStyle(color: muted, fontSize: 11),
-                ),
-                trailing: const Icon(Icons.add_circle_outline_rounded),
-                onTap: () async {
-                  final info = await app.inspectTorrent(item.link);
-                  if (info != null && context.mounted) {
-                    await selectTorrent(context, app, info, link: item.link);
-                  }
-                },
-              );
-            },
           ),
-        ],
       ],
     ],
   );
@@ -882,6 +853,119 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SectionTitle('Jackett · основной каталог'),
+            if (Platform.isWindows)
+              FilledButton.icon(
+                onPressed: widget.app.busy == null
+                    ? () async {
+                        await setupJackett(context, widget.app, embedded: true);
+                        source.text =
+                            widget.app.library.settings['indexerUrl']
+                                as String? ??
+                            '';
+                        apiKey.text =
+                            widget.app.library.settings['indexerKey']
+                                as String? ??
+                            '';
+                      }
+                    : null,
+                icon: const Icon(Icons.settings_rounded, size: 18),
+                label: const Text('Запустить Jackett и настроить RuTracker'),
+              ),
+            const SizedBox(height: 14),
+            const Text(
+              'Добавь RuTracker.org в Jackett и сохрани аккаунт. Можно использовать встроенный Jackett на Windows или подключить свой сервер Jackett/Prowlarr по адресу и API key.',
+              style: TextStyle(color: muted),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: source,
+              decoration: const InputDecoration(
+                labelText: 'Адрес Jackett или URL Torznab API',
+                hintText:
+                    'http://localhost:9117/api/v2.0/indexers/all/results/torznab/api',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: apiKey,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'API key'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => widget.app.saveIndexer(source.text, apiKey.text),
+              child: const Text('Сохранить и проверить подключение'),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Использовать Jackett для поиска',
+                style: TextStyle(fontSize: 13),
+              ),
+              value: widget.app.usesIndexer,
+              onChanged: (value) =>
+                  widget.app.setSearchProvider(value ? 'torznab' : 'rutracker'),
+            ),
+          ],
+        ),
+      ),
+      const SectionTitle('Прямой доступ к RuTracker'),
+      Text(
+        widget.app.catalog.username == null
+            ? 'Войди в свой аккаунт для поиска исполнителей и альбомов.'
+            : 'Выполнен вход: ${widget.app.catalog.username}',
+        style: const TextStyle(color: muted),
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.icon(
+            onPressed: () => widget.app.connectCatalog(),
+            icon: const Icon(Icons.login_rounded, size: 18),
+            label: const Text('Войти в RuTracker'),
+          ),
+          TextButton(
+            onPressed: () => widget.app.connectCatalog(login: false),
+            child: const Text('Открыть сайт'),
+          ),
+          if (widget.app.catalog.username != null)
+            TextButton(
+              onPressed: () async {
+                await widget.app.catalog.logout();
+                await widget.app.refreshCatalog();
+              },
+              child: const Text('Выйти'),
+            ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(
+        initialValue: widget.app.catalog.base.toString(),
+        decoration: const InputDecoration(labelText: 'Зеркало RuTracker'),
+        items: RuTrackerService.mirrors
+            .map(
+              (url) => DropdownMenuItem(
+                value: url,
+                child: Text(Uri.parse(url).host),
+              ),
+            )
+            .toList(),
+        onChanged: (url) async {
+          if (url == null) return;
+          await widget.app.catalog.setMirror(url);
+          await widget.app.library.setSetting('rutrackerMirror', url);
+          await widget.app.refreshCatalog();
+        },
+      ),
+      const SizedBox(height: 20),
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             const SectionTitle('Торрент-движок'),
             const Text(
               'Встроенный движок работает автоматически. Можно подключить свой TorrServer — например, на домашнем сервере.',
@@ -968,42 +1052,7 @@ class _SettingsPageState extends State<SettingsPage> {
               },
               child: const Text('Сохранить лимит'),
             ),
-            const SectionTitle('Поиск в источниках'),
-            const Text(
-              'Подключи Torznab-совместимый API, например Jackett или Prowlarr. В приложении нет предустановленных музыкальных трекеров.',
-              style: TextStyle(color: muted),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: source,
-              decoration: const InputDecoration(
-                labelText: 'URL Torznab API',
-                hintText:
-                    'http://localhost:9117/api/v2.0/indexers/all/results/torznab/api',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: apiKey,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'API key'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () async {
-                await widget.app.library.setSetting(
-                  'indexerUrl',
-                  source.text.trim(),
-                );
-                await widget.app.library.setSetting(
-                  'indexerKey',
-                  apiKey.text.trim(),
-                );
-                widget.app.reportMessage('Источник поиска сохранён.');
-              },
-              child: const Text('Сохранить источник'),
-            ),
-            const SectionTitle('Mumpa 1.0'),
+            const SectionTitle('Mumpa 1.1'),
             const Text(
               'Музыка из твоих файлов и источников.\nДемо Mumpa Sessions — оригинальные синтезированные фрагменты.\nFlutter · media_kit · TorrServer MatriX.145.2',
               style: TextStyle(color: muted, fontSize: 12),
@@ -1013,7 +1062,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => showLicensePage(
                 context: context,
                 applicationName: 'Mumpa',
-                applicationVersion: '1.0.0',
+                applicationVersion: '1.1.0',
                 applicationLegalese:
                     'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
               ),
