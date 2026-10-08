@@ -1,0 +1,186 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mumpa/data/download_repository.dart';
+import 'package:mumpa/data/library_repository.dart';
+import 'package:mumpa/data/source_operation.dart';
+import 'package:mumpa/data/torrent_service.dart';
+import 'package:mumpa/domain/models.dart';
+import 'package:mumpa/logic/app_controller.dart';
+import 'package:mumpa/logic/playback_controller.dart';
+import 'package:mumpa/ui/app_screen.dart';
+import 'support.dart';
+
+const release = SearchRelease(
+  title: 'Fixture collection',
+  link: 'https://example.test/music.torrent',
+);
+const info = TorrentInfo(
+  hash: 'fixture-hash',
+  title: 'Fixture collection',
+  files: [
+    TorrentFile(index: 1, path: '01 - First.wav', bytes: 100),
+    TorrentFile(index: 2, path: 'readme.txt', bytes: 10),
+    TorrentFile(index: 3, path: '02 - Second.wav', bytes: 100),
+    TorrentFile(index: 4, path: '03 - Third.wav', bytes: 100),
+  ],
+);
+
+class FixtureIndexer extends IndexerService {
+  @override
+  Future<({String source, bool file})> resolve(
+    String link,
+    Directory directory, {
+    SourceOperation? operation,
+  }) async => (source: 'fixture.torrent', file: true);
+}
+
+class FixtureTorrentService extends TorrentService {
+  FixtureTorrentService() : super(endpoint: () async => 'http://localhost');
+  @override
+  Future<TorrentInfo> upload(
+    String path, {
+    SourceOperation? operation,
+    void Function(String)? onProgress,
+  }) async => info;
+  @override
+  Future<Uri> resolve(Track track) =>
+      stream(track.torrentHash!, track.torrentIndex!);
+}
+
+class RecordingDownloads extends DownloadRepository {
+  RecordingDownloads(super.library, super.torrents);
+  final requested = <String>[];
+  bool priorityUsed = false;
+  @override
+  void enqueue(Iterable<Track> tracks, {bool priority = false}) {
+    requested.addAll(tracks.map((t) => t.id));
+    priorityUsed = priority;
+  }
+}
+
+void main() {
+  late Directory root;
+  late AppController app;
+  late FakeAudioBackend backend;
+  late RecordingDownloads downloads;
+  setUp(() async {
+    root = await Directory.systemTemp.createTemp('mumpa-collection-');
+    final library = LibraryRepository(root);
+    await library.load();
+    await library.setSetting('indexerUrl', 'http://localhost/api');
+    final torrents = FixtureTorrentService();
+    backend = FakeAudioBackend();
+    final playback = PlaybackController(
+      library: library,
+      torrents: torrents,
+      backend: backend,
+    );
+    await playback.initialize(platformAudio: false);
+    downloads = RecordingDownloads(library, torrents);
+    app = AppController(
+      library: library,
+      playback: playback,
+      downloads: downloads,
+      torrents: torrents,
+      engine: TorrentEngine(root),
+      indexer: FixtureIndexer(),
+    );
+    app.sourceFeed = [release];
+  });
+  tearDown(() async {
+    app.dispose();
+    downloads.dispose();
+    await app.playback.close();
+    app.torrents.dispose();
+    await app.library.flush();
+    app.library.dispose();
+    await root.delete(recursive: true);
+  });
+
+  test(
+    'source creates a collection; only played track auto-downloads; current playlist extends queue',
+    () async {
+      await app.openRelease(release);
+      expect(app.error, isNull);
+      expect(app.page, AppPage.playlist);
+      expect(app.playlistTracks.length, 3);
+      expect(app.library.playlists.length, 1);
+      expect(backend.opened, isNull);
+      expect(downloads.requested, isEmpty);
+      final playlist = app.playlist!;
+      await app.playCollection(
+        app.playlistTracks,
+        index: 1,
+        playlistId: playlist.id,
+      );
+      expect(app.playback.current!.title, 'Second');
+      expect(app.playback.queue.length, 3);
+      expect(app.currentPlaylist!.id, playlist.id);
+      expect(Uri.parse(backend.opened!).queryParameters['index'], '3');
+      expect(downloads.requested, [app.playback.current!.id]);
+      expect(downloads.priorityUsed, isTrue);
+      final localFile = await File('${root.path}/extra.wav').writeAsBytes([1]);
+      final extra = Track(
+        id: 'extra',
+        title: 'Extra',
+        artist: 'Band',
+        album: 'Other',
+        source: TrackSource.local,
+        localPath: localFile.path,
+      );
+      await app.library.upsert([extra]);
+      await app.addToCurrentPlaylist(extra);
+      await app.addToCurrentPlaylist(extra);
+      expect(app.currentPlaylist!.trackIds.length, 4);
+      expect(app.playback.queue.length, 4);
+      expect(app.playback.current!.title, 'Second');
+      await app.openRelease(release);
+      expect(app.library.playlists.length, 1);
+      expect(app.playlist!.id, playlist.id);
+      expect(app.playlistTracks.length, 4);
+    },
+  );
+
+  for (final width in [1200.0, 390.0]) {
+    testWidgets('source tap opens playable collection at width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(MumpaApp(controller: app));
+      await tester.ensureVisible(find.text(release.title));
+      await tester.runAsync(() async {
+        await tester.tap(find.text(release.title));
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (app.page != AppPage.playlist &&
+            DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('collection-title')), findsOneWidget);
+      expect(find.byType(CheckboxListTile), findsNothing);
+      expect(app.playlistTracks.length, 3);
+      final second = app.playlistTracks[1];
+      await tester.ensureVisible(
+        find.byKey(ValueKey('track-row-${second.id}')),
+      );
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(ValueKey('track-row-${second.id}')));
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (app.playback.loading && DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+      await tester.pumpAndSettle();
+      expect(app.playback.current!.id, second.id);
+      expect(app.playback.playing, isTrue);
+      expect(downloads.requested, [second.id]);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+}

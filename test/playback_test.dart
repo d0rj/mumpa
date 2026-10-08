@@ -177,4 +177,148 @@ void main() {
     expect(player.current, isNull);
     expect(player.playing, isFalse);
   });
+
+  test(
+    'a newly selected collection clears the restored track position and origin',
+    () async {
+      await player.playTracks(
+        library.tracks,
+        index: 2,
+        contextPlaylistId: 'old-playlist',
+      );
+      await player.seek(const Duration(seconds: 7));
+      await player.pause();
+      final fresh = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: FakeAudioBackend(),
+      );
+      await fresh.initialize(platformAudio: false);
+      expect(fresh.position.inSeconds, 7);
+      expect(fresh.contextPlaylistId, 'old-playlist');
+      await fresh.playTracks(library.tracks, index: 0);
+      expect(fresh.current!.id, '0');
+      expect(fresh.position, Duration.zero);
+      expect(fresh.contextPlaylistId, isNull);
+      await fresh.close();
+    },
+  );
+
+  test(
+    'pending source exposes new metadata and ignores completion from the old decoder',
+    () async {
+      final pending = PendingTorrentService();
+      final backend = FakeAudioBackend();
+      final controlled = PlaybackController(
+        library: library,
+        torrents: pending,
+        backend: backend,
+      );
+      await controlled.initialize(platformAudio: false);
+      await controlled.playTracks(library.tracks);
+      await controlled.seek(const Duration(seconds: 12));
+      const track = Track(
+        id: 'pending',
+        title: 'Pending',
+        artist: 'Band',
+        album: 'New collection',
+        source: TrackSource.torrent,
+        torrentHash: 'hash',
+        torrentIndex: 1,
+        durationMs: 180000,
+      );
+      final opening = controlled.playTracks([
+        track,
+        library.tracks.last,
+      ], contextPlaylistId: 'collection');
+      await Future<void>.delayed(Duration.zero);
+      expect(controlled.position, Duration.zero);
+      expect(controlled.duration, const Duration(minutes: 3));
+      expect(controlled.playing, isFalse);
+      backend.completion.add(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(controlled.current!.id, 'pending');
+      await controlled.playTracks(
+        library.tracks,
+        index: 1,
+        contextPlaylistId: 'newer',
+      );
+      pending.ready.complete(Uri.parse('http://localhost/obsolete-stream'));
+      await opening;
+      expect(controlled.current!.id, '1');
+      expect(backend.opened, Uri.file(library.tracks[1].localPath!).toString());
+      expect(controlled.contextPlaylistId, 'newer');
+      expect(controlled.position, Duration.zero);
+      await controlled.close();
+      pending.dispose();
+    },
+  );
+
+  test(
+    'session restores shuffled queue edits and playlist origin without resurrecting removed entries',
+    () async {
+      await player.playTracks(
+        library.tracks,
+        index: 1,
+        contextPlaylistId: 'playlist',
+      );
+      player.toggleShuffle();
+      await player.removeQueue(player.queue.indexWhere((t) => t.id == '0'));
+      player.enqueue(library.byId('0')!);
+      await player.seek(const Duration(seconds: 7));
+      await player.pause();
+      final queueIds = player.queue.map((track) => track.id).toList();
+      final fresh = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: FakeAudioBackend(),
+      );
+      await fresh.initialize(platformAudio: false);
+      expect(fresh.queue.map((t) => t.id), queueIds);
+      expect(fresh.current!.id, '1');
+      expect(fresh.shuffle, isTrue);
+      expect(fresh.contextPlaylistId, 'playlist');
+      await fresh.play();
+      expect(fresh.position.inSeconds, 7);
+      fresh.toggleShuffle();
+      expect(fresh.queue.map((t) => t.id), ['1', '2', '0']);
+      expect(fresh.current!.id, '1');
+      await fresh.close();
+    },
+  );
+
+  test(
+    'restore preserves the selected track when an earlier library entry was removed',
+    () async {
+      await player.playTracks(library.tracks, index: 2);
+      await player.seek(const Duration(seconds: 7));
+      await player.pause();
+      await library.removeTracks(['0']);
+      final fresh = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: FakeAudioBackend(),
+      );
+      await fresh.initialize(platformAudio: false);
+      expect(fresh.queue.map((t) => t.id), ['1', '2']);
+      expect(fresh.current!.id, '2');
+      await fresh.play();
+      expect(fresh.position.inSeconds, 7);
+      await fresh.close();
+    },
+  );
+
+  test(
+    'tracks added to an empty queue can play and stop resumes their position',
+    () async {
+      player.enqueue(library.tracks.first);
+      await player.play();
+      expect(player.playing, isTrue);
+      await player.seek(const Duration(seconds: 7));
+      await player.stop();
+      expect(player.playing, isFalse);
+      await player.play();
+      expect(player.position.inSeconds, 7);
+    },
+  );
 }

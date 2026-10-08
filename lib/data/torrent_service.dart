@@ -636,7 +636,14 @@ class IndexerService {
         if (key.isNotEmpty) 'apikey': key,
       },
     );
-    final response = await client.get(uri).timeout(const Duration(seconds: 8));
+    late http.Response response;
+    try {
+      response = await client.get(uri).timeout(const Duration(seconds: 8));
+    } on http.ClientException {
+      throw const HttpException('Не удалось подключиться к Jackett.');
+    } on TimeoutException {
+      throw const HttpException('Jackett не ответил вовремя.');
+    }
     if (response.statusCode != 200) return [];
     final xml = XmlDocument.parse(response.body);
     return xml

@@ -64,6 +64,8 @@ class LibraryRepository extends ChangeNotifier {
             : t,
       ),
     );
+    // Default applies once to new/older profiles; an explicit opt-out survives.
+    _settings.putIfAbsent('autoCache', () => true);
     notifyListeners();
   }
 
@@ -111,9 +113,7 @@ class LibraryRepository extends ChangeNotifier {
     _recent.removeWhere(removed.contains);
     _playlists = _playlists
         .map(
-          (l) => MusicPlaylist(
-            id: l.id,
-            name: l.name,
+          (l) => l.copyWith(
             trackIds: l.trackIds.where((id) => !removed.contains(id)).toList(),
           ),
         )
@@ -153,6 +153,33 @@ class LibraryRepository extends ChangeNotifier {
     return playlist;
   }
 
+  /// Opening one source creates one persistent collection, without audio I/O.
+  /// Reopening preserves edits, tag enrichment and existing offline copies.
+  Future<MusicPlaylist> openSourceCollection({
+    required String hash,
+    required String name,
+    required List<Track> tracks,
+  }) async {
+    final indexed = {for (final track in _tracks) track.id: track};
+    for (final track in tracks) {
+      indexed.putIfAbsent(track.id, () => track);
+    }
+    _tracks = indexed.values.toList();
+    var playlist = _playlists.where((p) => p.sourceHash == hash).firstOrNull;
+    if (playlist == null) {
+      playlist = MusicPlaylist(
+        id: stableId('torrent-collection:$hash'),
+        name: name.trim().isEmpty ? 'Музыкальная коллекция' : name.trim(),
+        trackIds: tracks.map((t) => t.id).toList(),
+        sourceHash: hash,
+      );
+      _playlists.add(playlist);
+    }
+    notifyListeners();
+    await _save();
+    return playlist;
+  }
+
   Future<void> deletePlaylist(String id) async {
     _playlists.removeWhere((l) => l.id == id);
     notifyListeners();
@@ -161,11 +188,7 @@ class LibraryRepository extends ChangeNotifier {
 
   Future<void> renamePlaylist(String id, String name) async {
     _playlists = _playlists
-        .map(
-          (l) => l.id == id
-              ? MusicPlaylist(id: id, name: name.trim(), trackIds: l.trackIds)
-              : l,
-        )
+        .map((l) => l.id == id ? l.copyWith(name: name.trim()) : l)
         .toList();
     notifyListeners();
     await _save();
@@ -175,11 +198,7 @@ class LibraryRepository extends ChangeNotifier {
     _playlists = _playlists
         .map(
           (l) => l.id == id
-              ? MusicPlaylist(
-                  id: l.id,
-                  name: l.name,
-                  trackIds: {...l.trackIds, ...tracks}.toList(),
-                )
+              ? l.copyWith(trackIds: {...l.trackIds, ...tracks}.toList())
               : l,
         )
         .toList();
@@ -191,9 +210,7 @@ class LibraryRepository extends ChangeNotifier {
     _playlists = _playlists
         .map(
           (l) => l.id == id
-              ? MusicPlaylist(
-                  id: l.id,
-                  name: l.name,
+              ? l.copyWith(
                   trackIds: l.trackIds.where((t) => t != track).toList(),
                 )
               : l,

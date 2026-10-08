@@ -11,6 +11,8 @@ import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/main.dart';
+import 'package:mumpa/domain/models.dart';
+import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/ui/app_screen.dart';
 
 List<int> bencode(Object value) {
@@ -50,16 +52,27 @@ TestSeeder startSeeder(
   Uint8List audio,
   Uint8List infoHash,
   int pieceSize,
-  void Function() onRequest,
-) {
-  return TestSeeder(audio, infoHash, pieceSize, onRequest);
+  void Function() onRequest, {
+  int bytesPerSecond = 0,
+}) {
+  return TestSeeder(audio, infoHash, pieceSize, onRequest, bytesPerSecond);
 }
 
 class TestSeeder {
-  TestSeeder(this.audio, this.infoHash, this.pieceSize, this.onRequest);
+  TestSeeder(
+    this.audio,
+    this.infoHash,
+    this.pieceSize,
+    this.onRequest,
+    this.bytesPerSecond,
+  );
   final Uint8List audio, infoHash;
   final int pieceSize;
   final void Function() onRequest;
+  final int bytesPerSecond;
+  Future<void> _sending = Future.value();
+  final Set<int> _sentOffsets = {};
+  int uniqueBytesSent = 0;
   final Set<Socket> peers = {};
   final Set<int> connecting = {};
 
@@ -119,16 +132,29 @@ class TestSeeder {
             peer.destroy();
             return;
           }
-          onRequest();
           final prefix = ByteData(8)
             ..setUint32(0, index)
             ..setUint32(4, begin);
-          peer.add(
-            packet(7, [
-              ...prefix.buffer.asUint8List(),
-              ...audio.sublist(start, start + count),
-            ]),
-          );
+          final payload = packet(7, [
+            ...prefix.buffer.asUint8List(),
+            ...audio.sublist(start, start + count),
+          ]);
+          _sending = _sending
+              .then((_) async {
+                if (!peers.contains(peer)) return;
+                if (bytesPerSecond > 0) {
+                  await Future<void>.delayed(
+                    Duration(
+                      microseconds: (count * 1000000 / bytesPerSecond).ceil(),
+                    ),
+                  );
+                }
+                if (!peers.contains(peer)) return;
+                peer.add(payload);
+                onRequest();
+                if (_sentOffsets.add(start)) uniqueBytesSent += count;
+              })
+              .catchError((Object _) {});
         }
       },
       onError: (Object _) {},
@@ -216,6 +242,7 @@ void main() {
           Uint8List.fromList(sha1.convert(bencode(infoDictionary)).bytes),
           pieceSize,
           () => seedRequests++,
+          bytesPerSecond: 300 * 1024,
         );
         final metainfo = Uint8List.fromList(
           bencode(<String, Object>{
@@ -288,18 +315,21 @@ void main() {
           }
         });
         evidence['engineVersion'] = await app.torrents.version();
-        final torrent = await app.torrents.add('$seedUrl/album.torrent');
-        expect(torrent.files.length, 1);
-        final track = app.torrents
-            .tracks(
-              torrent,
-              link: '$seedUrl/album.torrent',
-              album: 'Torrent fixture',
-              artist: 'Mumpa test',
-            )
-            .single;
-        await app.library.upsert([track]);
-        await app.playback.playTracks([track]);
+        await app.openRelease(
+          SearchRelease(
+            title: 'Torrent fixture',
+            link: '$seedUrl/album.torrent',
+          ),
+        );
+        expect(app.error, isNull);
+        expect(app.page, AppPage.playlist);
+        expect(app.playlist!.sourceHash, isNotEmpty);
+        expect(app.playlistTracks.length, 1);
+        expect(app.downloads.jobs, isEmpty);
+        await tester.pumpAndSettle();
+        final track = app.playlistTracks.single;
+        final startTime = Stopwatch()..start();
+        await tester.tap(find.byKey(ValueKey('track-row-${track.id}')));
         await waitUntil(
           tester,
           () =>
@@ -309,6 +339,15 @@ void main() {
         );
         expect(app.playback.error, isNull);
         expect(seedRequests, greaterThan(0));
+        expect(startTime.elapsed.inSeconds, lessThan(5));
+        expect(peerSeed.uniqueBytesSent, lessThan(audio.length));
+        expect(app.downloads.jobs.single.state, DownloadState.downloading);
+        expect(app.library.byId(track.id)!.cachedPath, isNull);
+        evidence['collectionPlaylistCreated'] = true;
+        evidence['playbackStartsBeforeFullTorrent'] = true;
+        evidence['autoOfflineDownloadDuringPlayback'] = true;
+        evidence['streamStartMs'] = startTime.elapsedMilliseconds;
+        evidence['torrentBytesAtFirstAudio'] = peerSeed.uniqueBytesSent;
         evidence['nativeTorrentPlayback'] = true;
         debugPrint('MUMPA_STAGE torrent playback');
         evidence['bitTorrentPieceRequests'] = seedRequests;
@@ -330,7 +369,6 @@ void main() {
         expect(rangeBytes, audio.sublist(100, 200));
         http.close();
         evidence['realHttpRange'] = true;
-        app.downloads.enqueue([track]);
         await waitUntil(
           tester,
           () => app.downloads.jobs.single.state == DownloadState.complete,

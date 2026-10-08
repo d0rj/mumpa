@@ -53,7 +53,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
               _SourceOption(
                 icon: Icons.file_open_outlined,
                 title: 'Файл .torrent',
-                subtitle: 'Выбрать треки и слушать без полной загрузки',
+                subtitle: 'Открыть коллекцию и слушать без полной загрузки',
                 onTap: () => Navigator.pop(context, 'torrent'),
               ),
               const SizedBox(height: 24),
@@ -109,9 +109,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
       torrent = await app.inspectTorrent(link.text.trim());
   }
   if (torrent != null && context.mounted) {
-    await selectTorrent(
-      context,
-      app,
+    await app.openTorrentCollection(
       torrent,
       link: action == 'link' ? link.text.trim() : null,
     );

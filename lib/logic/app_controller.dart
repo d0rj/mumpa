@@ -106,10 +106,16 @@ class AppController extends ChangeNotifier {
       notifyListeners();
     }
     final track = playback.current;
-    if (track?.id == _autoCachedId || !playback.playing) return;
-    _autoCachedId = track?.id;
-    if (track != null && library.settings['autoCache'] == true) {
-      downloads.enqueue([track]);
+    if (track == null ||
+        track.id == _autoCachedId ||
+        !playback.playing ||
+        playback.loading ||
+        library.settings['autoCache'] != true) {
+      return;
+    }
+    if (track.source == TrackSource.torrent && track.cachedPath == null) {
+      _autoCachedId = track.id;
+      downloads.enqueue([track], priority: true);
     }
   }
 
@@ -159,6 +165,9 @@ class AppController extends ChangeNotifier {
   ).where((a) => a.id == selectedAlbum).firstOrNull;
   MusicPlaylist? get playlist =>
       library.playlists.where((l) => l.id == selectedPlaylist).firstOrNull;
+  MusicPlaylist? get currentPlaylist => library.playlists
+      .where((l) => l.id == playback.contextPlaylistId)
+      .firstOrNull;
   List<Track> get playlistTracks =>
       playlist?.trackIds.map(library.byId).whereType<Track>().toList() ?? [];
   List<Track> get likedTracks =>
@@ -198,6 +207,52 @@ class AppController extends ChangeNotifier {
   void openPlaylist(MusicPlaylist value) {
     selectedPlaylist = value.id;
     navigate(AppPage.playlist);
+  }
+
+  Future<void> playCollection(
+    List<Track> tracks, {
+    int index = 0,
+    String? playlistId,
+  }) =>
+      playback.playTracks(tracks, index: index, contextPlaylistId: playlistId);
+
+  Future<void> addToCurrentPlaylist(Track track) async {
+    final target = currentPlaylist;
+    if (target == null) return;
+    await library.addToPlaylist(target.id, [track.id]);
+    if (!playback.queue.any((t) => t.id == track.id)) {
+      playback.enqueue(track);
+    }
+    reportMessage('Добавлено в «${target.name}»');
+  }
+
+  Future<MusicPlaylist?> openTorrentCollection(
+    TorrentInfo info, {
+    String? link,
+    String? title,
+  }) => run('Открываем коллекцию…', () async {
+    final tracks = torrents.tracks(info, link: link, album: title);
+    if (tracks.isEmpty) {
+      throw const FormatException('В этой коллекции нет аудиотреков.');
+    }
+    final collection = await library.openSourceCollection(
+      hash: info.hash,
+      name: title ?? info.title,
+      tracks: tracks,
+    );
+    openPlaylist(collection);
+    return collection;
+  });
+
+  Future<void> openRelease(SearchRelease release) async {
+    final opened = await inspectRelease(release);
+    if (opened != null) {
+      await openTorrentCollection(
+        opened.info,
+        link: opened.link,
+        title: release.title,
+      );
+    }
   }
 
   void openArtist(String value) {

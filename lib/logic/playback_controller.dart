@@ -98,9 +98,13 @@ class PlaybackController extends ChangeNotifier {
   }) {
     backend.addListener(_onBackend);
     _completeSubscription = backend.completed.listen((_) {
+      if (loading || _openedId == null || _openedId != current?.id) return;
       unawaited(next(automatic: true));
     });
     _errorSubscription = backend.errors.listen((message) {
+      if (_closed || current == null) return;
+      _restorePosition = position;
+      ++_request;
       error = message.contains('Failed to open')
           ? 'Поток недоступен. Проверьте подключение и наличие сидов; можно выбрать другой источник.'
           : message;
@@ -124,6 +128,9 @@ class PlaybackController extends ChangeNotifier {
   int _cursor = -1;
   int _request = 0;
   bool loading = false, shuffle = false;
+  bool _closed = false;
+  String? _contextPlaylistId;
+  String? get contextPlaylistId => _contextPlaylistId;
   PlayerRepeatMode repeat = PlayerRepeatMode.off;
   String? error;
   DateTime _lastSave = DateTime.now();
@@ -138,11 +145,19 @@ class PlaybackController extends ChangeNotifier {
       ? library.byId(_original[_order[_cursor]].id) ??
             _original[_order[_cursor]]
       : null;
-  bool get playing => backend.playing;
+  bool get playing =>
+      _openedId == current?.id && current != null && backend.playing;
   bool get stopped => _openedId == null && !loading;
-  bool get buffering => loading || backend.buffering;
-  Duration get position => backend.position;
-  Duration get duration => backend.duration > Duration.zero
+  bool get buffering =>
+      loading ||
+      (_openedId == current?.id && current != null && backend.buffering);
+  Duration get position => _openedId == current?.id && current != null
+      ? backend.position
+      : _restorePosition ?? Duration.zero;
+  Duration get duration =>
+      _openedId == current?.id &&
+          current != null &&
+          backend.duration > Duration.zero
       ? backend.duration
       : current?.duration ?? Duration.zero;
   double get volume => backend.volume;
@@ -181,21 +196,55 @@ class PlaybackController extends ChangeNotifier {
     );
     final session = library.settings['playback'];
     if (session is Map) {
-      final ids = List<String>.from(session['ids'] as List? ?? []);
-      _original = ids.map(library.byId).whereType<Track>().toList();
-      _order = List.generate(_original.length, (i) => i);
-      _cursor = (session['index'] as int? ?? 0).clamp(
+      final ids = List<String>.from(
+        session['originalIds'] as List? ?? session['ids'] as List? ?? [],
+      );
+      final remapped = <int, int>{};
+      _original = [];
+      for (var i = 0; i < ids.length; i++) {
+        final track = library.byId(ids[i]);
+        if (track != null) {
+          remapped[i] = _original.length;
+          _original.add(track);
+        }
+      }
+      final order = session['order'] is List
+          ? (session['order'] as List).whereType<int>().toList()
+          : List.generate(ids.length, (i) => i);
+      final savedIndex = (session['index'] as int? ?? 0).clamp(
         0,
-        (_original.length - 1).clamp(0, 1000000),
+        (order.length - 1).clamp(0, 1000000),
       );
-      repeat = PlayerRepeatMode.values.byName(
-        session['repeat'] as String? ?? 'off',
-      );
+      _order = [];
+      _cursor = -1;
+      var beforeSelected = 0;
+      for (var i = 0; i < order.length; i++) {
+        final mapped = remapped[order[i]];
+        if (mapped == null || _order.contains(mapped)) continue;
+        if (i < savedIndex) beforeSelected++;
+        if (i == savedIndex) _cursor = _order.length;
+        _order.add(mapped);
+      }
+      final restoredSelection = _cursor >= 0;
+      if (_cursor < 0 && _order.isNotEmpty) {
+        _cursor = beforeSelected.clamp(0, _order.length - 1);
+      }
+      repeat =
+          PlayerRepeatMode.values
+              .where((mode) => mode.name == session['repeat'])
+              .firstOrNull ??
+          PlayerRepeatMode.off;
+      shuffle = session['shuffle'] == true;
+      _contextPlaylistId = session['contextPlaylistId'] as String?;
       // Restore UI and queue, but do not start a network transfer until play.
-      if (_original.isEmpty) _cursor = -1;
-      _restorePosition = Duration(
-        milliseconds: (session['position'] as num?)?.toInt() ?? 0,
-      );
+      _restorePosition = restoredSelection
+          ? Duration(
+              milliseconds: ((session['position'] as num?)?.toInt() ?? 0).clamp(
+                0,
+                1 << 53,
+              ),
+            )
+          : Duration.zero;
       _openedId = null;
       _publishQueue();
       notifyListeners();
@@ -216,13 +265,24 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> saveSession() => library.setSetting('playback', {
     'ids': queue.map((t) => t.id).toList(),
+    'originalIds': _original.map((t) => t.id).toList(),
+    'order': List<int>.of(_order),
     'index': _cursor,
     'position': position.inMilliseconds,
     'repeat': repeat.name,
+    'shuffle': shuffle,
+    'contextPlaylistId': _contextPlaylistId,
   });
 
-  Future<void> playTracks(List<Track> tracks, {int index = 0}) async {
-    if (tracks.isEmpty) return;
+  Future<void> playTracks(
+    List<Track> tracks, {
+    int index = 0,
+    String? contextPlaylistId,
+  }) async {
+    if (tracks.isEmpty || _closed) return;
+    _restorePosition = null;
+    _openedId = null;
+    _contextPlaylistId = contextPlaylistId;
     _original = List.of(tracks);
     _order = List.generate(tracks.length, (i) => i);
     _cursor = index.clamp(0, tracks.length - 1);
@@ -247,6 +307,7 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<void> _open({bool play = true}) async {
+    if (_closed) return;
     final track = current;
     if (track == null) return;
     final request = ++_request;
@@ -258,6 +319,7 @@ class PlaybackController extends ChangeNotifier {
     try {
       // Stop the previous decoder before a potentially long metadata/network wait.
       await backend.stop();
+      if (request != _request) return;
       final uri = await resolve(track);
       if (request != _request) return;
       if (play && _session != null && !await _session!.setActive(true)) {
@@ -267,10 +329,13 @@ class PlaybackController extends ChangeNotifier {
       if (request != _request) return;
       _openedId = track.id;
       if (_restorePosition != null) {
-        await backend.seek(_restorePosition!);
+        final restored = _restorePosition!;
         _restorePosition = null;
+        await backend.seek(restored);
       }
+      if (request != _request) return;
       await library.markPlayed(track.id);
+      if (request != _request) return;
       await saveSession();
     } catch (e) {
       if (request == _request) {
@@ -308,13 +373,15 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> toggle() => playing || buffering ? pause() : play();
   Future<void> stop() async {
+    _restorePosition = position;
     ++_request;
     loading = false;
-    await backend.stop();
     _openedId = null;
+    await backend.stop();
     await _session?.setActive(false);
     notifyListeners();
     system?.publish();
+    await saveSession();
   }
 
   Future<void> seek(Duration value) async {
@@ -328,7 +395,9 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<void> next({bool automatic = false}) async {
+    if (_closed) return;
     if (automatic && repeat == PlayerRepeatMode.one) {
+      _restorePosition = null;
       await _open();
       return;
     }
@@ -367,12 +436,14 @@ class PlaybackController extends ChangeNotifier {
   }
 
   void enqueue(Track track, {bool next = false}) {
+    if (_closed) return;
     _original.add(track);
     if (next && _cursor >= 0) {
       _order.insert(_cursor + 1, _original.length - 1);
     } else {
       _order.add(_original.length - 1);
     }
+    if (_cursor < 0) _cursor = 0;
     _publishQueue();
     notifyListeners();
     unawaited(saveSession());
@@ -381,6 +452,10 @@ class PlaybackController extends ChangeNotifier {
   Future<void> removeQueue(int index) async {
     if (index < 0 || index >= _order.length) return;
     final active = index == _cursor;
+    if (active) {
+      _restorePosition = null;
+      _openedId = null;
+    }
     _order.removeAt(index);
     if (index < _cursor || _cursor == _order.length) _cursor--;
     _publishQueue();
@@ -468,6 +543,9 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<void> close() async {
+    if (_closed) return;
+    _closed = true;
+    ++_request;
     _sleep?.cancel();
     await saveSession();
     await _completeSubscription.cancel();

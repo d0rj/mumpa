@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../data/download_repository.dart';
 import '../domain/models.dart';
 import '../logic/app_controller.dart';
 import 'theme.dart';
@@ -337,9 +338,16 @@ class TrackList extends SliverContent {
       itemBuilder: (context, i) {
         final t = tracks[i];
         final active = app.playback.current?.id == t.id;
+        final downloading = app.downloads.jobs
+            .where(
+              (j) => j.track.id == t.id && j.state == DownloadState.downloading,
+            )
+            .firstOrNull;
         return LayoutBuilder(
           builder: (context, c) => InkWell(
-            onTap: () => app.playback.playTracks(tracks, index: i),
+            key: ValueKey('track-row-${t.id}'),
+            onTap: () =>
+                app.playCollection(tracks, index: i, playlistId: playlistId),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
@@ -347,7 +355,12 @@ class TrackList extends SliverContent {
                 children: [
                   SizedBox(
                     width: 30,
-                    child: active
+                    child: active && app.playback.buffering
+                        ? const Padding(
+                            padding: EdgeInsets.all(7),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : active
                         ? Icon(
                             app.playback.playing
                                 ? Icons.graphic_eq
@@ -414,6 +427,21 @@ class TrackList extends SliverContent {
                         color: accent,
                       ),
                     ),
+                  if (downloading != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Tooltip(
+                        message: 'Сохраняется для офлайн',
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            value: downloading.progress,
+                          ),
+                        ),
+                      ),
+                    ),
                   IconButton(
                     onPressed: () => app.library.toggleLike(t.id),
                     tooltip: app.library.liked.contains(t.id)
@@ -438,6 +466,7 @@ class TrackList extends SliverContent {
                       ),
                     ),
                   PopupMenuButton<String>(
+                    key: ValueKey('track-actions-${t.id}'),
                     tooltip: 'Действия с треком',
                     icon: const Icon(
                       Icons.more_horiz_rounded,
@@ -465,6 +494,8 @@ class TrackList extends SliverContent {
                           if (context.mounted) {
                             await choosePlaylist(context, app, [t.id]);
                           }
+                        case 'currentPlaylist':
+                          await app.addToCurrentPlaylist(t);
                       }
                     },
                     itemBuilder: (_) => [
@@ -480,6 +511,14 @@ class TrackList extends SliverContent {
                         value: 'addPlaylist',
                         child: Text('Добавить в плейлист'),
                       ),
+                      if (app.currentPlaylist != null &&
+                          !app.currentPlaylist!.trackIds.contains(t.id))
+                        PopupMenuItem(
+                          value: 'currentPlaylist',
+                          child: Text(
+                            'В текущий плейлист «${app.currentPlaylist!.name}»',
+                          ),
+                        ),
                       const PopupMenuItem(
                         value: 'artist',
                         child: Text('Все треки исполнителя'),

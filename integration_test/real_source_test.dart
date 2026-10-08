@@ -8,22 +8,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
-import 'package:mumpa/data/library_repository.dart';
-import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/main.dart';
 import 'package:mumpa/ui/app_screen.dart';
-import 'package:mumpa/ui/dialogs.dart';
 import 'package:mumpa/logic/app_controller.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   testWidgets(
-    'real RuTracker search and album file selection',
+    'real RuTracker search opens a persistent playable collection',
     (tester) async {
       final support = await getApplicationSupportDirectory();
-      final profile = LibraryRepository(Directory('${support.path}/Mumpa'));
-      await profile.load();
+      final profile =
+          (jsonDecode(
+                    await File(
+                      '${support.path}/Mumpa/library.json',
+                    ).readAsString(),
+                  )
+                  as Map)['settings']
+              as Map;
       final root = await Directory(
         '${(await getTemporaryDirectory()).path}/mumpa-real-source-${DateTime.now().microsecondsSinceEpoch}',
       ).create();
@@ -32,17 +35,11 @@ void main() {
         catalogEnabled: false,
       );
       try {
-        await app.library.setSetting(
-          'indexerUrl',
-          profile.settings['indexerUrl'],
-        );
-        await app.library.setSetting(
-          'indexerKey',
-          profile.settings['indexerKey'],
-        );
+        await app.library.setSetting('indexerUrl', profile['indexerUrl']);
+        await app.library.setSetting('indexerKey', profile['indexerKey']);
         final configured = await app.indexer.configuredIndexers(
-          profile.settings['indexerUrl'] as String,
-          profile.settings['indexerKey'] as String,
+          profile['indexerUrl'] as String,
+          profile['indexerKey'] as String,
         );
         expect(
           configured.any((i) => i.id == 'rutracker'),
@@ -85,34 +82,21 @@ void main() {
         expect(selected.title.toLowerCase(), contains('ежемесячные'));
         expect(Uri.parse(selected.link).scheme, anyOf('http', 'https'));
         final elapsed = Stopwatch()..start();
-        final opened = await app.inspectRelease(selected);
+        await app.openRelease(selected);
         elapsed.stop();
         expect(app.error, isNull);
-        expect(opened, isNotNull);
-        final audio = opened!.info.files
-            .where((f) => isAudioPath(f.path))
-            .toList();
+        expect(app.page, AppPage.playlist);
+        expect(app.library.playlists.length, 1);
+        final audio = app.playlistTracks;
         expect(audio, isNotEmpty);
-        final context = tester.element(find.byType(Scaffold).first);
-        final selection = selectTorrent(
-          context,
-          app,
-          opened.info,
-          link: opened.link,
-        );
         await tester.pumpAndSettle();
-        expect(find.text('Треки из торрента'), findsOneWidget);
-        expect(find.byType(CheckboxListTile), findsWidgets);
-        Navigator.pop(context);
-        await selection;
+        expect(find.byKey(const ValueKey('collection-title')), findsOneWidget);
+        expect(find.byType(CheckboxListTile), findsNothing);
         // Metainfo opening does not require live seeders. Playback is an
         // additional opt-in check whose result depends on this public swarm.
         if (const bool.fromEnvironment('REAL_PLAYBACK_TEST')) {
-          await app.addTorrent(opened.info, {
-            audio.first.index,
-          }, link: opened.link);
           await app.playback.setVolume(0);
-          unawaited(app.playback.playTracks(app.library.tracks));
+          unawaited(app.playCollection(audio, playlistId: app.playlist!.id));
           final playbackDeadline = DateTime.now().add(
             const Duration(seconds: 90),
           );
@@ -135,7 +119,8 @@ void main() {
           'album': selected.title,
           'audioFiles': audio.length,
           'openMs': elapsed.elapsedMilliseconds,
-          'nativeSelectionDialog': true,
+          'nativeCollectionPage': true,
+          'persistentPlaylistCreated': true,
           if (const bool.fromEnvironment('REAL_PLAYBACK_TEST'))
             'nativeTorrentPlayback': true,
           if (const bool.fromEnvironment('REAL_PLAYBACK_TEST'))
@@ -152,7 +137,6 @@ void main() {
         app.downloads.dispose();
         app.dispose();
         await app.engine.stop();
-        profile.dispose();
         await root.delete(recursive: true);
       }
     },

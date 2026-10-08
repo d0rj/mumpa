@@ -190,18 +190,29 @@ class MusicPlaylist {
     required this.id,
     required this.name,
     this.trackIds = const [],
+    this.sourceHash,
   });
   final String id, name;
   final List<String> trackIds;
+  final String? sourceHash;
+  MusicPlaylist copyWith({String? name, List<String>? trackIds}) =>
+      MusicPlaylist(
+        id: id,
+        name: name ?? this.name,
+        trackIds: trackIds ?? this.trackIds,
+        sourceHash: sourceHash,
+      );
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'trackIds': trackIds,
+    if (sourceHash != null) 'sourceHash': sourceHash,
   };
   factory MusicPlaylist.fromJson(Map<String, dynamic> j) => MusicPlaylist(
     id: j['id'] as String,
     name: j['name'] as String,
     trackIds: List<String>.from(j['trackIds'] as List),
+    sourceHash: j['sourceHash'] as String?,
   );
 }
 

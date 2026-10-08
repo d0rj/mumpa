@@ -38,7 +38,7 @@ class ContentPage extends StatelessWidget {
     AppPage.playlist => _TrackCollection(
       app: app,
       title: app.playlist?.name ?? 'Плейлист',
-      eyebrow: 'ПЛЕЙЛИСТ',
+      eyebrow: app.playlist?.sourceHash != null ? 'КОЛЛЕКЦИЯ' : 'ПЛЕЙЛИСТ',
       tracks: app.playlistTracks,
       icon: Icons.queue_music_rounded,
       playlistId: app.playlist?.id,
@@ -566,7 +566,11 @@ class _TrackCollection extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 8),
-      Text(title, style: Theme.of(context).textTheme.headlineLarge),
+      Text(
+        title,
+        key: const ValueKey('collection-title'),
+        style: Theme.of(context).textTheme.headlineLarge,
+      ),
       const SizedBox(height: 8),
       Text('${tracks.length} треков', style: const TextStyle(color: muted)),
       const SizedBox(height: 24),
@@ -576,10 +580,23 @@ class _TrackCollection extends StatelessWidget {
           FilledButton.icon(
             onPressed: tracks.isEmpty
                 ? null
-                : () => app.playback.playTracks(tracks),
+                : () => app.playCollection(tracks, playlistId: playlistId),
+            key: const ValueKey('play-collection'),
             icon: const Icon(Icons.play_arrow),
             label: const Text('Слушать'),
           ),
+          if (playlistId != null &&
+              tracks.any((t) => t.source == TrackSource.torrent))
+            OutlinedButton.icon(
+              onPressed:
+                  tracks.any(
+                    (t) => t.source == TrackSource.torrent && !t.offline,
+                  )
+                  ? () => app.downloads.enqueue(tracks)
+                  : null,
+              icon: const Icon(Icons.download_rounded),
+              label: const Text('Скачать коллекцию'),
+            ),
           if (playlistId != null)
             PopupMenuButton<String>(
               onSelected: (value) async {

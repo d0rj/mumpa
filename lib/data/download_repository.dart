@@ -19,6 +19,8 @@ class DownloadJob {
   String? error;
   bool cancelled = false;
   HttpClient? client;
+  _DownloadAttempt? _attempt;
+  Future<void>? _completion;
   double? get progress => total > 0 ? (received / total).clamp(0, 1) : null;
 }
 
@@ -27,6 +29,8 @@ class DownloadRepository extends ChangeNotifier {
   final LibraryRepository library;
   final TorrentService torrents;
   final Map<String, DownloadJob> _jobs = {};
+  final List<String> _pending = [];
+  DownloadJob? _active;
   bool _running = false;
   bool _disposed = false;
   List<DownloadJob> get jobs => List.unmodifiable(_jobs.values);
@@ -55,14 +59,41 @@ class DownloadRepository extends ChangeNotifier {
     return p.join(library.downloads.path, '${track.id}$ext');
   }
 
-  void enqueue(Iterable<Track> tracks) {
+  /// Prioritizing the playing track yields the active background transfer.
+  /// Its partial file is closed before the next transfer starts, then resumed.
+  void enqueue(Iterable<Track> tracks, {bool priority = false}) {
+    if (_disposed) return;
+    final selected = <String>[];
     for (final track in tracks) {
-      if (track.source != TrackSource.torrent ||
-          track.cachedPath != null ||
-          active(track.id)) {
+      final latest = library.byId(track.id) ?? track;
+      if (latest.source != TrackSource.torrent || latest.cachedPath != null) {
         continue;
       }
-      _jobs[track.id] = DownloadJob(track);
+      final job = _jobs.putIfAbsent(track.id, () => DownloadJob(latest));
+      if (job.state == DownloadState.complete) continue;
+      selected.add(track.id);
+      if (identical(job, _active) && job.state == DownloadState.downloading) {
+        continue;
+      }
+      job.cancelled = false;
+      job.error = null;
+      job.state = DownloadState.queued;
+      if (!_pending.contains(track.id)) _pending.add(track.id);
+    }
+    if (priority && selected.isNotEmpty) {
+      final promoted = selected.toSet().where(_pending.contains).toList();
+      _pending.removeWhere(promoted.contains);
+      _pending.insertAll(0, promoted);
+      final current = _active;
+      if (current != null &&
+          !selected.contains(current.track.id) &&
+          current.state == DownloadState.downloading &&
+          current._attempt?.finishing != true) {
+        _interrupt(current, DownloadState.queued);
+        if (!_pending.contains(current.track.id)) {
+          _pending.insert(promoted.length, current.track.id);
+        }
+      }
     }
     notifyListeners();
     unawaited(_drain());
@@ -71,18 +102,21 @@ class DownloadRepository extends ChangeNotifier {
   void pause(String id) {
     final job = _jobs[id];
     if (job == null) return;
-    job.cancelled = true;
-    job.state = DownloadState.paused;
-    job.client?.close(force: true);
+    if (job.state == DownloadState.complete) return;
+    _pending.remove(id);
+    _interrupt(job, DownloadState.paused);
     notifyListeners();
   }
 
   void retry(String id) {
     final job = _jobs[id];
     if (job == null) return;
+    if (_disposed || job.state == DownloadState.complete) return;
+    if (job.state == DownloadState.downloading) return;
     job.cancelled = false;
     job.error = null;
     job.state = DownloadState.queued;
+    if (!_pending.contains(id)) _pending.add(id);
     notifyListeners();
     unawaited(_drain());
   }
@@ -92,24 +126,42 @@ class DownloadRepository extends ChangeNotifier {
     _running = true;
     try {
       while (!_disposed) {
-        final job = _jobs.values
-            .where((j) => j.state == DownloadState.queued)
-            .firstOrNull;
-        if (job == null) break;
-        await _download(job);
+        if (_pending.isEmpty) break;
+        final job = _jobs[_pending.removeAt(0)];
+        if (job == null || job.state != DownloadState.queued) continue;
+        final completion = Completer<void>();
+        job._completion = completion.future;
+        _active = job;
+        try {
+          await _download(job);
+        } finally {
+          _active = null;
+          job._completion = null;
+          completion.complete();
+        }
       }
     } finally {
       _running = false;
     }
   }
 
+  void _interrupt(DownloadJob job, DownloadState state) {
+    job.cancelled = true;
+    job.state = state;
+    job._attempt?.cancel();
+  }
+
   Future<void> _download(DownloadJob job) async {
+    final attempt = _DownloadAttempt();
+    job._attempt = attempt;
+    job.cancelled = false;
     job.state = DownloadState.downloading;
     notifyListeners();
     final client = HttpClient()
       ..autoUncompress = false
       ..connectionTimeout = const Duration(seconds: 15);
     job.client = client;
+    attempt.client = client;
     final target = File(_path(job.track));
     final partial = File('${target.path}.part');
     IOSink? sink;
@@ -126,16 +178,18 @@ class DownloadRepository extends ChangeNotifier {
           'Лимит офлайн-кеша достигнут. Увеличьте лимит в настройках или удалите скачанные треки.',
         );
       }
-      final uri = await torrents.resolve(job.track);
+      attempt.check();
+      final uri = await attempt.wait(torrents.resolve(job.track));
+      attempt.check();
       var offset = await partial.exists() ? await partial.length() : 0;
-      final request = await client.getUrl(uri);
+      final request = await attempt.wait(client.getUrl(uri));
       if (offset > 0) {
         request.headers.set(HttpHeaders.rangeHeader, 'bytes=$offset-');
       }
-      final response = await request.close().timeout(
-        const Duration(seconds: 90),
+      final response = await attempt.wait(
+        request.close().timeout(const Duration(seconds: 90)),
       );
-      if (job.cancelled) return;
+      attempt.check();
       if (response.statusCode == 416 &&
           offset == job.track.bytes &&
           offset > 0) {
@@ -165,7 +219,7 @@ class DownloadRepository extends ChangeNotifier {
         await for (final bytes in response.timeout(
           const Duration(seconds: 90),
         )) {
-          if (job.cancelled) return;
+          attempt.check();
           sink.add(bytes);
           job.received += bytes.length;
           if (DateTime.now().difference(lastNotify).inMilliseconds > 150) {
@@ -182,28 +236,44 @@ class DownloadRepository extends ChangeNotifier {
           );
         }
       }
-      if (job.cancelled) return;
+      attempt.check();
+      // Finalizing a complete file is atomic with respect to pause/preemption.
+      // Otherwise an interrupted metadata read could leave an orphaned file.
+      attempt.finishing = true;
       await partial.rename(target.path);
-      final track = await library.inspect(target.path, torrent: job.track);
+      final track = await library.inspect(
+        target.path,
+        torrent: library.byId(job.track.id) ?? job.track,
+      );
       await library.upsert([track]);
       job.received = await target.length();
       job.total = job.received;
       job.state = DownloadState.complete;
     } catch (e) {
-      if (!job.cancelled) {
+      if (!attempt.cancelled) {
         job.state = DownloadState.failed;
         job.error = e.toString();
       }
     } finally {
-      await sink?.close();
+      try {
+        await sink?.close();
+      } catch (e) {
+        if (!attempt.cancelled) {
+          job.state = DownloadState.failed;
+          job.error = e.toString();
+        }
+      }
       client.close(force: true);
       job.client = null;
+      job._attempt = null;
       if (!_disposed) notifyListeners();
     }
   }
 
   Future<void> removeOffline(Track track) async {
+    final job = _jobs[track.id];
     pause(track.id);
+    await job?._completion;
     // Never delete an imported file or a path outside the app-owned download directory.
     if (track.cachedPath != null &&
         p.isWithin(library.downloads.path, track.cachedPath!)) {
@@ -211,6 +281,7 @@ class DownloadRepository extends ChangeNotifier {
       if (await file.exists()) await file.delete();
     }
     _jobs.remove(track.id);
+    _pending.remove(track.id);
     await library.upsert([
       track.copyWith(clearCache: true),
     ], preserveCache: false);
@@ -221,9 +292,35 @@ class DownloadRepository extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     for (final job in _jobs.values) {
-      job.cancelled = true;
-      job.client?.close(force: true);
+      _interrupt(job, DownloadState.paused);
     }
     super.dispose();
   }
+}
+
+class _DownloadInterrupted implements Exception {
+  const _DownloadInterrupted();
+}
+
+class _DownloadAttempt {
+  final _interrupted = Completer<void>();
+  HttpClient? client;
+  bool cancelled = false;
+  bool finishing = false;
+
+  void cancel() {
+    if (finishing || cancelled) return;
+    cancelled = true;
+    _interrupted.complete();
+    client?.close(force: true);
+  }
+
+  void check() {
+    if (cancelled) throw const _DownloadInterrupted();
+  }
+
+  Future<T> wait<T>(Future<T> operation) => Future.any([
+    operation,
+    _interrupted.future.then<T>((_) => throw const _DownloadInterrupted()),
+  ]);
 }

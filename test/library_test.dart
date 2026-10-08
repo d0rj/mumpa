@@ -84,6 +84,67 @@ void main() {
     fresh.dispose();
   });
   test(
+    'loading defaults does not overwrite an unrecoverable library',
+    () async {
+      final file = File('${root.path}/library.json');
+      await file.writeAsString('{broken');
+      final fresh = LibraryRepository(root);
+      await fresh.load();
+      expect(fresh.settings['autoCache'], isTrue);
+      expect(fresh.loadWarning, isNotNull);
+      expect(await file.readAsString(), '{broken');
+      fresh.dispose();
+    },
+  );
+  test(
+    'auto-save defaults on and respects an explicit opt-out across restart',
+    () async {
+      expect(library.settings['autoCache'], isTrue);
+      await library.setSetting('autoCache', false);
+      final fresh = LibraryRepository(root);
+      await fresh.load();
+      expect(fresh.settings['autoCache'], isFalse);
+      fresh.dispose();
+    },
+  );
+  test(
+    'source collection survives edits and restart without duplicates or lost cached tags',
+    () async {
+      final collection = await library.openSourceCollection(
+        hash: 'source',
+        name: 'Collection',
+        tracks: [first, second],
+      );
+      await library.renamePlaylist(collection.id, 'Renamed');
+      await library.removeFromPlaylist(collection.id, first.id);
+      await library.addToPlaylist(collection.id, [third.id]);
+      await library.upsert([
+        first.copyWith(
+          title: 'Read from tags',
+          cachedPath: '${root.path}/cached.wav',
+        ),
+      ]);
+      await File('${root.path}/cached.wav').writeAsBytes([1]);
+      await library.openSourceCollection(
+        hash: 'source',
+        name: 'Original',
+        tracks: [first, second],
+      );
+      expect(library.playlists.length, 1);
+      expect(library.playlists.single.name, 'Renamed');
+      expect(library.playlists.single.sourceHash, 'source');
+      expect(library.playlists.single.trackIds, ['b', 'c']);
+      expect(library.byId('a')!.title, 'Read from tags');
+      final fresh = LibraryRepository(root);
+      await fresh.load();
+      expect(fresh.playlists.single.sourceHash, 'source');
+      expect(fresh.byId('a')!.cachedPath, isNotNull);
+      fresh.dispose();
+      await library.removeTracks(['b']);
+      expect(library.playlists.single.sourceHash, 'source');
+    },
+  );
+  test(
     'untagged audio is imported and deduplicated without modifying the source',
     () async {
       final file = File('${root.path}/01 - Untagged.wav');

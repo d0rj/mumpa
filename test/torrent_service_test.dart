@@ -8,6 +8,33 @@ import 'package:mumpa/domain/models.dart';
 
 void main() {
   test(
+    'configured indexer connection errors omit private API credentials',
+    () async {
+      final service = IndexerService(
+        client: MockClient((request) async {
+          throw http.ClientException('Connection refused', request.url);
+        }),
+      );
+      await expectLater(
+        service.configuredIndexers('http://localhost/api', 'private-key'),
+        throwsA(
+          isA<HttpException>()
+              .having(
+                (e) => e.message,
+                'message',
+                'Не удалось подключиться к Jackett.',
+              )
+              .having(
+                (e) => e.toString(),
+                'safe output',
+                isNot(contains('private-key')),
+              ),
+        ),
+      );
+      service.dispose();
+    },
+  );
+  test(
     'RuTracker retains its original Cyrillic title from description',
     () async {
       final service = IndexerService(

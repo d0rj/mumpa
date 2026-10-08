@@ -4,7 +4,6 @@ import '../data/rutracker_service.dart';
 import '../domain/models.dart';
 import '../logic/app_controller.dart';
 import 'components.dart';
-import 'dialogs.dart';
 import 'jackett_setup.dart';
 import 'theme.dart';
 
@@ -320,19 +319,7 @@ class ReleaseRows extends SliverContent {
           style: const TextStyle(color: muted, fontSize: 11),
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
-        onTap: app.busy != null
-            ? null
-            : () async {
-                final result = await app.inspectRelease(item);
-                if (result != null && context.mounted) {
-                  await selectTorrent(
-                    context,
-                    app,
-                    result.info,
-                    link: result.link,
-                  );
-                }
-              },
+        onTap: app.busy != null ? null : () => app.openRelease(item),
       );
     },
   );
