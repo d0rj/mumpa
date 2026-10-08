@@ -41,6 +41,20 @@ List<Widget> sourceContent(BuildContext context, AppController app) => [
     ),
   ),
   if (app.indexerLoading) const LinearProgressIndicator(minHeight: 2),
+  if (app.indexerNotice != null)
+    Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(app.indexerNotice!, style: const TextStyle(color: muted)),
+          TextButton(
+            onPressed: () => setupJackett(context, app),
+            child: const Text('Настроить RuTracker.org'),
+          ),
+        ],
+      ),
+    ),
   if (!app.indexerConnected)
     EmptyState(
       icon: Icons.travel_explore_rounded,
@@ -76,6 +90,12 @@ List<Widget> sourceContent(BuildContext context, AppController app) => [
                   : null,
               child: const Text('Настроить трекеры'),
             ),
+            if (Platform.isWindows &&
+                app.indexerError!.toLowerCase().contains('flaresolverr'))
+              TextButton(
+                onPressed: app.busy == null ? app.prepareCloudflare : null,
+                child: const Text('Подключить FlareSolverr'),
+              ),
           ],
         ),
       ),
@@ -294,7 +314,7 @@ class ReleaseRows extends SliverContent {
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          '${item.bytes > 0 ? '${formatBytes(item.bytes)} · ' : ''}${item.seeders} сидов${item.category.isNotEmpty ? ' · ${item.category}' : ''}',
+          '${item.bytes > 0 ? '${formatBytes(item.bytes)} · ' : ''}${item.seedersKnown ? '${item.seeders} сидов' : 'Сиды неизвестны'}${item.indexerName.isNotEmpty ? ' · ${item.indexerName}' : ''}${item.category.isNotEmpty ? ' · ${item.category}' : ''}',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: muted, fontSize: 11),

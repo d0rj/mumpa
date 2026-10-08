@@ -60,8 +60,16 @@ class NativeAudioBackend extends AudioBackend {
   @override
   Stream<String> get errors => player.stream.error;
   @override
-  Future<void> open(String uri, {bool play = true}) =>
-      player.open(Media(uri), play: play);
+  Future<void> open(String uri, {bool play = true}) async {
+    final native = player.platform;
+    if (native is NativePlayer) {
+      // media_kit defaults to five seconds. A cold torrent often needs longer
+      // for peer discovery before TorrServer can send its first audio bytes.
+      await native.setProperty('network-timeout', '60');
+    }
+    await player.open(Media(uri), play: play);
+  }
+
   @override
   Future<void> play() => player.play();
   @override

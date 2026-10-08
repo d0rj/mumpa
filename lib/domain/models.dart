@@ -255,8 +255,14 @@ class SearchRelease {
     this.seeders = 0,
     this.rutracker = false,
     this.category = '',
+    this.magnetLink,
+    this.indexerName = '',
+    this.detailsUrl = '',
+    this.seedersKnown = true,
   });
-  final String title, link, category;
+  final String title, link, category, indexerName, detailsUrl;
+  final String? magnetLink;
   final int bytes, seeders;
   final bool rutracker;
+  final bool seedersKnown;
 }

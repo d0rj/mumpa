@@ -381,6 +381,98 @@ class JackettService {
     }
   }
 
+  /// Updates only the solver settings on our private dashboard. Jackett reloads
+  /// its web host in the same process; tracker/account configuration is retained.
+  Future<void> configureFlareSolverr(
+    JackettConnection connection,
+    String solverUrl,
+  ) async {
+    final solver = Uri.tryParse(solverUrl);
+    if (solver == null ||
+        solver.scheme != 'http' ||
+        solver.host != '127.0.0.1' ||
+        !solver.hasPort) {
+      throw const FormatException(
+        'Некорректный адрес локального FlareSolverr.',
+      );
+    }
+    final client = _clientFactory();
+    try {
+      final login = http.Request(
+        'GET',
+        Uri.parse('${connection.baseUrl}/UI/Login?cookiesChecked=1'),
+      )..followRedirects = false;
+      final response = await client
+          .send(login)
+          .timeout(const Duration(seconds: 8));
+      await response.stream.drain<void>();
+      final cookie = RegExp(
+        r'Jackett=[^;,\s]+',
+      ).firstMatch(response.headers['set-cookie'] ?? '')?.group(0);
+      if (cookie == null) {
+        throw const HttpException(
+          'В Jackett включён пароль панели. Укажи адрес FlareSolverr в настройках Jackett вручную.',
+        );
+      }
+      final uri = Uri.parse('${connection.baseUrl}/api/v2.0/server/config');
+      final headers = {'cookie': cookie, 'content-type': 'application/json'};
+      final current = await client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
+      if (current.statusCode != 200) {
+        throw const HttpException('Не удалось прочитать настройки Jackett.');
+      }
+      final config = Map<String, dynamic>.from(jsonDecode(current.body) as Map);
+      // Include the same settings as the dashboard, preserving proxy and cache
+      // fields. API keys/passwords returned by GET are never sent back or logged.
+      const fields = [
+        'port',
+        'external',
+        'local_bind_address',
+        'cors',
+        'updatedisabled',
+        'prerelease',
+        'blackholedir',
+        'logging',
+        'basepathoverride',
+        'baseurloverride',
+        'cache_enabled',
+        'cache_ttl',
+        'cache_max_results_per_indexer',
+        'omdbkey',
+        'omdburl',
+        'proxy_type',
+        'proxy_url',
+        'proxy_port',
+        'proxy_username',
+        'proxy_password',
+      ];
+      final updated = <String, dynamic>{
+        for (final key in fields) key: config[key],
+        'flaresolverrurl': solverUrl,
+        'flaresolverr_maxtimeout': 60000,
+      };
+      if (config['flaresolverrurl'] == solverUrl &&
+          config['flaresolverr_maxtimeout'] == 60000) {
+        return;
+      }
+      final saved = await client
+          .post(uri, headers: headers, body: jsonEncode(updated))
+          .timeout(const Duration(seconds: 15));
+      if (saved.statusCode != 200) {
+        throw const HttpException(
+          'Не удалось настроить FlareSolverr в Jackett.',
+        );
+      }
+    } on http.ClientException {
+      throw const HttpException('Не удалось подключиться к панели Jackett.');
+    } on TimeoutException {
+      throw const HttpException('Панель Jackett не ответила вовремя.');
+    } finally {
+      client.close();
+    }
+  }
+
   Future<void> stop() => _stopping ??= _stop().whenComplete(() {
     _stopping = null;
   });

@@ -1,6 +1,7 @@
 # Miscellaneous
 assets/engine/*.exe
 assets/jackett/*.zip
+assets/flaresolverr/*.zip
 android/app/src/main/jniLibs/
 artifacts/
 .local/

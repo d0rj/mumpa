@@ -674,20 +674,34 @@ class _SearchPage extends StatelessWidget {
             ? sourceContent(context, app)
             : catalogContent(context, app))
       else ...[
+        if (app.indexerNotice != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              app.indexerNotice!,
+              style: const TextStyle(color: muted),
+            ),
+          ),
         if (!app.usesIndexer && app.catalogError != null)
           CatalogNotice(app: app),
         SectionTitle(
           app.usesIndexer ? 'В трекерах Jackett' : 'На RuTracker',
-          subtitle: 'Найдено: ${app.releases.length}',
+          subtitle: app.searching
+              ? 'Ищем…'
+              : app.searchCompleted
+              ? 'Найдено: ${app.releases.length}'
+              : 'Начни вводить запрос',
         ),
         if (app.releases.isNotEmpty)
           ReleaseRows(app: app, releases: app.releases)
         else if (!app.searching && app.catalogError == null)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              'Нажми «Искать», чтобы найти альбомы в каталоге.',
-              style: TextStyle(color: muted),
+              app.searchCompleted
+                  ? 'В подключённых источниках ничего не найдено. Проверь название или подключи другой музыкальный трекер.'
+                  : 'Нажми «Искать», чтобы найти альбомы в каталоге.',
+              style: const TextStyle(color: muted),
             ),
           ),
         SectionTitle(
@@ -872,6 +886,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: const Icon(Icons.settings_rounded, size: 18),
                 label: const Text('Запустить Jackett и настроить RuTracker'),
               ),
+            if (Platform.isWindows) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: widget.app.busy == null
+                    ? widget.app.prepareCloudflare
+                    : null,
+                icon: const Icon(Icons.verified_user_outlined, size: 18),
+                label: Text(
+                  widget.app.cloudflareEnabled
+                      ? 'FlareSolverr подключён · проверить'
+                      : 'Настроить FlareSolverr для Cloudflare',
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Если Jackett сообщает Challenge detected, подключи проверку Cloudflare и повтори сохранение трекера. Первый запуск может занять около минуты.',
+                style: TextStyle(color: muted, fontSize: 12),
+              ),
+            ],
             const SizedBox(height: 14),
             const Text(
               'Добавь RuTracker.org в Jackett и сохрани аккаунт. Можно использовать встроенный Jackett на Windows или подключить свой сервер Jackett/Prowlarr по адресу и API key.',

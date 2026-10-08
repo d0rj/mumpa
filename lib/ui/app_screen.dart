@@ -468,6 +468,12 @@ class _StatusBar extends StatelessWidget {
             style: const TextStyle(fontSize: 11),
           ),
         ),
+        if (app.canCancelOpening)
+          TextButton(
+            key: const Key('cancel-opening'),
+            onPressed: app.cancelOpening,
+            child: const Text('Отмена'),
+          ),
         if (app.busy == null)
           IconButton(
             onPressed: () {

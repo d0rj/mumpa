@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import '../data/download_repository.dart';
 import '../data/library_repository.dart';
 import '../data/jackett_service.dart';
+import '../data/flaresolverr_service.dart';
 import '../data/rutracker_service.dart';
 import '../data/torrent_service.dart';
+import '../data/source_operation.dart';
 import '../domain/models.dart';
 import 'playback_controller.dart';
 
@@ -37,9 +39,11 @@ class AppController extends ChangeNotifier {
     IndexerService? indexer,
     RuTrackerService? catalog,
     JackettService? jackett,
+    FlareSolverrService? flaresolverr,
   }) : indexer = indexer ?? IndexerService(),
        catalog = catalog ?? RuTrackerService(),
-       jackett = jackett ?? JackettService(library.root) {
+       jackett = jackett ?? JackettService(library.root),
+       flaresolverr = flaresolverr ?? FlareSolverrService(library.root) {
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
@@ -52,8 +56,16 @@ class AppController extends ChangeNotifier {
   final IndexerService indexer;
   final RuTrackerService catalog;
   final JackettService jackett;
+  final FlareSolverrService flaresolverr;
+  bool cloudflareEnabled = false;
   JackettConnection? jackettConnection;
   List<SearchRelease> sourceFeed = [];
+  List<({String id, String name})> configuredIndexers = [];
+  String? get indexerNotice =>
+      configuredIndexers.any((i) => i.id == 'rutracker-ru') &&
+          !configuredIndexers.any((i) => i.id == 'rutracker')
+      ? 'Подключён RuTracker.RU. Это другой сайт, чем RuTracker.org. Для каталога RuTracker.org добавь именно этот индексатор в Jackett и войди в свой аккаунт.'
+      : null;
   String? indexerError;
   bool indexerLoading = false;
   bool get indexerConnected =>
@@ -75,6 +87,13 @@ class AppController extends ChangeNotifier {
   List<SearchRelease> releases = [];
   bool searching = false;
   int _searchId = 0;
+  Timer? _searchDebounce;
+  bool _disposed = false;
+  bool searchCompleted = false;
+  SourceOperation? _opening;
+  SourceOperation? _searchOperation;
+  bool get canCancelOpening => _opening != null;
+  void cancelOpening() => _opening?.cancel();
   final List<AppPage> _history = [];
   void _changed() => notifyListeners();
   String? _autoCachedId;
@@ -187,10 +206,17 @@ class AppController extends ChangeNotifier {
   }
 
   void setQuery(String value) {
+    _searchDebounce?.cancel();
+    _searchOperation?.cancel();
     query = value;
     releases = [];
     ++_searchId;
+    searchCompleted = false;
     searching = false;
+    if (query.trim().isNotEmpty && (indexerConnected || !usesIndexer)) {
+      searching = true;
+      _searchDebounce = Timer(const Duration(milliseconds: 600), searchSources);
+    }
     notifyListeners();
   }
 
@@ -219,11 +245,20 @@ class AppController extends ChangeNotifier {
     try {
       return await action();
     } catch (e) {
-      error = e.toString();
+      if (e is SourceCancelled) {
+        message = 'Открытие альбома отменено.';
+      } else if (e is HttpException) {
+        error = e.message;
+      } else if (e is TimeoutException) {
+        error =
+            'Источник не ответил вовремя. Попробуй другую раздачу или повтори запрос.';
+      } else {
+        error = e.toString();
+      }
       return null;
     } finally {
       busy = null;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -307,6 +342,10 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> searchSources() async {
+    _searchDebounce?.cancel();
+    _searchOperation?.cancel();
+    final operation = SourceOperation();
+    _searchOperation = operation;
     final endpoint = library.settings['indexerUrl'] as String? ?? '';
     if (usesIndexer && endpoint.isEmpty) {
       navigate(AppPage.settings);
@@ -318,6 +357,7 @@ class AppController extends ChangeNotifier {
     if (query.trim().isEmpty) return;
     final id = ++_searchId;
     searching = true;
+    searchCompleted = false;
     error = null;
     notifyListeners();
     try {
@@ -326,19 +366,23 @@ class AppController extends ChangeNotifier {
               endpoint,
               library.settings['indexerKey'] as String? ?? '',
               query.trim(),
+              operation: operation,
             )
           : (await catalog.search(query.trim())).releases;
       if (id == _searchId) {
         releases = items;
+        searchCompleted = true;
         catalogNeedsConnection = false;
         catalogError = null;
       }
+    } on SourceCancelled {
+      // A newer query owns the visible results.
     } catch (e) {
       if (id == _searchId) {
         if (!usesIndexer) {
           _catalogFailure(e);
         } else {
-          error = e.toString();
+          error = e is HttpException ? e.message : e.toString();
         }
       }
     } finally {
@@ -365,6 +409,11 @@ class AppController extends ChangeNotifier {
   Future<JackettConnection> _startJackett() async {
     final connection = await jackett.start();
     jackettConnection = connection;
+    if (await flaresolverr.isEnabled()) {
+      final solverUrl = await flaresolverr.start();
+      await jackett.configureFlareSolverr(connection, solverUrl);
+      cloudflareEnabled = true;
+    }
     await library.setSetting('indexerUrl', connection.torznabUrl);
     await library.setSetting('indexerKey', connection.apiKey);
     await library.setSetting('managedJackett', true);
@@ -385,6 +434,17 @@ class AppController extends ChangeNotifier {
   Future<JackettConnection?> prepareJackett() =>
       run('Запускаем Jackett…', _startJackett);
 
+  Future<void> prepareCloudflare() async {
+    await run('Настраиваем проверку Cloudflare…', () async {
+      final connection = await _startJackett();
+      final solverUrl = await flaresolverr.enable();
+      await jackett.configureFlareSolverr(connection, solverUrl);
+      cloudflareEnabled = true;
+      message =
+          'FlareSolverr подключён. Повтори сохранение или проверку RuTracker.org в Jackett.';
+    });
+  }
+
   Future<void> finishJackettSetup() async {
     final connection = jackettConnection;
     if (connection == null) return;
@@ -404,6 +464,14 @@ class AppController extends ChangeNotifier {
     indexerError = null;
     notifyListeners();
     try {
+      try {
+        configuredIndexers = await indexer.configuredIndexers(
+          library.settings['indexerUrl'] as String,
+          library.settings['indexerKey'] as String? ?? '',
+        );
+      } catch (_) {
+        // Other Torznab implementations may not provide Jackett's inventory.
+      }
       sourceFeed = await indexer.search(
         library.settings['indexerUrl'] as String,
         library.settings['indexerKey'] as String? ?? '',
@@ -574,23 +642,79 @@ class AppController extends ChangeNotifier {
 
   Future<({TorrentInfo info, String? link})?> inspectRelease(
     SearchRelease release,
-  ) => run('Открываем альбом…', () async {
-    if (release.rutracker) {
-      final link = await catalog.magnet(release);
-      return (info: await torrents.add(link, title: release.title), link: link);
+  ) async {
+    if (busy != null) return null;
+    final operation = SourceOperation();
+    _opening = operation;
+    void progress(String text) {
+      if (_disposed || _opening != operation || operation.cancelled) return;
+      busy = text;
+      notifyListeners();
     }
-    final resolved = await indexer.resolve(
-      release.link,
-      Directory('${library.root.path}/torrents'),
-    );
-    if (resolved.file) {
-      return (info: await torrents.upload(resolved.source), link: null);
+
+    Future<({TorrentInfo info, String? link})> inspect() async {
+      if (release.rutracker) {
+        final link = await operation.wait(catalog.magnet(release));
+        return (
+          info: await torrents.add(
+            link,
+            title: release.title,
+            operation: operation,
+            onProgress: progress,
+          ),
+          link: link,
+        );
+      }
+      progress(
+        'Получаем torrent-файл из ${release.indexerName.isEmpty ? 'Jackett' : release.indexerName}…',
+      );
+      final resolved = await indexer.resolve(
+        release.link,
+        Directory('${library.root.path}/torrents'),
+        operation: operation,
+      );
+      if (resolved.file) {
+        return (
+          info: await torrents.upload(
+            resolved.source,
+            operation: operation,
+            onProgress: progress,
+          ),
+          link: null,
+        );
+      }
+      return (
+        info: await torrents.add(
+          resolved.source,
+          title: release.title,
+          operation: operation,
+          onProgress: progress,
+        ),
+        link: resolved.source,
+      );
     }
-    return (
-      info: await torrents.add(resolved.source, title: release.title),
-      link: resolved.source,
-    );
-  });
+
+    try {
+      return await run(
+        'Открываем альбом…',
+        () => operation
+            .wait(inspect())
+            .timeout(
+              const Duration(seconds: 60),
+              onTimeout: () {
+                operation.cancel();
+                throw const HttpException(
+                  'Не удалось открыть альбом за минуту. Проверь источник или выбери другую раздачу.',
+                );
+              },
+            ),
+      );
+    } finally {
+      operation.cancel();
+      if (_opening == operation) _opening = null;
+      if (!_disposed) notifyListeners();
+    }
+  }
 
   Future<void> checkEngine() async {
     await run('Проверяем торрент-движок', () async {
@@ -601,12 +725,18 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _searchDebounce?.cancel();
+    ++_searchId;
+    _opening?.cancel();
+    _searchOperation?.cancel();
     library.removeListener(_changed);
     downloads.removeListener(_changed);
     playback.removeListener(_onPlayback);
     indexer.dispose();
     unawaited(catalog.dispose());
     unawaited(jackett.stop());
+    unawaited(flaresolverr.stop());
     super.dispose();
   }
 }

@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'data/download_repository.dart';
 import 'data/library_repository.dart';
 import 'data/jackett_service.dart';
+import 'data/flaresolverr_service.dart';
 import 'data/rutracker_service.dart';
 import 'data/browser_catalog_transport.dart';
 import 'data/torrent_service.dart';
@@ -96,6 +97,10 @@ Future<AppController> createApplication({
     engine: engine,
     catalog: catalog,
     jackett: JackettService(
+      root,
+      binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
+    ),
+    flaresolverr: FlareSolverrService(
       root,
       binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
     ),

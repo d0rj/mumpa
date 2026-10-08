@@ -33,6 +33,18 @@ Windows includes the unmodified **Jackett v0.24.2806** binaries as a separate ma
 
 Flutter (BSD-3-Clause): https://github.com/flutter/flutter. `audio_service`, `audio_session`, `file_picker`, `path_provider`, `path`, `crypto`, `http`, `audio_metadata_reader` and `xml` retain their respective package licenses. Exact versions and transitive packages are recorded by `pubspec.lock`; notices are included in Flutter's `NOTICES` asset.
 
+## Optional Windows challenge helper
+
+Windows bundles unmodified **FlareSolverr v3.5.2**, MIT License, Copyright (c) 2026 Diego Heras and contributors. Its complete license is retained in `assets/flaresolverr/LICENSE.txt`. Matching source revision: `93125d6ea6956906c8dfa29e169b2dc67d993dc3`; source archive is included in `artifacts/sources/FlareSolverr-v3.5.2-source.zip` for redistribution.
+
+- Source: https://github.com/FlareSolverr/FlareSolverr/tree/93125d6ea6956906c8dfa29e169b2dc67d993dc3
+- Release: https://github.com/FlareSolverr/FlareSolverr/releases/tag/v3.5.2
+- Binary SHA-256: `309abd7c821546325ae6c509b40d969c5e39034be2314d21b3f5e0517feda7a7`.
+- Source ZIP SHA-256: `cfd9797fa59f43bba74820d0215945fa233fdd5c07377b66f4390b89c93167f1`.
+- Downloads and verification: `tools/prepare-flaresolverr.ps1`.
+
+The separate optional process includes Python, Chromium and upstream Python dependencies. Their package notices remain inside the unmodified archive/runtime. Chromium uses multiple BSD/MIT and other component licenses; its source is https://chromium.googlesource.com/chromium/src. The matching upstream FlareSolverr build recipe pins Windows Chromium snapshot revision **1681099** (`src/build_package.py`). ChromeDriver is obtained from Google's official Chrome for Testing distribution by upstream startup and retained only inside Mumpa's isolated helper profile; source/build information: https://chromium.googlesource.com/chromium/src/+/main/chrome/test/chromedriver/ and https://googlechromelabs.github.io/chrome-for-testing/.
+
 ## Development skills
 
 Architecture and responsive-layout guidance was read from the upstream `flutter/skills` repository: https://github.com/flutter/skills. The two skill files are retained in `dev-skills`; they are development documentation, not application runtime dependencies.

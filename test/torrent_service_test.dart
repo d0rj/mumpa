@@ -8,6 +8,38 @@ import 'package:mumpa/domain/models.dart';
 
 void main() {
   test(
+    'RuTracker retains its original Cyrillic title from description',
+    () async {
+      final service = IndexerService(
+        client: MockClient(
+          (_) async => http.Response(
+            '''<rss><channel><item><title>(Rap) - (72 )</title>
+      <link>http://localhost/album.torrent</link>
+      <jackettindexer id="rutracker">RuTracker.org</jackettindexer>
+      <description><![CDATA[Uploader: example<br>(Rap) Ежемесячные — Дискография (72 альбома)]]></description>
+      </item><item><title>Other title</title><link>magnet:?xt=urn:btih:example</link>
+      <jackettindexer id="other">Other</jackettindexer>
+      <description><![CDATA[Info<br>Unrelated text]]></description>
+      </item></channel></rss>''',
+            200,
+            headers: {'content-type': 'application/xml; charset=utf-8'},
+          ),
+        ),
+      );
+      final results = await service.search(
+        'http://localhost/api',
+        'key',
+        'Ежемесячные',
+      );
+      expect(
+        results.first.title,
+        '(Rap) Ежемесячные — Дискография (72 альбома)',
+      );
+      expect(results.last.title, 'Other title');
+      service.dispose();
+    },
+  );
+  test(
     'Jackett download redirect resolves magnet before calling the engine',
     () async {
       final service = IndexerService(
@@ -223,7 +255,8 @@ void main() {
     final items = await indexer.search('http://localhost/api', 'key', 'Artist');
     expect(items.single.seeders, 9);
     expect(items.single.bytes, 1234);
-    expect(items.single.link, startsWith('magnet:'));
+    expect(items.single.link, 'https://example.com/a.torrent');
+    expect(items.single.magnetLink, startsWith('magnet:'));
     indexer.dispose();
   });
 }

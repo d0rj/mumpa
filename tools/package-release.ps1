@@ -1,4 +1,4 @@
-param([string]$Version = '1.1.0')
+param([string]$Version = '1.1.1')
 $ErrorActionPreference = 'Stop'
 $mumpaRoot = Split-Path $PSScriptRoot -Parent
 $mumpaOutput = Join-Path $mumpaRoot 'artifacts'
@@ -26,8 +26,13 @@ Compress-Archive -LiteralPath $mumpaApp -DestinationPath (Join-Path $mumpaOutput
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-arm64-v8a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-arm64.apk") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-armeabi-v7a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-armv7.apk") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-x86_64-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-x86_64.apk") -Force
-$mumpaManifest = Get-ChildItem -LiteralPath $mumpaOutput -File | Where-Object { $_.Extension -in @('.zip','.apk') } | ForEach-Object {
-    [ordered]@{ file=$_.Name; bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+$mumpaReleaseFiles = @(Get-ChildItem -LiteralPath $mumpaOutput -File | Where-Object { $_.Extension -in @('.zip','.apk') })
+$mumpaSourceFolder = Join-Path $mumpaOutput 'sources'
+if (Test-Path -LiteralPath $mumpaSourceFolder) {
+    $mumpaReleaseFiles += @(Get-ChildItem -LiteralPath $mumpaSourceFolder -File -Filter '*.zip')
+}
+$mumpaManifest = $mumpaReleaseFiles | ForEach-Object {
+    [ordered]@{ file=$_.FullName.Substring($mumpaOutput.Length+1).Replace('\','/'); bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
 }
 $mumpaManifest | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $mumpaOutput 'SHA256.json') -Encoding utf8
 $mumpaManifest | Format-Table -AutoSize

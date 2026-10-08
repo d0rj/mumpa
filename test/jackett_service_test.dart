@@ -145,6 +145,85 @@ void main() {
   );
 
   test(
+    'solver setup preserves dashboard settings and avoids credentials in body',
+    () async {
+      final config = <String, dynamic>{
+        'port': 57647,
+        'external': false,
+        'local_bind_address': '127.0.0.1',
+        'cache_ttl': 2100,
+        'proxy_username': 'proxy-user',
+        'proxy_password': 'proxy-secret',
+        'api_key': 'api-secret',
+        'password': 'admin-hash',
+        'flaresolverrurl': '',
+      };
+      var writes = 0;
+      service = fakeService(
+        launch: (executable, arguments, {workingDirectory}) async =>
+            FakeJackettProcess(),
+        respond: (request) async {
+          if (request.url.path == '/UI/Login') {
+            return http.Response(
+              '',
+              302,
+              headers: {'set-cookie': 'Jackett=session; path=/; httponly'},
+            );
+          }
+          expect(request.headers['cookie'], 'Jackett=session');
+          if (request.method == 'GET') {
+            return http.Response(jsonEncode(config), 200);
+          }
+          final body = jsonDecode(request.body) as Map;
+          expect(body['port'], config['port']);
+          expect(body['cache_ttl'], config['cache_ttl']);
+          expect(body['proxy_password'], config['proxy_password']);
+          expect(body.containsKey('api_key'), isFalse);
+          expect(body.containsKey('password'), isFalse);
+          expect(body['flaresolverrurl'], 'http://127.0.0.1:8191');
+          expect(body['flaresolverr_maxtimeout'], 60000);
+          writes++;
+          return http.Response('{}', 200);
+        },
+      );
+      await service!.configureFlareSolverr(
+        const JackettConnection(
+          baseUrl: 'http://127.0.0.1:57647',
+          apiKey: 'api-secret',
+        ),
+        'http://127.0.0.1:8191',
+      );
+      expect(writes, 1);
+    },
+  );
+
+  test(
+    'password protected dashboard does not modify server configuration',
+    () async {
+      var requests = 0;
+      service = fakeService(
+        launch: (executable, arguments, {workingDirectory}) async =>
+            FakeJackettProcess(),
+        respond: (request) async {
+          requests++;
+          return http.Response('', 200);
+        },
+      );
+      await expectLater(
+        service!.configureFlareSolverr(
+          const JackettConnection(
+            baseUrl: 'http://127.0.0.1:57647',
+            apiKey: 'api-secret',
+          ),
+          'http://127.0.0.1:8191',
+        ),
+        throwsA(isA<HttpException>()),
+      );
+      expect(requests, 1);
+    },
+  );
+
+  test(
     'rejects bad archives before launching or writing a profile key',
     () async {
       var launched = false;

@@ -9,10 +9,13 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:html/dom.dart' as html_dom;
+import 'package:html/parser.dart' as html_parser;
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
 
 import '../domain/models.dart';
+import 'source_operation.dart';
 
 Future<bool> _validBinaryHash(String path, String expected) => Isolate.run(
   () async =>
@@ -408,21 +411,36 @@ class _EngineProcess {
 }
 
 class TorrentService {
-  TorrentService({required this.endpoint, this.sources, http.Client? client})
-    : client = client ?? http.Client();
+  TorrentService({
+    required this.endpoint,
+    this.sources,
+    http.Client? client,
+    this.metadataTimeout = const Duration(seconds: 25),
+  }) : client = client ?? http.Client();
   final Future<String> Function() endpoint;
   final Directory? sources;
   final http.Client client;
+  final Duration metadataTimeout;
   Future<Uri> _uri(String route) async =>
       Uri.parse('${(await endpoint()).replaceFirst(RegExp(r'/+$'), '')}$route');
-  Future<Map<String, dynamic>> _request(Map<String, dynamic> data) async {
-    final response = await client
-        .post(
-          await _uri('/torrents'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(data),
-        )
-        .timeout(const Duration(seconds: 30));
+  Future<Map<String, dynamic>> _request(
+    Map<String, dynamic> data, {
+    SourceOperation? operation,
+  }) async {
+    final uri = await _uri('/torrents');
+    operation?.check();
+    final request =
+        http.AbortableRequest(
+            'POST',
+            uri,
+            abortTrigger: operation?.whenCancelled,
+          )
+          ..headers['Content-Type'] = 'application/json'
+          ..body = jsonEncode(data);
+    final pending = client.send(request).then(http.Response.fromStream);
+    final response = await (operation?.wait(pending) ?? pending).timeout(
+      const Duration(seconds: 30),
+    );
     if (response.statusCode != 200) {
       throw HttpException(
         'TorrServer ${response.statusCode}: ${response.body.substring(0, response.body.length.clamp(0, 200))}',
@@ -440,33 +458,52 @@ class TorrentService {
     return r.body;
   }
 
-  Future<TorrentInfo> add(String link, {String? title}) async {
+  Future<TorrentInfo> add(
+    String link, {
+    String? title,
+    SourceOperation? operation,
+    void Function(String)? onProgress,
+  }) async {
     final uri = Uri.tryParse(link.trim());
     if (uri == null || !{'magnet', 'http', 'https'}.contains(uri.scheme)) {
       throw const FormatException(
         'Вставьте magnet-ссылку или HTTP-ссылку на .torrent.',
       );
     }
+    onProgress?.call('Подключаем раздачу…');
     final result = await _request({
       'action': 'add',
       'link': link.trim(),
       'title': title ?? '',
       'save_to_db': true,
       'category': 'music',
-    });
-    return _waitFiles(result['hash'] as String);
+    }, operation: operation);
+    return _waitFiles(
+      result['hash'] as String,
+      operation: operation,
+      onProgress: onProgress,
+    );
   }
 
-  Future<TorrentInfo> upload(String path) async {
+  Future<TorrentInfo> upload(
+    String path, {
+    SourceOperation? operation,
+    void Function(String)? onProgress,
+  }) async {
+    operation?.check();
+    onProgress?.call('Читаем список треков из torrent-файла…');
     final request = http.MultipartRequest(
       'POST',
       await _uri('/torrent/upload'),
     );
     request.fields.addAll({'save': 'true', 'category': 'music'});
     request.files.add(await http.MultipartFile.fromPath('file', path));
-    final response = await http.Response.fromStream(
-      await client.send(request).timeout(const Duration(seconds: 30)),
+    operation?.check();
+    final pending = client.send(request).then(http.Response.fromStream);
+    final response = await (operation?.wait(pending) ?? pending).timeout(
+      const Duration(seconds: 20),
     );
+    operation?.check();
     if (response.statusCode != 200) {
       throw HttpException(
         'Не удалось добавить .torrent (${response.statusCode}).',
@@ -482,20 +519,42 @@ class TorrentService {
         await File(path).copy(target);
       }
     }
-    return _waitFiles(hash);
+    return _waitFiles(hash, operation: operation, onProgress: onProgress);
   }
 
   Future<TorrentInfo> get(String hash) async =>
       TorrentInfo.fromJson(await _request({'action': 'get', 'hash': hash}));
-  Future<TorrentInfo> _waitFiles(String hash) async {
-    final deadline = DateTime.now().add(const Duration(seconds: 90));
+  Future<TorrentInfo> _waitFiles(
+    String hash, {
+    SourceOperation? operation,
+    void Function(String)? onProgress,
+  }) async {
+    final timer = Stopwatch()..start();
+    final deadline = DateTime.now().add(metadataTimeout);
     while (DateTime.now().isBefore(deadline)) {
-      final info = await get(hash);
+      operation?.check();
+      onProgress?.call(
+        'Ожидаем список треков от пиров · ${timer.elapsed.inSeconds}/${metadataTimeout.inSeconds} с',
+      );
+      final pending = _request({
+        'action': 'get',
+        'hash': hash,
+      }, operation: operation);
+      Map<String, dynamic> data;
+      try {
+        data = await (operation?.wait(pending) ?? pending).timeout(
+          deadline.difference(DateTime.now()),
+        );
+      } on TimeoutException {
+        break;
+      }
+      final info = TorrentInfo.fromJson(data);
       if (info.files.isNotEmpty) return info;
-      await Future<void>.delayed(const Duration(milliseconds: 700));
+      final delay = Future<void>.delayed(const Duration(milliseconds: 700));
+      await (operation?.wait(delay) ?? delay);
     }
     throw const HttpException(
-      'Не удалось получить список файлов: нет доступных пиров или метаданных. Попробуйте .torrent вместо magnet.',
+      'У раздачи нет доступных метаданных. Выбери раздачу с активными сидами или источник, который отдаёт torrent-файл. Magnet требует ответа пиров.',
     );
   }
 
@@ -566,14 +625,45 @@ class TorrentService {
 class IndexerService {
   IndexerService({http.Client? client}) : client = client ?? http.Client();
   final http.Client client;
+  Future<List<({String id, String name})>> configuredIndexers(
+    String endpoint,
+    String key,
+  ) async {
+    final uri = Uri.parse(endpoint).replace(
+      queryParameters: {
+        't': 'indexers',
+        'configured': 'true',
+        if (key.isNotEmpty) 'apikey': key,
+      },
+    );
+    final response = await client.get(uri).timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) return [];
+    final xml = XmlDocument.parse(response.body);
+    return xml
+        .findAllElements('indexer')
+        .map(
+          (item) => (
+            id: item.getAttribute('id') ?? '',
+            name:
+                item.getElement('title')?.innerText ??
+                item.getAttribute('name') ??
+                '',
+          ),
+        )
+        .where((item) => item.id.isNotEmpty)
+        .toList();
+  }
+
   Future<({String source, bool file})> resolve(
     String link,
-    Directory directory,
-  ) async {
+    Directory directory, {
+    SourceOperation? operation,
+  }) async {
     var uri =
         Uri.tryParse(link) ??
         (throw const FormatException('Некорректная ссылка на раздачу.'));
     for (var hop = 0; hop < 6; hop++) {
+      operation?.check();
       if (uri.scheme == 'magnet') return (source: uri.toString(), file: false);
       if (!{'http', 'https'}.contains(uri.scheme) || uri.host.isEmpty) {
         throw const FormatException(
@@ -583,9 +673,16 @@ class IndexerService {
       http.StreamedResponse response;
       try {
         response = await client
-            .send(http.Request('GET', uri)..followRedirects = false)
+            .send(
+              http.AbortableRequest(
+                'GET',
+                uri,
+                abortTrigger: operation?.whenCancelled,
+              )..followRedirects = false,
+            )
             .timeout(const Duration(seconds: 25));
       } on http.ClientException {
+        operation?.check();
         throw const HttpException(
           'Не удалось получить раздачу из Jackett. Проверь соединение и настройки трекера.',
         );
@@ -609,6 +706,7 @@ class IndexerService {
       await for (final chunk in response.stream.timeout(
         const Duration(seconds: 25),
       )) {
+        operation?.check();
         bytes.add(chunk);
         if (bytes.length > 16 * 1024 * 1024) {
           throw const FormatException('Torrent-файл превышает 16 МБ.');
@@ -621,6 +719,7 @@ class IndexerService {
         );
       }
       await directory.create(recursive: true);
+      operation?.check();
       final file = File(
         p.join(directory.path, 'source-${stableId(link)}.torrent'),
       );
@@ -670,25 +769,42 @@ class IndexerService {
   Future<List<SearchRelease>> search(
     String endpoint,
     String key,
-    String query,
-  ) async {
+    String query, {
+    SourceOperation? operation,
+  }) async {
     final uri = Uri.parse(endpoint);
     if (!{'http', 'https'}.contains(uri.scheme) || uri.host.isEmpty) {
       throw const FormatException('Укажите URL Torznab API в настройках.');
     }
-    final r = await client
-        .get(
-          uri.replace(
-            queryParameters: {
-              ...uri.queryParameters,
-              't': 'search',
-              'q': query,
-              'cat': '3000',
-              if (key.isNotEmpty) 'apikey': key,
-            },
-          ),
-        )
-        .timeout(const Duration(seconds: 25));
+    operation?.check();
+    final request = http.AbortableRequest(
+      'GET',
+      uri.replace(
+        queryParameters: {
+          ...uri.queryParameters,
+          't': 'search',
+          'q': query,
+          'cat': '3000',
+          if (key.isNotEmpty) 'apikey': key,
+        },
+      ),
+      abortTrigger: operation?.whenCancelled,
+    );
+    late http.Response r;
+    try {
+      final pending = client.send(request).then(http.Response.fromStream);
+      r = await (operation == null ? pending : operation.wait(pending)).timeout(
+        const Duration(seconds: 80),
+      );
+    } on http.ClientException {
+      operation?.check();
+      throw const HttpException('Не удалось подключиться к Jackett.');
+    } on TimeoutException {
+      throw const HttpException(
+        'Поиск не завершился за 80 секунд. Проверь трекер и FlareSolverr в Jackett.',
+      );
+    }
+    operation?.check();
     if (r.statusCode != 200) {
       throw HttpException('Индексатор вернул ${r.statusCode}.');
     }
@@ -708,13 +824,44 @@ class IndexerService {
             ))
               e.getAttribute('name'): e.getAttribute('value'),
           };
+          final links = [
+            item.getElement('link')?.innerText,
+            item.getElement('enclosure')?.getAttribute('url'),
+            attrs['magneturl'],
+          ].whereType<String>().where((s) => s.trim().isNotEmpty).toList();
+          final download = links
+              .where((s) => {'http', 'https'}.contains(Uri.tryParse(s)?.scheme))
+              .firstOrNull;
+          final indexer = item.getElement('jackettindexer');
+          var title = item.getElement('title')?.innerText ?? 'Альбом';
+          if (indexer?.getAttribute('id') == 'rutracker' ||
+              (indexer?.innerText.toLowerCase().contains('rutracker.org') ??
+                  false)) {
+            // Jackett's default Sonarr title filter removes Cyrillic letters.
+            // RuTracker also supplies its full original title after the uploader
+            // line in description; keep it without changing the user's indexer.
+            final description = html_parser.parseFragment(
+              item.getElement('description')?.innerText ?? '',
+            );
+            final divider = description.nodes.indexWhere(
+              (node) => node is html_dom.Element && node.localName == 'br',
+            );
+            if (divider >= 0) {
+              final original = description.nodes
+                  .skip(divider + 1)
+                  .map((node) => node.text ?? '')
+                  .join()
+                  .trim();
+              if (original.isNotEmpty) title = original;
+            }
+          }
           return SearchRelease(
-            title: item.getElement('title')?.innerText ?? 'Альбом',
-            link:
-                attrs['magneturl'] ??
-                item.getElement('link')?.innerText ??
-                item.getElement('enclosure')?.getAttribute('url') ??
-                '',
+            title: title,
+            link: download ?? links.firstOrNull ?? '',
+            magnetLink: attrs['magneturl'],
+            indexerName: indexer?.innerText ?? '',
+            detailsUrl: item.getElement('comments')?.innerText ?? '',
+            seedersKnown: attrs['seeders'] != null,
             bytes:
                 int.tryParse(
                   attrs['size'] ?? item.getElement('size')?.innerText ?? '',
