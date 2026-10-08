@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.wav binary
+*.ttf binary
+# Preserve copied upstream notices/documentation verbatim.
+assets/fonts/OFL.txt whitespace=-blank-at-eol
+dev-skills/** whitespace=-blank-at-eol
