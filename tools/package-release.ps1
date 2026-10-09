@@ -1,4 +1,4 @@
-param([string]$Version = '1.1.2')
+param([string]$Version = '1.1.3')
 $ErrorActionPreference = 'Stop'
 $mumpaRoot = Split-Path $PSScriptRoot -Parent
 $mumpaOutput = Join-Path $mumpaRoot 'artifacts'

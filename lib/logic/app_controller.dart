@@ -98,7 +98,12 @@ class AppController extends ChangeNotifier {
   void _changed() => notifyListeners();
   String? _autoCachedId;
   String? _playbackError;
+  String? _playbackStatus;
   void _onPlayback() {
+    if (_playbackStatus != playback.connectionStatus) {
+      _playbackStatus = playback.connectionStatus;
+      notifyListeners();
+    }
     if (playback.error != _playbackError) {
       if (error == _playbackError) error = null;
       _playbackError = playback.error;

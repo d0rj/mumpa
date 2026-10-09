@@ -9,6 +9,7 @@ import 'package:media_kit/media_kit.dart' hide Track;
 
 import '../data/library_repository.dart';
 import '../data/torrent_service.dart';
+import '../data/source_operation.dart';
 import '../domain/models.dart';
 
 abstract class AudioBackend extends ChangeNotifier {
@@ -95,6 +96,9 @@ class PlaybackController extends ChangeNotifier {
     required this.library,
     required this.torrents,
     required this.backend,
+    this.audioStartupTimeout = const Duration(seconds: 45),
+    this.decoderStartupTimeout = const Duration(seconds: 15),
+    this.torrentStatusInterval = const Duration(seconds: 3),
   }) {
     backend.addListener(_onBackend);
     _completeSubscription = backend.completed.listen((_) {
@@ -105,6 +109,7 @@ class PlaybackController extends ChangeNotifier {
       if (_closed || current == null) return;
       _restorePosition = position;
       ++_request;
+      _cancelConnection();
       error = message.contains('Failed to open')
           ? 'Поток недоступен. Проверьте подключение и наличие сидов; можно выбрать другой источник.'
           : message;
@@ -118,6 +123,14 @@ class PlaybackController extends ChangeNotifier {
   final LibraryRepository library;
   final TorrentService torrents;
   final AudioBackend backend;
+  final Duration audioStartupTimeout,
+      decoderStartupTimeout,
+      torrentStatusInterval;
+  SourceOperation? _connection;
+  Timer? _statisticsTimer, _decoderTimer;
+  TorrentInfo? _torrentStatus;
+  String? connectionStatus;
+  Duration _initialPlaybackPosition = Duration.zero;
   late final StreamSubscription<void> _completeSubscription;
   late final StreamSubscription<String> _errorSubscription;
   AudioSession? _session;
@@ -254,6 +267,14 @@ class PlaybackController extends ChangeNotifier {
   Duration? _restorePosition;
   String? _openedId;
   void _onBackend() {
+    if (_openedId == current?.id &&
+        current != null &&
+        backend.playing &&
+        !backend.buffering &&
+        backend.position != _initialPlaybackPosition) {
+      _decoderTimer?.cancel();
+      _decoderTimer = null;
+    }
     system?.publish();
     notifyListeners();
     if (DateTime.now().difference(_lastSave).inSeconds >= 5 &&
@@ -311,6 +332,13 @@ class PlaybackController extends ChangeNotifier {
     final track = current;
     if (track == null) return;
     final request = ++_request;
+    var awaitingAudio = false;
+    _cancelConnection();
+    final connection = _connection = SourceOperation();
+    _torrentStatus = null;
+    connectionStatus = track.source == TrackSource.torrent
+        ? 'Подключаем раздачу…'
+        : null;
     loading = true;
     error = null;
     _openedId = null;
@@ -318,14 +346,54 @@ class PlaybackController extends ChangeNotifier {
     system?.publish();
     try {
       // Stop the previous decoder before a potentially long metadata/network wait.
-      await backend.stop();
+      await connection.wait(backend.stop()).timeout(decoderStartupTimeout);
       if (request != _request) return;
-      final uri = await resolve(track);
+      final uri = await connection.wait(resolve(track));
       if (request != _request) return;
+      if (track.source == TrackSource.torrent &&
+          {'http', 'https'}.contains(Uri.parse(uri).scheme)) {
+        connectionStatus = 'Ищем пиров и ждём первые аудиоданные…';
+        notifyListeners();
+        var polling = false;
+        final audioWait = Stopwatch()..start();
+        _statisticsTimer = Timer.periodic(torrentStatusInterval, (_) async {
+          if (polling || request != _request || connection.cancelled) return;
+          polling = true;
+          try {
+            final info = await torrents
+                .get(track.torrentHash!)
+                .timeout(const Duration(seconds: 3));
+            if (request != _request || connection.cancelled) return;
+            _torrentStatus = info;
+            connectionStatus = info.peers == 0
+                ? 'Ждём соединения с пирами · подключено: 0 · ${audioWait.elapsed.inSeconds}/${audioStartupTimeout.inSeconds} с'
+                : 'Получаем аудиоданные · пиров: ${info.peers} · ${formatBytes(info.speed.round())}/с';
+            notifyListeners();
+          } catch (_) {
+            // Diagnostics must not replace the actual stream result.
+          } finally {
+            polling = false;
+          }
+        });
+        awaitingAudio = true;
+        await torrents.waitForAudio(
+          Uri.parse(uri),
+          operation: connection,
+          timeout: audioStartupTimeout,
+        );
+        if (request != _request) return;
+        _statisticsTimer?.cancel();
+        connectionStatus = 'Запускаем воспроизведение…';
+        notifyListeners();
+      }
       if (play && _session != null && !await _session!.setActive(true)) {
         throw StateError('Аудиофокус занят другим приложением.');
       }
-      await backend.open(uri, play: play);
+      _initialPlaybackPosition = _restorePosition ?? Duration.zero;
+      awaitingAudio = false;
+      await connection
+          .wait(backend.open(uri, play: false))
+          .timeout(decoderStartupTimeout);
       if (request != _request) return;
       _openedId = track.id;
       if (_restorePosition != null) {
@@ -334,9 +402,38 @@ class PlaybackController extends ChangeNotifier {
         await backend.seek(restored);
       }
       if (request != _request) return;
+      if (play) {
+        await connection.wait(backend.play()).timeout(decoderStartupTimeout);
+      }
       await library.markPlayed(track.id);
       if (request != _request) return;
       await saveSession();
+      if (play) {
+        _decoderTimer = Timer(decoderStartupTimeout, () {
+          if (request != _request || _closed) return;
+          if (backend.playing &&
+              !backend.buffering &&
+              backend.position != _initialPlaybackPosition) {
+            return;
+          }
+          error =
+              'Аудиоданные получены, но воспроизведение не началось. '
+              'Повтори попытку или выбери другой источник.';
+          unawaited(stop());
+        });
+      }
+    } on SourceCancelled {
+      // A newer track or Stop owns the state now.
+    } on TimeoutException {
+      if (request == _request) {
+        final message = !awaitingAudio
+            ? 'Не удалось запустить воспроизведение. Повтори попытку или выбери другой источник.'
+            : _torrentStatus?.peers == 0
+            ? 'Нет соединения с пирами: раздача не передаёт аудиоданные. '
+                  'Повтори попытку, проверь поддержку P2P у VPN или выбери другой источник.'
+            : 'Не удалось дождаться аудиоданных. Повтори попытку или выбери другой источник.';
+        _failOpening(message);
+      }
     } catch (e) {
       if (request == _request) {
         error = e.toString();
@@ -344,12 +441,40 @@ class PlaybackController extends ChangeNotifier {
       }
     } finally {
       if (request == _request) {
+        _statisticsTimer?.cancel();
+        connection.cancel();
+        _connection = null;
+        connectionStatus = null;
         loading = false;
         _publishQueue();
         notifyListeners();
         system?.publish();
       }
     }
+  }
+
+  void _failOpening(String message) {
+    ++_request;
+    _cancelConnection();
+    error = message;
+    loading = false;
+    _openedId = null;
+    // A native open/stop can share a lock. UI failure and request invalidation
+    // must not wait behind a stalled decoder operation. open(play:false) keeps
+    // a late load from starting obsolete audio before this queued stop runs.
+    unawaited(backend.stop().catchError((Object _) {}));
+    notifyListeners();
+    system?.publish();
+  }
+
+  void _cancelConnection() {
+    _connection?.cancel();
+    _connection = null;
+    _statisticsTimer?.cancel();
+    _statisticsTimer = null;
+    _decoderTimer?.cancel();
+    _decoderTimer = null;
+    connectionStatus = null;
   }
 
   Future<void> play() async {
@@ -366,6 +491,8 @@ class PlaybackController extends ChangeNotifier {
     if (buffering) {
       await stop();
     } else {
+      _decoderTimer?.cancel();
+      _decoderTimer = null;
       await backend.pause();
     }
     await saveSession();
@@ -375,8 +502,10 @@ class PlaybackController extends ChangeNotifier {
   Future<void> stop() async {
     _restorePosition = position;
     ++_request;
+    _cancelConnection();
     loading = false;
     _openedId = null;
+    notifyListeners();
     await backend.stop();
     await _session?.setActive(false);
     notifyListeners();
@@ -546,6 +675,7 @@ class PlaybackController extends ChangeNotifier {
     if (_closed) return;
     _closed = true;
     ++_request;
+    _cancelConnection();
     _sleep?.cancel();
     await saveSession();
     await _completeSubscription.cancel();

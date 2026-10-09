@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -20,6 +21,13 @@ class UiLibraryRepository extends LibraryRepository {
   Future<void> markPlayed(String id) async {}
   @override
   Future<void> setSetting(String key, dynamic value) async {}
+}
+
+class WaitingTorrentService extends TorrentService {
+  WaitingTorrentService() : super(endpoint: () async => 'http://localhost');
+  final ready = Completer<Uri>();
+  @override
+  Future<Uri> resolve(Track track) => ready.future;
 }
 
 void main() {
@@ -172,6 +180,89 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.tap(find.byIcon(Icons.close).last);
       await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets('loading indicators stay circular in liked tracks and players', (
+    tester,
+  ) async {
+    final torrents = WaitingTorrentService();
+    final playback = PlaybackController(
+      library: app.library,
+      torrents: torrents,
+      backend: FakeAudioBackend(),
+    );
+    final pendingApp = AppController(
+      library: app.library,
+      playback: playback,
+      downloads: DownloadRepository(app.library, torrents),
+      torrents: torrents,
+      engine: TorrentEngine(root),
+    );
+    const track = Track(
+      id: 'liked-torrent',
+      title: 'Liked torrent',
+      artist: 'Artist',
+      album: 'Album',
+      source: TrackSource.torrent,
+      torrentHash: 'hash',
+      torrentIndex: 1,
+    );
+    await tester.runAsync(() async {
+      await app.library.upsert([track]);
+      await app.library.toggleLike(track.id);
+    });
+    pendingApp.navigate(AppPage.liked);
+    late Future<void> opening;
+    await tester.runAsync(() async {
+      opening = playback.playTracks([track]);
+      await Future<void>.delayed(Duration.zero);
+    });
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    try {
+      for (final size in [const Size(1380, 860), const Size(390, 844)]) {
+        tester.view.physicalSize = size;
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: const Key('loading-capture'),
+            child: MumpaApp(controller: pendingApp),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        for (final element
+            in find.byType(CircularProgressIndicator).evaluate()) {
+          final bounds = tester.getSize(
+            find.byElementPredicate((e) => e == element),
+          );
+          expect(bounds.width, bounds.height, reason: 'circular at $size');
+        }
+        expect(tester.takeException(), isNull);
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const Key('loading-capture')),
+        );
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 1);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final target = File(
+            'test-output/liked-loading-${size.width.toInt()}.png',
+          );
+          await target.writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(() async {
+        await playback.stop();
+        torrents.ready.complete(Uri.parse('http://localhost/obsolete'));
+        await opening;
+        pendingApp.dispose();
+        pendingApp.downloads.dispose();
+        await playback.close();
+        torrents.dispose();
+      });
     }
   });
 }

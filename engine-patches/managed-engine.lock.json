@@ -1,0 +1,105 @@
+{
+  "version": "MatriX.145.2-mumpa1",
+  "upstream": {
+    "tag": "MatriX.145.2",
+    "commit": "bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9",
+    "archive": "artifacts/TorrServer-MatriX.145.2-source.zip",
+    "url": "https://codeload.github.com/YouROK/TorrServer/zip/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9",
+    "sha256": "947f0433df01a3b1ea128e076db3e4ba9138e12699a4c4236333fb918fd4be7f"
+  },
+  "toolchains": {
+    "windows": "go1.27.1",
+    "android": "go1.25.14",
+    "ndk": "28.2.13676358"
+  },
+  "modules": [
+    {
+      "sha256": "14b824037be28e8aca64b65daa8f2a6a644c0bef686d806efa9f06d9a409e22a",
+      "path": "server/go.mod"
+    },
+    {
+      "sha256": "c0e1c2f110d52c721a44e54aa0ae88682bb876632a9de6b28969918b6c40a2e8",
+      "path": "server/go.sum"
+    }
+  ],
+  "overlays": [
+    {
+      "sha256": "54dc698999cc2fccdf778f9fa2713db0cf9c6e42e47b5bc6203b9fb3b6584964",
+      "path": "server/torr/request_reader_test.go"
+    },
+    {
+      "sha256": "2af9cc1f6aeb4a92b97ed17cb05f609d15ca309207b9db2bc436f65cf5e68f60",
+      "path": "server/torr/request_reader.go"
+    },
+    {
+      "sha256": "c83d3313390b908c1a8f06701def2ebc19d65f02acd5fa65e2b8d5090e8302fc",
+      "path": "server/torr/storage/torrstor/reader_context_test.go"
+    },
+    {
+      "sha256": "50a6af87b70f8012423250c37631f83a2834c9f833e75d9c8c85c9d283b3968c",
+      "path": "server/torr/storage/torrstor/reader.go"
+    },
+    {
+      "sha256": "0d073ece32bbddaadd3365473cbb6273b28ac0dc32199575fbe2937736ff3e3c",
+      "path": "server/torr/stream.go"
+    }
+  ],
+  "targets": [
+    {
+      "platform": "windows",
+      "clangTarget": "",
+      "goarch": "amd64",
+      "goarm64": "",
+      "goarm": "",
+      "id": "windows-amd64",
+      "goos": "windows",
+      "path": "assets/engine/TorrServer.exe",
+      "toolchain": "go1.27.1",
+      "cgo": "0",
+      "sha256": "d94cf58177189d6c01cd7ff7640f7c91b7de7c06cbe4cf48c02ca461d3d97d94",
+      "goamd64": "v1"
+    },
+    {
+      "platform": "android",
+      "clangTarget": "aarch64-linux-android21",
+      "goarch": "arm64",
+      "goarm64": "v8.0",
+      "goarm": "",
+      "id": "android-arm64",
+      "goos": "android",
+      "path": "android/app/src/main/jniLibs/arm64-v8a/libtorrserver.so",
+      "toolchain": "go1.25.14",
+      "cgo": "1",
+      "sha256": "6f734d9a50641f26bab45a96a8046d836ec480ba1fc944c56c5631c9e5ccd1df",
+      "goamd64": ""
+    },
+    {
+      "platform": "android",
+      "clangTarget": "armv7a-linux-androideabi21",
+      "goarch": "arm",
+      "goarm64": "",
+      "goarm": "7",
+      "id": "android-arm7",
+      "goos": "android",
+      "path": "android/app/src/main/jniLibs/armeabi-v7a/libtorrserver.so",
+      "toolchain": "go1.25.14",
+      "cgo": "1",
+      "sha256": "4415db9b7170e3dbc1ace0184f14c392e8c2774b20bf22033694157099bcc8a7",
+      "goamd64": ""
+    },
+    {
+      "platform": "android",
+      "clangTarget": "x86_64-linux-android21",
+      "goarch": "amd64",
+      "goarm64": "",
+      "goarm": "",
+      "id": "android-amd64",
+      "goos": "android",
+      "path": "android/app/src/main/jniLibs/x86_64/libtorrserver.so",
+      "toolchain": "go1.25.14",
+      "cgo": "1",
+      "sha256": "189e6a394992d57ad9c0d16b1dd86ba8d97b4c22f7e8ea9c751a8d97cc3dad8d",
+      "goamd64": "v1"
+    }
+  ]
+}

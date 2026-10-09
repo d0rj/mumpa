@@ -67,7 +67,11 @@ class PlayerBar extends StatelessWidget {
                       IconButton(
                         key: const Key('player-toggle'),
                         onPressed: t == null ? null : p.toggle,
-                        tooltip: p.playing ? 'Пауза' : 'Слушать',
+                        tooltip: p.buffering
+                            ? 'Отменить загрузку'
+                            : p.playing
+                            ? 'Пауза'
+                            : 'Слушать',
                         icon: p.buffering
                             ? const SizedBox(
                                 width: 20,
@@ -266,19 +270,24 @@ class _Transport extends StatelessWidget {
         child: IconButton.filled(
           key: const Key('transport-toggle'),
           onPressed: p.current == null ? null : p.toggle,
-          tooltip: p.playing ? 'Пауза' : 'Слушать',
+          tooltip: p.buffering
+              ? 'Отменить загрузку'
+              : p.playing
+              ? 'Пауза'
+              : 'Слушать',
           style: IconButton.styleFrom(
             backgroundColor: large ? accent : Colors.white,
             foregroundColor: Colors.black,
             padding: EdgeInsets.zero,
           ),
           icon: p.buffering
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.black,
+              ? const Center(
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.black,
+                    ),
                   ),
                 )
               : Icon(

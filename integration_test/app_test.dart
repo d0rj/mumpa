@@ -328,6 +328,10 @@ void main() {
         expect(app.downloads.jobs, isEmpty);
         await tester.pumpAndSettle();
         final track = app.playlistTracks.single;
+        await app.library.toggleLike(track.id);
+        app.navigate(AppPage.liked);
+        await tester.pumpAndSettle();
+        expect(app.likedTracks.single.id, track.id);
         final startTime = Stopwatch()..start();
         await tester.tap(find.byKey(ValueKey('track-row-${track.id}')));
         await waitUntil(
@@ -349,6 +353,7 @@ void main() {
         evidence['streamStartMs'] = startTime.elapsedMilliseconds;
         evidence['torrentBytesAtFirstAudio'] = peerSeed.uniqueBytesSent;
         evidence['nativeTorrentPlayback'] = true;
+        evidence['nativeLikedTorrentPlayback'] = true;
         debugPrint('MUMPA_STAGE torrent playback');
         evidence['bitTorrentPieceRequests'] = seedRequests;
         await app.playback.seek(const Duration(seconds: 12));
@@ -414,6 +419,69 @@ void main() {
         await app.playback.seek(const Duration(seconds: 15));
         await waitUntil(tester, () => app.playback.position.inSeconds >= 15);
         evidence['offlinePlaybackWithEngineAndSeedStopped'] = true;
+        await app.playback.pause();
+        // A cold, peerless stream must release its server-side reader when the
+        // first-byte deadline cancels HTTP. Repeated retries must not accumulate
+        // readers/goroutines. Do not drop/restart the torrent between attempts.
+        final peerless = await app.torrents.resolve(track);
+        final cacheHttp = HttpClient();
+        Future<int> readers() async {
+          final request = await cacheHttp.postUrl(
+            Uri.parse('${await app.engine.start()}/cache'),
+          );
+          request.headers.contentType = ContentType.json;
+          request.write(
+            jsonEncode({'action': 'get', 'hash': track.torrentHash}),
+          );
+          final response = await request.close().timeout(
+            const Duration(seconds: 3),
+          );
+          expect(response.statusCode, 200);
+          final state =
+              jsonDecode(await response.transform(utf8.decoder).join()) as Map;
+          expect(state.containsKey('Readers'), isTrue);
+          return (state['Readers'] as List?)?.length ?? 0;
+        }
+
+        try {
+          for (var attempt = 0; attempt < 3; attempt++) {
+            final pending = expectLater(
+              app.torrents.waitForAudio(
+                peerless,
+                timeout: const Duration(seconds: 1),
+              ),
+              throwsA(isA<TimeoutException>()),
+            );
+            final before = DateTime.now().add(
+              const Duration(milliseconds: 800),
+            );
+            var active = 0;
+            while (active == 0 && DateTime.now().isBefore(before)) {
+              active = await readers();
+              await tester.pump(const Duration(milliseconds: 50));
+            }
+            expect(
+              active,
+              greaterThan(0),
+              reason: 'Probe must create a real blocked server reader.',
+            );
+            await pending;
+            final after = DateTime.now().add(const Duration(seconds: 3));
+            var remaining = await readers();
+            while (remaining > 0 && DateTime.now().isBefore(after)) {
+              await tester.pump(const Duration(milliseconds: 50));
+              remaining = await readers();
+            }
+            expect(
+              remaining,
+              0,
+              reason: 'Canceled probe must release its server reader.',
+            );
+          }
+          evidence['peerlessRetriesReleaseServerReaders'] = true;
+        } finally {
+          cacheHttp.close(force: true);
+        }
         if (Platform.isAndroid) {
           expect(app.playback.system, isNotNull);
           evidence['androidAudioServiceRegistered'] = true;

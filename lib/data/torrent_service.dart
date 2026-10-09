@@ -83,7 +83,7 @@ class TorrentEngine {
   Future<File> _binary(Directory state) async {
     if (_executable != null) return _executable;
     const expected =
-        '778bbc9bffb2e4d837a3a2c470fc2a4048d30f0a2004eb2553cd4a495b1bb2d6';
+        'd94cf58177189d6c01cd7ff7640f7c91b7de7c06cbe4cf48c02ca461d3d97d94';
     final binaries = binaryDirectory ?? state;
     await binaries.create(recursive: true);
     final binary = File(p.join(binaries.path, 'TorrServer-MatriX.145.2.exe'));
@@ -415,11 +415,13 @@ class TorrentService {
     required this.endpoint,
     this.sources,
     http.Client? client,
+    this.audioClientFactory = http.Client.new,
     this.metadataTimeout = const Duration(seconds: 25),
   }) : client = client ?? http.Client();
   final Future<String> Function() endpoint;
   final Directory? sources;
   final http.Client client;
+  final http.Client Function() audioClientFactory;
   final Duration metadataTimeout;
   Future<Uri> _uri(String route) async =>
       Uri.parse('${(await endpoint()).replaceFirst(RegExp(r'/+$'), '')}$route');
@@ -563,6 +565,73 @@ class TorrentService {
     return uri.replace(
       queryParameters: {'link': hash, 'index': '$index', 'play': ''},
     );
+  }
+
+  /// Wait for actual payload, rather than HTTP headers from a peerless reader.
+  /// Cancelling/expiring this probe aborts its own HTTP request only.
+  Future<void> waitForAudio(
+    Uri uri, {
+    SourceOperation? operation,
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    final probe = SourceOperation();
+    final probeClient = audioClientFactory();
+    StreamSubscription<List<int>>? payloadSubscription;
+    final deadline = Timer(timeout, probe.cancel);
+    final callerCancelled = operation?.whenCancelled.then(
+      (_) => probe.cancel(),
+    );
+    // SourceOperation cancellation futures complete successfully.
+    if (callerCancelled != null) unawaited(callerCancelled);
+    try {
+      operation?.check();
+      final response = await probe.wait(
+        probeClient.send(
+          http.AbortableRequest('GET', uri, abortTrigger: probe.whenCancelled)
+            ..headers['Range'] = 'bytes=0-4095',
+        ),
+      );
+      if (response.statusCode != 200 && response.statusCode != 206) {
+        throw HttpException('Аудиопоток ответил HTTP ${response.statusCode}.');
+      }
+      final firstBytes = Completer<void>();
+      payloadSubscription = response.stream.listen(
+        (bytes) {
+          if (bytes.isNotEmpty && !firstBytes.isCompleted) {
+            firstBytes.complete();
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!firstBytes.isCompleted) firstBytes.completeError(error, stack);
+        },
+        onDone: () {
+          if (!firstBytes.isCompleted) {
+            firstBytes.completeError(const HttpException('Аудиопоток пуст.'));
+          }
+        },
+        cancelOnError: true,
+      );
+      await probe.wait(firstBytes.future);
+    } on SourceCancelled {
+      operation?.check();
+      throw TimeoutException('Раздача не передала первые аудиобайты.', timeout);
+    } on http.RequestAbortedException {
+      operation?.check();
+      throw TimeoutException('Раздача не передала первые аудиобайты.', timeout);
+    } on StateError {
+      throw const HttpException('Аудиопоток завершился без данных.');
+    } on http.ClientException {
+      operation?.check();
+      throw const HttpException('Не удалось подключиться к аудиопотоку.');
+    } finally {
+      deadline.cancel();
+      probe.cancel();
+      // Response-subscription cancellation can drain an unfinished HTTP body.
+      // A dedicated client lets us close this stalled socket without affecting
+      // metadata requests or the parallel complete-file offline transfer.
+      probeClient.close();
+      await payloadSubscription?.cancel();
+    }
   }
 
   Future<Uri> resolve(Track track) async {

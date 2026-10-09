@@ -86,6 +86,7 @@ class AppScreen extends StatelessWidget {
                                   if (app.busy != null ||
                                       app.error != null ||
                                       app.message != null ||
+                                      app.playback.connectionStatus != null ||
                                       app.library.loadWarning != null)
                                     _StatusBar(app),
                                   Expanded(
@@ -460,6 +461,7 @@ class _StatusBar extends StatelessWidget {
           child: Text(
             app.error ??
                 app.busy ??
+                app.playback.connectionStatus ??
                 app.message ??
                 app.library.loadWarning ??
                 '',
@@ -473,6 +475,18 @@ class _StatusBar extends StatelessWidget {
             key: const Key('cancel-opening'),
             onPressed: app.cancelOpening,
             child: const Text('Отмена'),
+          ),
+        if (app.playback.connectionStatus != null)
+          TextButton(
+            key: const Key('cancel-playback'),
+            onPressed: app.playback.stop,
+            child: const Text('Отмена'),
+          ),
+        if (app.playback.error != null && app.error == app.playback.error)
+          TextButton(
+            key: const Key('retry-playback'),
+            onPressed: app.playback.play,
+            child: const Text('Повторить'),
           ),
         if (app.busy == null)
           IconButton(

@@ -46,6 +46,14 @@ class FixtureTorrentService extends TorrentService {
   @override
   Future<Uri> resolve(Track track) =>
       stream(track.torrentHash!, track.torrentIndex!);
+  @override
+  Future<void> waitForAudio(
+    Uri uri, {
+    SourceOperation? operation,
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    operation?.check();
+  }
 }
 
 class RecordingDownloads extends DownloadRepository {

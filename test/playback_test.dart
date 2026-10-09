@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +14,24 @@ class PendingTorrentService extends TorrentService {
   final ready = Completer<Uri>();
   @override
   Future<Uri> resolve(Track track) => ready.future;
+}
+
+class HangingAudioBackend extends FakeAudioBackend {
+  final release = Completer<void>();
+  bool? requestedPlay;
+  int stops = 0;
+  @override
+  Future<void> open(String uri, {bool play = true}) async {
+    requestedPlay = play;
+    await release.future;
+    await super.open(uri, play: play);
+  }
+
+  @override
+  Future<void> stop() async {
+    if (++stops > 1) await release.future;
+    await super.stop();
+  }
 }
 
 void main() {
@@ -77,6 +96,135 @@ void main() {
     await player.next(automatic: true);
     expect(player.current!.id, '0');
   });
+
+  test(
+    'intentional pause before the first position event cancels watchdog',
+    () async {
+      final controller = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: FakeAudioBackend(),
+        decoderStartupTimeout: const Duration(milliseconds: 30),
+      );
+      try {
+        await controller.playTracks(library.tracks);
+        await controller.pause();
+        await Future<void>.delayed(const Duration(milliseconds: 70));
+        expect(controller.error, isNull);
+        expect(controller.current!.id, '0');
+        expect(controller.playing, isFalse);
+        expect(controller.stopped, isFalse);
+      } finally {
+        await controller.close();
+      }
+    },
+  );
+
+  test(
+    'stalled native open cannot block failure UI or start obsolete audio',
+    () async {
+      final backend = HangingAudioBackend();
+      final controller = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: backend,
+        decoderStartupTimeout: const Duration(milliseconds: 30),
+      );
+      try {
+        await controller
+            .playTracks(library.tracks)
+            .timeout(const Duration(seconds: 1));
+        expect(controller.error, contains('Не удалось запустить'));
+        expect(controller.loading, isFalse);
+        expect(controller.buffering, isFalse);
+        expect(backend.requestedPlay, isFalse);
+        backend.release.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(backend.playing, isFalse);
+        expect(controller.playing, isFalse);
+        expect(controller.error, isNotNull);
+      } finally {
+        if (!backend.release.isCompleted) backend.release.complete();
+        await controller.close();
+      }
+    },
+  );
+  test(
+    'liked torrent times out without opening decoder, then retries in place',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      var deliver = false;
+      server.listen((request) async {
+        if (request.uri.path == '/torrents') {
+          request.response.write(
+            jsonEncode({
+              'hash': 'liked-hash',
+              'name': 'Liked collection',
+              'active_peers': 0,
+              'file_stats': [
+                {'id': 7, 'path': 'liked.flac', 'length': 4096},
+              ],
+            }),
+          );
+          await request.response.close();
+        } else {
+          request.response.statusCode = 206;
+          request.response.contentLength = 4;
+          if (deliver) {
+            request.response.add([1, 2, 3, 4]);
+            await request.response.close();
+          } else {
+            await request.response.flush();
+          }
+        }
+      });
+      final source = TorrentService(
+        endpoint: () async => 'http://127.0.0.1:${server.port}',
+      );
+      final backend = FakeAudioBackend();
+      final controller = PlaybackController(
+        library: library,
+        torrents: source,
+        backend: backend,
+        audioStartupTimeout: const Duration(milliseconds: 120),
+        torrentStatusInterval: const Duration(milliseconds: 20),
+      );
+      const track = Track(
+        id: 'liked-torrent',
+        title: 'Liked',
+        artist: 'Band',
+        album: 'Collection',
+        source: TrackSource.torrent,
+        torrentHash: 'liked-hash',
+        torrentIndex: 7,
+      );
+      try {
+        await library.upsert([track]);
+        await library.toggleLike(track.id);
+        final states = <String?>[];
+        controller.addListener(() => states.add(controller.connectionStatus));
+        await controller.playTracks([track, library.tracks.first]);
+        expect(controller.error, contains('Нет соединения с пирами'));
+        expect(controller.loading, isFalse);
+        expect(controller.buffering, isFalse);
+        expect(controller.connectionStatus, isNull);
+        expect(backend.opened, isNull);
+        expect(states.whereType<String>(), contains(contains('подключено: 0')));
+        deliver = true;
+        await controller.play();
+        expect(controller.error, isNull);
+        expect(controller.current!.id, track.id);
+        expect(controller.queue.length, 2);
+        expect(controller.playing, isTrue);
+        expect(controller.connectionStatus, isNull);
+        expect(Uri.parse(backend.opened!).queryParameters['index'], '7');
+      } finally {
+        await controller.close();
+        source.dispose();
+        await server.close(force: true);
+      }
+    },
+  );
   test(
     'system stop publishes idle and the selected queue can resume',
     () async {

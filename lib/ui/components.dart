@@ -355,15 +355,20 @@ class TrackList extends SliverContent {
                 children: [
                   SizedBox(
                     width: 30,
+                    height: 30,
                     child: active && app.playback.buffering
-                        ? const Padding(
-                            padding: EdgeInsets.all(7),
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                        ? const Center(
+                            child: SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           )
                         : active
                         ? Icon(
                             app.playback.playing
                                 ? Icons.graphic_eq
+                                : app.playback.stopped
+                                ? Icons.play_arrow_rounded
                                 : Icons.pause_rounded,
                             size: 18,
                             color: accent,
