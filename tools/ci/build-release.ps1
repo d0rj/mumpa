@@ -55,4 +55,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit' }
     androidSigning = if ($env:MUMPA_KEYSTORE_PATH) { 'release-keystore' } else { 'ephemeral-debug-key' }
     githubRun = $env:GITHUB_RUN_ID
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $mumpaOutput 'BUILD.json') -Encoding utf8
-if ($env:GITHUB_OUTPUT) { "version=$mumpaBuildName" | Add-Content -LiteralPath $env:GITHUB_OUTPUT }
+if ($env:GITHUB_OUTPUT) {
+    "version=$mumpaBuildName" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+    "build-version=$mumpaVersion" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
+}

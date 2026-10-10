@@ -2,7 +2,7 @@ name: Build release
 
 on:
   workflow_dispatch:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [closed]
 
@@ -10,18 +10,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event.pull_request.merge_commit_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
   checks:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    if: github.event_name == 'workflow_dispatch' || (github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.merge_commit_sha != '')
     uses: ./.github/workflows/checks.yml
     with:
       ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
   build:
     needs: checks
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      version: ${{ steps.package.outputs.version }}
+      build-version: ${{ steps.package.outputs.build-version }}
     runs-on: windows-2022
     timeout-minutes: 120
     defaults:
@@ -34,6 +38,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           persist-credentials: false
+          # Only an accepted main merge is allowed; never the fork's head SHA.
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.merge_commit_sha != '' }}
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: 3.44.4
@@ -109,6 +115,7 @@ jobs:
           $ndk = Join-Path $env:ANDROID_HOME 'ndk/28.2.13676358'
           ./tools/ci/build-release.ps1 -GoExecutable $goCompiler -AndroidNdk $ndk
       - name: Upload release packages
+        id: upload
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Mumpa-${{ steps.package.outputs.version }}-${{ github.run_id }}
@@ -125,3 +132,36 @@ jobs:
         run: |
           $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.jks'
           if (Test-Path -LiteralPath $keystore) { Remove-Item -LiteralPath $keystore -Force }
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: release-publish-${{ needs.build.outputs.version }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: ${{ github.event_name == 'pull_request_target' && github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.merge_commit_sha != '' }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+      - name: Download only this build's verified artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: artifacts/ci-release
+          digest-mismatch: error
+      - name: Verify packages, upload draft assets, then publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          RELEASE_VERSION: ${{ needs.build.outputs.build-version }}
+        run: node tools/ci/publish-release.mjs

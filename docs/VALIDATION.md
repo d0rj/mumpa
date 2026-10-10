@@ -1,5 +1,28 @@
 # Mumpa verification — 2026-10-10
 
+## Automatic GitHub Release publication
+
+- **27 Node 22 tests pass** using isolated original package fixtures and a
+  mocked GitHub API. They cover first publication, exact commit/run/version
+  binding, corrupt or missing packages, authorization failures, streamed
+  uploads, server size/digest checks, recovery of a partial draft through the
+  paginated release list, lightweight/annotated tags, tag conflicts and
+  immutable published assets. Missing tags use the exact Git ref endpoint;
+  the tests reproduce the commit endpoint's actual HTTP 422 behavior.
+  Evidence: `test-output/release-publication-tests.log`.
+- Actionlint 1.7.12, Node syntax checking, the PowerShell parser and
+  `git diff --check` pass. The real nine local 1.2.7 ZIP/APK packages pass the
+  publisher's size/SHA-256 preflight, producing eleven flat release assets
+  including `BUILD.json` and `SHA256.json`, without HTTP requests.
+  Evidence: `test-output/release-actionlint.log`,
+  `release-plan-1.2.7.log`.
+- Publication is a separate Linux job with `contents: write`, after the
+  existing checks and Windows/Android build. Manual launches and accepted
+  `main` PR merges are the only release triggers; no push trigger was added.
+  Fork merges check out only the accepted merge SHA. Full hosted publication
+  and GitHub Release assets are pending an authorized push/manual run; the
+  mock tests and local preflight do not establish a successful hosted release.
+
 ## 1.2.7 newest favorite additions first
 
 - **289 unit/widget tests pass**, one opt-in Jackett check is skipped,

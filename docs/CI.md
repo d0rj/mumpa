@@ -12,16 +12,37 @@ unit/widget-тесты с coverage на Windows и Ubuntu, а также Go-ре
 Перед сборкой проходят те же проверки на том же commit, который затем собирается.
 Ручной запуск собирает выбранную в GitHub ветку или тег.
 
-В завершённом запуске открой **Artifacts → Mumpa-<version>-<run-id>**. В архиве:
+После успешных проверок и сборки workflow автоматически публикует
+**[GitHub Release](https://github.com/d0rj/mumpa/releases)** с тегом `v<version>`
+(например, `v1.2.7`). ZIP и APK скачиваются из раздела **Assets** прямо в браузере.
+Состав выпуска:
 
 - Windows ZIP с приложением, помощниками и документацией;
 - три Android APK;
 - соответствующие исходники Mumpa, исправленного TorrServer, Jackett и FlareSolverr;
 - `SHA256.json` для пакетов и `BUILD.json` с версией и commit.
 
-Пакеты хранятся 30 дней, coverage — 14 дней. Сборка не создаёт автоматически
-теги или публичные GitHub Releases. Для нового выпуска обнови `version` в
-`pubspec.yaml`; Android требует увеличивать число после `+` для обновлений.
+Релиз сначала создаётся как draft: он публикуется только после загрузки всех
+11 файлов и проверки их размеров/серверных SHA-256. `SHA256.json` в Releases
+использует плоские имена Assets; в Actions Artifacts сохранён исходный layout
+с папкой `sources`. `BUILD.json` содержит полный `version+build`, исходный commit,
+номер workflow и тип Android-подписи.
+
+Повторный запуск для того же commit проверяет существующий опубликованный
+выпуск и сохраняет его файлы. Различия нового rebuild из-за времён архивов или
+подписи не заменяют опубликованные байты. Незавершённый draft можно продолжить;
+конфликт тега с другим commit или неполный опубликованный выпуск останавливает
+публикацию. Для следующего выпуска увеличивай версию **до `+`** и Android build
+number **после `+`** в `pubspec.yaml`.
+
+Копия **Actions → Build release → Artifacts → Mumpa-<version>-<run-id>**
+по-прежнему хранится 30 дней, coverage — 14 дней. Release assets не зависят от
+этого срока хранения. Приватный репозиторий сохраняет прежний доступ к выпускам.
+
+Проверки и сборка используют `contents: read`; только отдельный Linux publish
+job получает `contents: write`. Он скачивает artifact по ID из текущей сборки,
+сверяет полный version/commit/run ID и SHA-256 всех девяти ZIP/APK до обращения
+к API публикации. Обычный push по-прежнему не запускает сборку или публикацию.
 
 ## Подпись Android
 
@@ -41,8 +62,13 @@ variables → Actions → Repository secrets** все четыре значен�
 только во временной папке runner и удаляет в завершающем шаге. Частичная настройка
 secrets останавливает сборку. Локальная сборка поддерживает те же три параметра
 пароля/alias и `MUMPA_KEYSTORE_PATH` с путём к файлу вместо Base64.
-GitHub не передаёт secrets workflow, запущенному PR из fork. После слияния такого
-PR используй ручной запуск в основном репозитории для сборки с постоянной подписью.
+Релиз после слияния использует `pull_request_target: closed` с проверкой
+`merged == true`, целевой ветки `main` и непустого merge SHA. Checkout выполняется
+только для уже принятого merge commit, включая PR из fork; непроверенный PR head
+не используется. Узкий opt-in checkout нужен закреплённому action, который иначе
+отклоняет и fork merge SHA. Обычные PR-проверки остаются на `pull_request` без
+секретов; signing secrets доступны только принятой релизной сборке или ручному
+запуску. [Описание события GitHub](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target).
 Инструкция по созданию своего ключа: [документация Flutter](https://docs.flutter.dev/deployment/android#sign-the-app).
 
 ## Воспроизводимость и стоимость
@@ -61,6 +87,11 @@ patch overlays и каждый бинарник с SHA-256 из lock-файла;
 CI не проверяет публичные пиры, VPN, Windows tray или физические медиакнопки.
 Нативные интеграционные проверки и их границы описаны в [VALIDATION.md](VALIDATION.md).
 Успешный unit suite не заменяет проверку готового приложения на устройстве.
+
+Логика публикации дополнительно проверяется командой
+`node --test tools/ci/publish-release.test.mjs` (Node 22). Тесты используют
+временные файлы и имитацию GitHub API: неполные/повреждённые пакеты, неверный
+commit/run, отказ авторизации, частичная загрузка и повторная публикация.
 
 GitHub описывает событие закрытия PR с проверкой `merged` и ручной запуск в
 [справочнике событий Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
