@@ -1,6 +1,8 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <roapi.h>
+#include <shobjidl.h>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -15,7 +17,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
-  ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  const HRESULT apartment = ::RoInitialize(RO_INIT_SINGLETHREADED);
+  ::SetCurrentProcessExplicitAppUserModelID(L"app.mumpa.Mumpa");
   // The bundled torrent child must not survive closing the desktop app.
   HANDLE child_job = ::CreateJobObject(nullptr, nullptr);
   if (child_job) {
@@ -36,6 +39,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1380, 860);
   if (!window.Create(L"Mumpa", origin, size)) {
+    window.Destroy();
+    if (SUCCEEDED(apartment)) ::RoUninitialize();
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);
@@ -46,6 +51,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
-  ::CoUninitialize();
+  // Release SMTC/taskbar COM objects while the apartment is still initialized.
+  window.Destroy();
+  if (SUCCEEDED(apartment)) ::RoUninitialize();
   return EXIT_SUCCESS;
 }

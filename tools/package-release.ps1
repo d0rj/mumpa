@@ -1,4 +1,4 @@
-param([string]$Version = '1.1.5')
+param([string]$Version = '1.2.0')
 $ErrorActionPreference = 'Stop'
 $mumpaRoot = Split-Path $PSScriptRoot -Parent
 $mumpaOutput = Join-Path $mumpaRoot 'artifacts'
@@ -22,6 +22,7 @@ Get-ChildItem -LiteralPath $mumpaWindows | ForEach-Object { Copy-Item -LiteralPa
 foreach ($mumpaNotice in @('LICENSE','THIRD_PARTY_NOTICES.md','README.md')) {
     Copy-Item -LiteralPath (Join-Path $mumpaRoot $mumpaNotice) -Destination $mumpaApp
 }
+Copy-Item -LiteralPath (Join-Path $mumpaRoot 'docs') -Destination $mumpaApp -Recurse -Force
 Compress-Archive -LiteralPath $mumpaApp -DestinationPath (Join-Path $mumpaOutput "Mumpa-$Version-windows-x64.zip") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-arm64-v8a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-arm64.apk") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-armeabi-v7a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-armv7.apk") -Force

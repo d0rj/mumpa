@@ -35,6 +35,216 @@ class CoverArt extends StatelessWidget {
   );
 }
 
+bool hasArtistPage(String artist) {
+  final name = artist.trim().toLowerCase();
+  return name.isNotEmpty &&
+      !const {
+        'неизвестный исполнитель',
+        'неизвестен',
+        'unknown artist',
+        'unknown',
+      }.contains(name);
+}
+
+class ArtistLink extends StatelessWidget {
+  const ArtistLink({
+    super.key,
+    required this.artist,
+    required this.onOpen,
+    this.style = const TextStyle(color: muted, fontSize: 12),
+    this.maxLines = 1,
+  });
+
+  final String artist;
+  final VoidCallback? onOpen;
+  final TextStyle style;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) {
+    final open = hasArtistPage(artist) ? onOpen : null;
+    return Semantics(
+      button: open != null,
+      label: open == null ? null : 'Исполнитель $artist',
+      child: InkWell(
+        onTap: open,
+        borderRadius: BorderRadius.circular(3),
+        mouseCursor: open == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: Text(
+          artist,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+    );
+  }
+}
+
+class AsyncCoverArt extends StatefulWidget {
+  const AsyncCoverArt({
+    super.key,
+    required this.requestKey,
+    required this.load,
+    required this.seed,
+    this.path,
+    this.size = 64,
+    this.radius = 8,
+  });
+
+  final String requestKey, seed;
+  final Future<String?> Function() load;
+  final String? path;
+  final double size, radius;
+
+  @override
+  State<AsyncCoverArt> createState() => _AsyncCoverArtState();
+}
+
+class _AsyncCoverArtState extends State<AsyncCoverArt> {
+  late Future<String?> _cover;
+
+  @override
+  void initState() {
+    super.initState();
+    _cover = widget.path != null ? Future.value(widget.path) : widget.load();
+  }
+
+  @override
+  void didUpdateWidget(AsyncCoverArt oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.requestKey != widget.requestKey ||
+        oldWidget.path != widget.path) {
+      _cover = widget.path != null ? Future.value(widget.path) : widget.load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String?>(
+    key: ValueKey(widget.requestKey),
+    future: _cover,
+    builder: (_, snapshot) => CoverArt(
+      seed: widget.seed,
+      path: widget.path ?? snapshot.data,
+      size: widget.size,
+      radius: widget.radius,
+    ),
+  );
+}
+
+/// A decorative playback indicator; its motion follows the player state.
+class PlayingIndicator extends StatefulWidget {
+  const PlayingIndicator({
+    super.key,
+    required this.playing,
+    this.size = 20,
+    this.color = accent,
+  });
+
+  final bool playing;
+  final double size;
+  final Color color;
+
+  @override
+  State<PlayingIndicator> createState() => _PlayingIndicatorState();
+}
+
+class _PlayingIndicatorState extends State<PlayingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1800),
+  );
+  bool _reduceMotion = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    _syncAnimation();
+  }
+
+  @override
+  void didUpdateWidget(PlayingIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    if (widget.playing && !_reduceMotion) {
+      if (!_animation.isAnimating) _animation.repeat();
+    } else {
+      _animation.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: widget.playing ? 'Сейчас играет' : 'На паузе',
+    child: SizedBox.square(
+      dimension: widget.size,
+      child: RepaintBoundary(
+        child: CustomPaint(
+          painter: _EqualizerPainter(
+            animation: _animation,
+            color: widget.color,
+            animated: widget.playing && !_reduceMotion,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _EqualizerPainter extends CustomPainter {
+  _EqualizerPainter({
+    required this.animation,
+    required this.color,
+    required this.animated,
+  }) : super(repaint: animation);
+
+  final Animation<double> animation;
+  final Color color;
+  final bool animated;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = size.width * .12;
+    final gap = size.width * .075;
+    final left = (size.width - width * 5 - gap * 4) / 2;
+    final paint = Paint()..color = color;
+    for (var i = 0; i < 5; i++) {
+      final phase = i * 1.13;
+      final pulse = animated
+          ? (math.sin(animation.value * math.pi * 2 * (i % 3 + 1) + phase) +
+                    1) /
+                2
+          : const [.35, .7, 1.0, .6, .3][i];
+      final height = size.height * (.18 + .72 * pulse);
+      final x = left + i * (width + gap);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, (size.height - height) / 2, width, height),
+          Radius.circular(width / 2),
+        ),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EqualizerPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.animated != animated;
+}
+
 class _CoverPainter extends CustomPainter {
   _CoverPainter(this.seed);
   final String seed;
@@ -118,9 +328,11 @@ class AlbumCard extends StatefulWidget {
     required this.album,
     required this.onOpen,
     required this.onPlay,
+    this.onArtist,
   });
   final Album album;
   final VoidCallback onOpen, onPlay;
+  final VoidCallback? onArtist;
   @override
   State<AlbumCard> createState() => _AlbumCardState();
 }
@@ -195,12 +407,7 @@ class _AlbumCardState extends State<AlbumCard> {
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 3),
-            Text(
-              widget.album.artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: muted, fontSize: 12),
-            ),
+            ArtistLink(artist: widget.album.artist, onOpen: widget.onArtist),
           ],
         ),
       ),
@@ -224,17 +431,61 @@ class BadgePill extends StatelessWidget {
       children: [
         Icon(icon, size: 12, color: accent),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
+        Flexible(
+          child: Tooltip(
+            message: label,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ],
     ),
   );
+}
+
+class PlaylistFavoriteButton extends StatelessWidget {
+  const PlaylistFavoriteButton({
+    super.key,
+    required this.app,
+    required this.playlistId,
+    this.label = false,
+  });
+
+  final AppController app;
+  final String playlistId;
+  final bool label;
+
+  @override
+  Widget build(BuildContext context) {
+    final liked = app.library.isPlaylistLiked(playlistId);
+    final icon = Icon(
+      liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      color: liked ? accent : muted,
+      size: 20,
+    );
+    final description = liked ? 'Убрать из любимого' : 'В любимое';
+    return label
+        ? OutlinedButton.icon(
+            key: ValueKey('favorite-playlist-$playlistId'),
+            onPressed: () => app.library.togglePlaylistLike(playlistId),
+            icon: icon,
+            label: Text(liked ? 'В любимом' : 'В любимое'),
+          )
+        : IconButton(
+            key: ValueKey('favorite-playlist-$playlistId'),
+            onPressed: () => app.library.togglePlaylistLike(playlistId),
+            tooltip: description,
+            icon: icon,
+          );
+  }
 }
 
 class SectionTitle extends StatelessWidget {
@@ -364,14 +615,18 @@ class TrackList extends SliverContent {
                             ),
                           )
                         : active
-                        ? Icon(
-                            app.playback.playing
-                                ? Icons.graphic_eq
-                                : app.playback.stopped
-                                ? Icons.play_arrow_rounded
-                                : Icons.pause_rounded,
-                            size: 18,
-                            color: accent,
+                        ? Center(
+                            child: app.playback.stopped
+                                ? const Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 18,
+                                    color: accent,
+                                  )
+                                : PlayingIndicator(
+                                    key: ValueKey('playing-wave-${t.id}'),
+                                    playing: app.playback.playing,
+                                    size: 20,
+                                  ),
                           )
                         : Text(
                             '${i + 1}',
@@ -396,10 +651,9 @@ class TrackList extends SliverContent {
                             color: active ? accent : Colors.white,
                           ),
                         ),
-                        Text(
-                          t.artist,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        ArtistLink(
+                          artist: t.artist,
+                          onOpen: () => app.openArtist(t.artist),
                           style: const TextStyle(color: muted, fontSize: 11),
                         ),
                       ],
@@ -524,10 +778,11 @@ class TrackList extends SliverContent {
                             'В текущий плейлист «${app.currentPlaylist!.name}»',
                           ),
                         ),
-                      const PopupMenuItem(
-                        value: 'artist',
-                        child: Text('Все треки исполнителя'),
-                      ),
+                      if (hasArtistPage(t.artist))
+                        const PopupMenuItem(
+                          value: 'artist',
+                          child: Text('Все треки исполнителя'),
+                        ),
                       if (t.source == TrackSource.torrent &&
                           t.cachedPath == null)
                         const PopupMenuItem(

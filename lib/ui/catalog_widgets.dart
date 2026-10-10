@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../data/rutracker_service.dart';
 import '../domain/models.dart';
+import '../domain/music_metadata.dart';
 import '../logic/app_controller.dart';
 import 'components.dart';
 import 'jackett_setup.dart';
@@ -303,24 +305,286 @@ class ReleaseRows extends SliverContent {
     count: releases.length,
     builder: (context, i) {
       final item = releases[i];
+      final artist = inferredReleaseArtist(item.title);
+      final formats = describeReleaseFormats(item.title);
       return ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
-        leading: CoverArt(seed: item.title, size: 48),
+        leading: AsyncCoverArt(
+          key: ValueKey('release-art-${item.link}'),
+          requestKey: '${app.metadata.cache.generation}:${item.title}',
+          load: () => app.metadata.coverForReleaseTitle(item.title),
+          seed: item.title,
+          size: 48,
+        ),
         title: Text(
           item.title,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         ),
-        subtitle: Text(
-          '${item.bytes > 0 ? '${formatBytes(item.bytes)} · ' : ''}${item.seedersKnown ? '${item.seeders} сидов' : 'Сиды неизвестны'}${item.indexerName.isNotEmpty ? ' · ${item.indexerName}' : ''}${item.category.isNotEmpty ? ' · ${item.category}' : ''}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: muted, fontSize: 11),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (artist != null)
+              ArtistLink(
+                artist: artist,
+                onOpen: () => app.openArtist(artist),
+                style: const TextStyle(color: muted, fontSize: 11),
+              ),
+            Text(
+              '${formats.isNotEmpty ? '$formats · ' : ''}${item.bytes > 0 ? '${formatBytes(item.bytes)} · ' : ''}${item.seedersKnown ? '${item.seeders} сидов' : 'Сиды неизвестны'}${item.indexerName.isNotEmpty ? ' · ${item.indexerName}' : ''}${item.category.isNotEmpty ? ' · ${item.category}' : ''}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: muted, fontSize: 11),
+            ),
+          ],
         ),
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: app.busy != null ? null : () => app.openRelease(item),
       );
     },
   );
+}
+
+class RecordingRows extends SliverContent {
+  const RecordingRows({super.key, required this.app, required this.recordings});
+  final AppController app;
+  final List<MusicRecording> recordings;
+
+  @override
+  Widget build(BuildContext context) => LazyRows(
+    count: recordings.length,
+    builder: (context, index) {
+      final recording = recordings[index];
+      final selected = app.selectedRecording?.id == recording.id;
+      return ListTile(
+        key: ValueKey('recording-${recording.id}'),
+        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: const Color(0xFF283629),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.music_note_rounded, color: accent),
+        ),
+        title: Text(
+          recording.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+            color: selected ? accent : Colors.white,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ArtistLink(
+              artist: recording.artist,
+              onOpen: () => app.openArtist(recording.catalogArtist),
+              style: const TextStyle(color: muted, fontSize: 11),
+            ),
+            if (recording.albumTitles.isNotEmpty)
+              Text(
+                recording.albumTitles.take(3).join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: muted, fontSize: 11),
+              ),
+            if (recording.disambiguation.isNotEmpty)
+              Text(
+                recording.disambiguation,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: muted, fontSize: 11),
+              ),
+          ],
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () {
+          app.setTrackSearchMode(true);
+          if (app.page != AppPage.search) app.navigate(AppPage.search);
+          unawaited(app.findRecordingVersions(recording));
+        },
+      );
+    },
+  );
+}
+
+class TrackVariantRows extends SliverContent {
+  const TrackVariantRows({super.key, required this.app});
+  final AppController app;
+
+  @override
+  Widget build(BuildContext context) =>
+      _TrackVariantContent(key: ValueKey(app.selectedRecording?.id), app: app);
+}
+
+class _TrackVariantContent extends StatefulWidget {
+  const _TrackVariantContent({super.key, required this.app});
+  final AppController app;
+
+  @override
+  State<_TrackVariantContent> createState() => _TrackVariantContentState();
+}
+
+class _TrackVariantContentState extends State<_TrackVariantContent> {
+  String? _format;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = widget.app;
+    final formats = app.trackVariants.map((v) => v.format).toSet().toList()
+      ..sort();
+    final selected = formats.contains(_format) ? _format : null;
+    final variants = app.trackVariants
+        .where((variant) => selected == null || variant.format == selected)
+        .toList();
+    return SliverMainAxisGroup(
+      slivers: [
+        if (formats.length > 1)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Все форматы'),
+                    selected: selected == null,
+                    onSelected: (_) => setState(() => _format = null),
+                  ),
+                  for (final format in formats)
+                    ChoiceChip(
+                      label: Text(format),
+                      selected: selected == format,
+                      onSelected: (_) => setState(() => _format = format),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        SliverList.builder(
+          itemCount: variants.length,
+          itemBuilder: (_, index) {
+            final variant = variants[index];
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Material(
+                color: const Color(0xFF222B23),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  key: ValueKey(
+                    'track-variant-${variant.track.id}-${variant.release.link}',
+                  ),
+                  onTap: app.busy == null
+                      ? () => app.playTrackVariant(variant)
+                      : null,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        AsyncCoverArt(
+                          requestKey:
+                              '${app.metadata.cache.generation}:${variant.release.title}',
+                          load: () => app.metadata.coverForReleaseTitle(
+                            variant.release.title,
+                          ),
+                          seed: variant.track.album,
+                          path: variant.track.artPath,
+                          size: 48,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                variant.track.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 5,
+                                children: [
+                                  BadgePill(
+                                    icon: Icons.audio_file_rounded,
+                                    label: variant.format,
+                                  ),
+                                  if (variant.edition.isNotEmpty)
+                                    BadgePill(
+                                      icon: Icons.info_outline_rounded,
+                                      label: variant.edition,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                variant.release.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: muted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                '${formatBytes(variant.track.bytes)}'
+                                '${variant.release.seedersKnown ? ' · ${variant.release.seeders} сидов' : ''}',
+                                style: const TextStyle(
+                                  color: muted,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton.filled(
+                          onPressed: app.busy == null
+                              ? () => app.playTrackVariant(variant)
+                              : null,
+                          tooltip: 'Слушать эту версию',
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          style: IconButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          tooltip: 'Действия с версией',
+                          enabled: app.busy == null,
+                          onSelected: (action) {
+                            if (action == 'queue') {
+                              unawaited(app.enqueueTrackVariant(variant));
+                            }
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'queue',
+                              child: Text('Добавить в очередь'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
 }

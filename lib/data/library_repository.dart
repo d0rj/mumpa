@@ -16,6 +16,7 @@ class LibraryRepository extends ChangeNotifier {
   List<Track> _tracks = [];
   List<MusicPlaylist> _playlists = [];
   Set<String> _liked = {};
+  Set<String> _likedPlaylists = {};
   List<String> _recent = [];
   Map<String, dynamic> _settings = {};
   Future<void> _writeTail = Future.value();
@@ -23,6 +24,11 @@ class LibraryRepository extends ChangeNotifier {
   List<Track> get tracks => List.unmodifiable(_tracks);
   List<MusicPlaylist> get playlists => List.unmodifiable(_playlists);
   Set<String> get liked => Set.unmodifiable(_liked);
+  Set<String> get likedPlaylists => Set.unmodifiable(_likedPlaylists);
+  List<MusicPlaylist> get favoritePlaylists => List.unmodifiable(
+    _playlists.where((playlist) => _likedPlaylists.contains(playlist.id)),
+  );
+  bool isPlaylistLiked(String id) => _likedPlaylists.contains(id);
   List<String> get recent => List.unmodifiable(_recent);
   Map<String, dynamic> get settings => Map.unmodifiable(_settings);
   Directory get downloads => Directory(p.join(root.path, 'downloads'));
@@ -45,6 +51,9 @@ class LibraryRepository extends ChangeNotifier {
             )
             .toList();
         _liked = Set<String>.from((j['liked'] as List?) ?? []);
+        final playlistIds = _playlists.map((playlist) => playlist.id).toSet();
+        _likedPlaylists = Set<String>.from((j['likedPlaylists'] as List?) ?? [])
+          ..removeWhere((id) => !playlistIds.contains(id));
         _recent = List<String>.from((j['recent'] as List?) ?? []);
         _settings = Map<String, dynamic>.from((j['settings'] as Map?) ?? {});
         if (name.endsWith('.bak')) {
@@ -75,6 +84,7 @@ class LibraryRepository extends ChangeNotifier {
       'tracks': _tracks.map((t) => t.toJson()).toList(),
       'playlists': _playlists.map((t) => t.toJson()).toList(),
       'liked': _liked.toList(),
+      'likedPlaylists': _likedPlaylists.toList(),
       'recent': _recent,
       'settings': _settings,
     });
@@ -124,6 +134,13 @@ class LibraryRepository extends ChangeNotifier {
 
   Future<void> toggleLike(String id) async {
     if (!_liked.add(id)) _liked.remove(id);
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> togglePlaylistLike(String id) async {
+    if (!_playlists.any((playlist) => playlist.id == id)) return;
+    if (!_likedPlaylists.add(id)) _likedPlaylists.remove(id);
     notifyListeners();
     await _save();
   }
@@ -182,6 +199,7 @@ class LibraryRepository extends ChangeNotifier {
 
   Future<void> deletePlaylist(String id) async {
     _playlists.removeWhere((l) => l.id == id);
+    _likedPlaylists.remove(id);
     notifyListeners();
     await _save();
   }

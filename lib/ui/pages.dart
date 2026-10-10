@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
 import '../domain/models.dart';
+import '../domain/music_metadata.dart';
 import '../data/rutracker_service.dart';
 import 'catalog_widgets.dart';
 import 'jackett_setup.dart';
@@ -19,13 +20,7 @@ class ContentPage extends StatelessWidget {
     AppPage.home => _HomePage(app),
     AppPage.library => _LibraryPage(app),
     AppPage.search => _SearchPage(app),
-    AppPage.liked => _TrackCollection(
-      app: app,
-      title: 'Любимые треки',
-      eyebrow: 'ТВОЯ КОЛЛЕКЦИЯ',
-      tracks: app.likedTracks,
-      icon: Icons.favorite_rounded,
-    ),
+    AppPage.liked => _LikedPage(app),
     AppPage.downloads => _DownloadsPage(app),
     AppPage.settings => SettingsPage(key: const ValueKey('settings'), app: app),
     AppPage.album =>
@@ -44,19 +39,7 @@ class ContentPage extends StatelessWidget {
       icon: Icons.queue_music_rounded,
       playlistId: app.playlist?.id,
     ),
-    AppPage.artist => _TrackCollection(
-      app: app,
-      title: app.selectedArtist ?? '',
-      eyebrow: 'ИСПОЛНИТЕЛЬ',
-      tracks: app.library.tracks
-          .where(
-            (t) =>
-                t.artist == app.selectedArtist ||
-                t.albumArtist == app.selectedArtist,
-          )
-          .toList(),
-      icon: Icons.person_rounded,
-    ),
+    AppPage.artist => _ArtistPage(app),
   };
 }
 
@@ -110,6 +93,7 @@ class _AlbumGrid extends SliverContent {
         album: items[i],
         onOpen: () => app.openAlbum(items[i]),
         onPlay: () => app.playback.playTracks(items[i].tracks),
+        onArtist: () => app.openArtist(items[i].artist),
       ),
     ),
   );
@@ -328,8 +312,9 @@ class _LibraryPage extends StatelessWidget {
 }
 
 class _PlaylistGrid extends SliverContent {
-  const _PlaylistGrid(this.app);
+  const _PlaylistGrid(this.app, {this.playlists});
   final AppController app;
+  final List<MusicPlaylist>? playlists;
   @override
   Widget build(BuildContext context) => SliverGrid.builder(
     gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
@@ -338,9 +323,9 @@ class _PlaylistGrid extends SliverContent {
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
     ),
-    itemCount: app.library.playlists.length,
+    itemCount: (playlists ?? app.library.playlists).length,
     itemBuilder: (_, i) {
-      final list = app.library.playlists[i];
+      final list = (playlists ?? app.library.playlists)[i];
       return Material(
         color: const Color(0xFF202621),
         borderRadius: BorderRadius.circular(12),
@@ -365,14 +350,317 @@ class _PlaylistGrid extends SliverContent {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${list.trackIds.length} треков',
+                        '${list.sourceHash == null ? 'Плейлист' : 'Коллекция'} · ${list.trackIds.length} треков',
                         style: const TextStyle(color: muted, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
+                PlaylistFavoriteButton(app: app, playlistId: list.id),
               ],
             ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _LikedPage extends StatelessWidget {
+  const _LikedPage(this.app);
+  final AppController app;
+
+  @override
+  Widget build(BuildContext context) => _PageBody(
+    children: [
+      const SectionTitle(
+        'Любимое',
+        subtitle:
+            'Треки, плейлисты и коллекции, к которым хочется возвращаться',
+      ),
+      if (app.library.favoritePlaylists.isNotEmpty) ...[
+        const SectionTitle('Плейлисты и коллекции'),
+        _PlaylistGrid(app, playlists: app.library.favoritePlaylists),
+      ],
+      SectionTitle(
+        'Любимые треки',
+        subtitle: '${app.likedTracks.length} треков',
+        action: app.likedTracks.isEmpty
+            ? null
+            : FilledButton.icon(
+                onPressed: () => app.playCollection(app.likedTracks),
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: const Text('Слушать'),
+              ),
+      ),
+      if (app.likedTracks.isNotEmpty)
+        TrackList(app: app, tracks: app.likedTracks)
+      else
+        EmptyState(
+          icon: Icons.favorite_border_rounded,
+          title: app.library.favoritePlaylists.isEmpty
+              ? 'Сохрани музыку в любимое'
+              : 'Любимых треков пока нет',
+          description: app.library.favoritePlaylists.isEmpty
+              ? 'Сердечко у трека, плейлиста или коллекции добавит их сюда.'
+              : 'Нажми сердечко у трека, чтобы сохранить его здесь.',
+        ),
+    ],
+  );
+}
+
+class _ArtistPage extends StatelessWidget {
+  const _ArtistPage(this.app);
+  final AppController app;
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = app.artistProfile;
+    final name = profile?.name ?? app.selectedArtist ?? 'Исполнитель';
+    final tracks = app.artistTracks;
+    final albums = app.artistAlbums;
+    return _PageBody(
+      children: [
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(26),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF365342), Color(0xFF18251D)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: LayoutBuilder(
+            builder: (_, constraints) {
+              final wide = constraints.maxWidth > 520;
+              final information = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'ИСПОЛНИТЕЛЬ',
+                    style: TextStyle(
+                      fontSize: 10,
+                      letterSpacing: 1.7,
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    name,
+                    key: const ValueKey('artist-title'),
+                    style: TextStyle(
+                      fontSize: wide ? 44 : 28,
+                      height: 1.15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${tracks.length} треков · ${albums.length} альбомов в медиатеке',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  if (profile != null) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      [
+                        if (profile.type.isNotEmpty) _artistType(profile.type),
+                        if (profile.country.isNotEmpty) profile.country,
+                        if (profile.disambiguation.isNotEmpty)
+                          profile.disambiguation,
+                      ].join(' · '),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              );
+              final avatar = Container(
+                width: wide ? 130 : 82,
+                height: wide ? 130 : 82,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: .08),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .12),
+                  ),
+                ),
+                child: Icon(
+                  profile?.type == 'Group'
+                      ? Icons.groups_rounded
+                      : Icons.person_rounded,
+                  size: wide ? 65 : 42,
+                  color: accent,
+                ),
+              );
+              return wide
+                  ? Row(
+                      children: [
+                        avatar,
+                        const SizedBox(width: 26),
+                        Expanded(child: information),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        avatar,
+                        const SizedBox(height: 20),
+                        information,
+                      ],
+                    );
+            },
+          ),
+        ),
+        const SizedBox(height: 24),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            FilledButton.icon(
+              key: const ValueKey('play-artist'),
+              onPressed: tracks.isEmpty
+                  ? null
+                  : () => app.playCollection(tracks),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Слушать'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                app.setTrackSearchMode(false);
+                app.setQuery(name);
+                app.navigate(AppPage.search);
+                unawaited(app.searchSources());
+              },
+              icon: const Icon(Icons.search_rounded, size: 18),
+              label: const Text('Найти в источниках'),
+            ),
+          ],
+        ),
+        if (tracks.isNotEmpty) ...[
+          const SectionTitle('Треки в твоей медиатеке'),
+          TrackList(app: app, tracks: tracks),
+        ],
+        if (albums.isNotEmpty) ...[
+          const SectionTitle('Твои альбомы'),
+          albumGrid(app, albums),
+        ],
+        if (app.artistLoading) ...[
+          const SectionTitle('Узнаём исполнителя'),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+        if (app.artistError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Text(
+              app.artistError!,
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+          ),
+        if (profile != null && profile.albums.isNotEmpty) ...[
+          const SectionTitle(
+            'Дискография',
+            subtitle:
+                'MusicBrainz · выбери альбом, чтобы найти его в источниках',
+          ),
+          _DiscographyGrid(app, profile.albums),
+        ],
+        if (profile != null && profile.recordings.isNotEmpty) ...[
+          const SectionTitle(
+            'Треки из каталога',
+            subtitle: 'Выбери трек для поиска доступных версий',
+          ),
+          RecordingRows(app: app, recordings: profile.recordings),
+        ],
+        if (profile != null) ...[
+          SectionTitle(
+            'Об исполнителе',
+            subtitle: 'Метаданные: MusicBrainz · обложки: Cover Art Archive',
+          ),
+          if (profile.aliases.isNotEmpty)
+            Text(
+              'Также известен как: ${profile.aliases.take(8).join(', ')}',
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+        ] else if (!app.artistLoading && tracks.isEmpty)
+          const EmptyState(
+            icon: Icons.person_search_rounded,
+            title: 'Пока нет треков этого исполнителя',
+            description:
+                'Найди его альбом в подключённых источниках или добавь локальные файлы.',
+          ),
+      ],
+    );
+  }
+}
+
+String _artistType(String type) => switch (type) {
+  'Group' => 'Группа',
+  'Person' => 'Исполнитель',
+  'Orchestra' => 'Оркестр',
+  'Choir' => 'Хор',
+  _ => type,
+};
+
+class _DiscographyGrid extends SliverContent {
+  const _DiscographyGrid(this.app, this.groups);
+  final AppController app;
+  final List<MusicReleaseGroup> groups;
+
+  @override
+  Widget build(BuildContext context) => SliverGrid.builder(
+    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 220,
+      childAspectRatio: .75,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+    ),
+    itemCount: groups.length,
+    itemBuilder: (_, index) {
+      final group = groups[index];
+      return InkWell(
+        key: ValueKey('discography-${group.id}'),
+        onTap: () => app.searchAlbumMetadata(group),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (_, constraints) => AsyncCoverArt(
+                    requestKey:
+                        '${app.metadata.cache.generation}:release-group-${group.id}',
+                    load: () => app.metadata.coverForGroup(group.id),
+                    seed: group.title,
+                    size: constraints.maxWidth,
+                    radius: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                group.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                [
+                  if (group.year.isNotEmpty) group.year,
+                  if (group.type.isNotEmpty) group.type,
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: muted),
+              ),
+            ],
           ),
         ),
       );
@@ -414,14 +702,12 @@ class _AlbumPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              InkWell(
-                onTap: () => app.openArtist(album.artist),
-                child: Text(
-                  album.artist,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
+              ArtistLink(
+                artist: album.artist,
+                onOpen: () => app.openArtist(album.artist),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 8),
@@ -577,6 +863,7 @@ class _TrackCollection extends StatelessWidget {
       const SizedBox(height: 24),
       Wrap(
         spacing: 14,
+        runSpacing: 12,
         children: [
           FilledButton.icon(
             onPressed: tracks.isEmpty
@@ -597,6 +884,12 @@ class _TrackCollection extends StatelessWidget {
                   : null,
               icon: const Icon(Icons.download_rounded),
               label: const Text('Скачать коллекцию'),
+            ),
+          if (playlistId != null)
+            PlaylistFavoriteButton(
+              app: app,
+              playlistId: playlistId!,
+              label: true,
             ),
           if (playlistId != null)
             PopupMenuButton<String>(
@@ -667,6 +960,33 @@ class _SearchPage extends StatelessWidget {
         spacing: 8,
         runSpacing: 8,
         children: [
+          ChoiceChip(
+            key: const ValueKey('search-releases-mode'),
+            label: const Text('Альбомы и коллекции'),
+            selected: !app.trackSearchMode,
+            onSelected: (_) => app.setTrackSearchMode(false),
+          ),
+          ChoiceChip(
+            key: const ValueKey('search-tracks-mode'),
+            label: const Text('Треки'),
+            selected: app.trackSearchMode,
+            onSelected: (_) => app.setTrackSearchMode(true),
+          ),
+        ],
+      ),
+      if (app.trackSearchMode)
+        const Padding(
+          padding: EdgeInsets.only(top: 12),
+          child: Text(
+            'MusicBrainz помогает найти трек и его альбомы. Доступные версии ищем в твоих источниках и проверяем по именам аудиофайлов.',
+            style: TextStyle(color: muted, fontSize: 12),
+          ),
+        ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
           FilledButton.icon(
             onPressed: app.searching ? null : app.searchSources,
             icon: app.searching
@@ -677,7 +997,11 @@ class _SearchPage extends StatelessWidget {
                   )
                 : const Icon(Icons.search_rounded, size: 18),
             label: Text(
-              app.usesIndexer ? 'Искать через Jackett' : 'Искать на RuTracker',
+              app.trackSearchMode
+                  ? 'Искать треки'
+                  : app.usesIndexer
+                  ? 'Искать через Jackett'
+                  : 'Искать на RuTracker',
             ),
           ),
           if (!app.usesIndexer && app.catalog.username == null)
@@ -687,11 +1011,79 @@ class _SearchPage extends StatelessWidget {
             ),
         ],
       ),
-      if (app.query.trim().isEmpty)
+      if (app.trackSearchMode && app.selectedRecording != null) ...[
+        SectionTitle(
+          'Версии «${app.selectedRecording!.title}»',
+          subtitle: app.selectedRecording!.artist,
+          action: app.versionLoading
+              ? TextButton(
+                  onPressed: app.cancelVersionSearch,
+                  child: const Text('Отменить'),
+                )
+              : null,
+        ),
+        if (app.versionLoading) const LinearProgressIndicator(minHeight: 2),
+        if (app.versionStatus != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              app.versionStatus!,
+              style: const TextStyle(color: muted, fontSize: 12),
+            ),
+          ),
+        if (app.versionError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              app.versionError!,
+              style: const TextStyle(color: Color(0xFFFF9292), fontSize: 12),
+            ),
+          ),
+        if (app.trackVariants.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Выбери формат и раздачу. Метки Clean и «без цензуры» взяты из описания версии.',
+              style: TextStyle(color: muted, fontSize: 11),
+            ),
+          ),
+          TrackVariantRows(app: app),
+        ],
+      ],
+      if (app.query.trim().isEmpty && !app.trackSearchMode)
         ...(app.usesIndexer
             ? sourceContent(context, app)
             : catalogContent(context, app))
-      else ...[
+      else if (app.trackSearchMode) ...[
+        if (app.metadataError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              app.metadataError!,
+              style: const TextStyle(color: Color(0xFFFF9292), fontSize: 12),
+            ),
+          ),
+        SectionTitle(
+          'Треки в MusicBrainz',
+          subtitle: app.searching
+              ? 'Ищем…'
+              : app.recordingResults.isNotEmpty
+              ? 'Найдено: ${app.recordingResults.length}'
+              : 'Введи название трека и исполнителя',
+        ),
+        if (app.recordingResults.isNotEmpty)
+          RecordingRows(app: app, recordings: app.recordingResults)
+        else if (!app.searching &&
+            app.searchCompleted &&
+            app.metadataError == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Треки не найдены. Попробуй добавить имя исполнителя или поискать альбом в источниках.',
+              style: TextStyle(color: muted),
+            ),
+          ),
+      ] else ...[
         if (app.indexerNotice != null)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -702,6 +1094,8 @@ class _SearchPage extends StatelessWidget {
           ),
         if (!app.usesIndexer && app.catalogError != null)
           CatalogNotice(app: app),
+      ],
+      if (app.query.trim().isNotEmpty && !app.trackSearchMode) ...[
         SectionTitle(
           app.usesIndexer ? 'В трекерах Jackett' : 'На RuTracker',
           subtitle: app.searching
@@ -722,6 +1116,8 @@ class _SearchPage extends StatelessWidget {
               style: const TextStyle(color: muted),
             ),
           ),
+      ],
+      if (app.query.trim().isNotEmpty) ...[
         SectionTitle(
           'В твоей медиатеке',
           subtitle: 'Найдено: ${app.searchTracks.length}',
@@ -858,6 +1254,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    unawaited(widget.app.refreshMetadataCache());
     if (Platform.isWindows) {
       unawaited(widget.app.refreshTorrentNetworks());
     }
@@ -888,6 +1285,53 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) => _PageBody(
     children: [
       const SectionTitle('Настройки', subtitle: 'Сделай Mumpa своей'),
+      if (widget.app.windowsPlayer != null)
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionTitle('Плеер в Windows'),
+              const Text(
+                'Крестик скрывает Mumpa в трее, и музыка продолжает играть. '
+                'Нажми значок в трее, чтобы вернуть окно. '
+                'Кнопки на колонках и под превью на панели задач управляют плеером.',
+                style: TextStyle(color: muted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                key: const ValueKey('quit-mumpa'),
+                onPressed: widget.app.windowsPlayer!.available
+                    ? () async {
+                        try {
+                          await widget.app.windowsPlayer!.requestQuit();
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Не удалось завершить Mumpa. Попробуй ещё раз.',
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    : null,
+                icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+                label: const Text('Завершить Mumpa'),
+              ),
+              if (!widget.app.windowsPlayer!.available)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Управление через Windows сейчас недоступно.',
+                    style: TextStyle(color: muted, fontSize: 12),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 680),
         child: Column(
@@ -1154,7 +1598,72 @@ class _SettingsPageState extends State<SettingsPage> {
               },
               child: const Text('Сохранить лимит'),
             ),
-            const SectionTitle('Mumpa 1.1'),
+            const SectionTitle('Обложки и музыкальные метаданные'),
+            const Text(
+              'MusicBrainz помогает сопоставлять исполнителей и альбомы. '
+              'Cover Art Archive предоставляет обложки. Данные сохраняются на диске; '
+              'при заполнении кеша удаляются самые старые записи.',
+              style: TextStyle(color: muted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: ValueKey(
+                'metadata-cache-${widget.app.library.settings['metadataCacheMb'] ?? 256}',
+              ),
+              initialValue:
+                  widget.app.library.settings['metadataCacheMb'] as int? ?? 256,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Лимит кеша обложек и метаданных',
+              ),
+              items: [
+                for (final mb in {
+                  64,
+                  128,
+                  256,
+                  512,
+                  1024,
+                  widget.app.library.settings['metadataCacheMb'] as int? ?? 256,
+                }.toList()..sort())
+                  DropdownMenuItem(value: mb, child: Text('$mb МБ')),
+              ],
+              onChanged: widget.app.cacheBusy
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        unawaited(widget.app.setMetadataCacheLimit(value));
+                      }
+                    },
+            ),
+            const SizedBox(height: 12),
+            if (widget.app.cacheStats != null)
+              Text(
+                '${formatBytes(widget.app.cacheStats!.bytes)} из '
+                '${formatBytes(widget.app.cacheStats!.maxBytes)} · '
+                '${widget.app.cacheStats!.count} записей',
+                style: const TextStyle(color: muted, fontSize: 12),
+              ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                TextButton.icon(
+                  key: const ValueKey('clear-metadata-cache'),
+                  onPressed: widget.app.cacheBusy
+                      ? null
+                      : widget.app.clearMetadataCache,
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  label: const Text('Очистить кеш'),
+                ),
+                TextButton(
+                  onPressed: widget.app.cacheBusy
+                      ? null
+                      : widget.app.refreshMetadataCache,
+                  child: const Text('Обновить размер'),
+                ),
+              ],
+            ),
+            const SectionTitle('Mumpa'),
             const Text(
               'Музыка из твоих файлов и источников.\nДемо Mumpa Sessions — оригинальные синтезированные фрагменты.\nFlutter · media_kit · TorrServer MatriX.145.2',
               style: TextStyle(color: muted, fontSize: 12),
@@ -1164,7 +1673,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => showLicensePage(
                 context: context,
                 applicationName: 'Mumpa',
-                applicationVersion: '1.1.5',
+                applicationVersion: '1.2.0',
                 applicationLegalese:
                     'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
               ),

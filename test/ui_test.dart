@@ -134,7 +134,7 @@ void main() {
         await tester.tap(find.byKey(const Key('play-album')));
         await Future<void>.delayed(const Duration(milliseconds: 100));
       });
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 250));
       expect(app.playback.current, isNotNull);
       app.navigate(AppPage.search);
       await tester.pumpAndSettle();

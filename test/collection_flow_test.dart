@@ -183,7 +183,7 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 10));
         }
       });
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 250));
       expect(app.playback.current!.id, second.id);
       expect(app.playback.playing, isTrue);
       expect(downloads.requested, [second.id]);

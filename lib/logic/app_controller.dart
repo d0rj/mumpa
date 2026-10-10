@@ -11,7 +11,12 @@ import '../data/rutracker_service.dart';
 import '../data/torrent_service.dart';
 import '../data/torrent_network.dart';
 import '../data/source_operation.dart';
+import '../data/media_cache.dart';
+import '../data/music_metadata_repository.dart';
+import '../data/track_search_service.dart';
+import '../data/windows_player_service.dart';
 import '../domain/models.dart';
+import '../domain/music_metadata.dart';
 import 'playback_controller.dart';
 
 enum AppPage {
@@ -41,10 +46,23 @@ class AppController extends ChangeNotifier {
     RuTrackerService? catalog,
     JackettService? jackett,
     FlareSolverrService? flaresolverr,
+    MusicMetadataRepository? metadata,
   }) : indexer = indexer ?? IndexerService(),
        catalog = catalog ?? RuTrackerService(),
        jackett = jackett ?? JackettService(library.root),
-       flaresolverr = flaresolverr ?? FlareSolverrService(library.root) {
+       flaresolverr = flaresolverr ?? FlareSolverrService(library.root),
+       metadata =
+           metadata ??
+           MusicMetadataRepository(
+             cache: DiskMediaCache(
+               Directory('${library.root.path}/metadata'),
+               maxBytes:
+                   ((library.settings['metadataCacheMb'] as num?)?.toInt() ??
+                       256) *
+                   1024 *
+                   1024,
+             ),
+           ) {
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
@@ -58,6 +76,126 @@ class AppController extends ChangeNotifier {
   final RuTrackerService catalog;
   final JackettService jackett;
   final FlareSolverrService flaresolverr;
+  final MusicMetadataRepository metadata;
+  WindowsPlayerService? windowsPlayer;
+  Future<void>? _shutdown;
+  Future<void>? _catalogDisposal, _jackettStop, _flaresolverrStop;
+  Future<void> shutdown() => _shutdown ??= _shutdownApplication();
+  Future<void> _shutdownApplication() async {
+    // A failed save or service must not prevent the remaining resources from
+    // being released, or leave the Windows quit handshake permanently blocked.
+    await _shutdownStep('downloads', downloads.close);
+    await _shutdownStep('playback', playback.close);
+    await _shutdownStep('torrent engine', engine.stop);
+    await _stopJackett();
+    await _stopFlareSolverr();
+    await _disposeCatalog();
+    await _shutdownStep('library flush', library.flush);
+    dispose();
+    _disposeStep('torrent client', torrents.dispose);
+  }
+
+  Future<void> _shutdownStep(
+    String stage,
+    FutureOr<void> Function() cleanup,
+  ) async {
+    try {
+      await cleanup();
+    } catch (_) {
+      // Third-party errors may contain URLs, cookies or credentials.
+      debugPrint('Mumpa shutdown: $stage failed; continuing cleanup.');
+    }
+  }
+
+  void _disposeStep(String stage, VoidCallback cleanup) {
+    try {
+      cleanup();
+    } catch (_) {
+      debugPrint('Mumpa shutdown: $stage failed; continuing cleanup.');
+    }
+  }
+
+  Future<void> _disposeCatalog() =>
+      _catalogDisposal ??= _shutdownStep('catalog browser', catalog.dispose);
+  Future<void> _stopJackett() =>
+      _jackettStop ??= _shutdownStep('Jackett', jackett.stop);
+  Future<void> _stopFlareSolverr() =>
+      _flaresolverrStop ??= _shutdownStep('FlareSolverr', flaresolverr.stop);
+
+  MusicArtist? artistProfile;
+  bool artistLoading = false,
+      trackSearchMode = false,
+      versionLoading = false,
+      cacheBusy = false;
+  String? artistError, metadataError, versionError, versionStatus;
+  CacheStats? cacheStats;
+  List<MusicRecording> recordingResults = [];
+  MusicRecording? selectedRecording;
+  List<TrackVariant> trackVariants = [];
+  int _artistRequest = 0, _versionRequest = 0;
+  SourceOperation? _versionOperation;
+  SourceOperation? _artistOperation;
+  List<Track> get artistTracks => library.tracks
+      .where(
+        (t) =>
+            normalizeMusicName(t.artist) ==
+                normalizeMusicName(selectedArtist ?? '') ||
+            normalizeMusicName(t.albumArtist ?? '') ==
+                normalizeMusicName(selectedArtist ?? '') ||
+            artistProfile?.matches(t.artist) == true ||
+            artistProfile?.matches(t.albumArtist ?? '') == true,
+      )
+      .toList();
+  List<Album> get artistAlbums => groupAlbums(artistTracks);
+
+  Future<void> refreshMetadataCache() async {
+    cacheStats = await metadata.cache.stats();
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> setMetadataCacheLimit(int megabytes) async {
+    if (megabytes < 16 || megabytes > 4096 || cacheBusy) return;
+    cacheBusy = true;
+    notifyListeners();
+    try {
+      await metadata.cache.setMaxBytes(megabytes * 1024 * 1024);
+      await library.setSetting('metadataCacheMb', megabytes);
+      await refreshMetadataCache();
+    } catch (_) {
+      reportError('Не удалось изменить размер кеша.');
+    } finally {
+      cacheBusy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<void> clearMetadataCache() async {
+    if (cacheBusy) return;
+    cacheBusy = true;
+    notifyListeners();
+    cancelVersionSearch();
+    ++_artistRequest;
+    _artistOperation?.cancel();
+    _artistOperation = null;
+    artistLoading = false;
+    _searchDebounce?.cancel();
+    ++_searchId;
+    _searchOperation?.cancel();
+    _searchOperation = null;
+    searching = false;
+    try {
+      await metadata.cache.clear();
+      trackVariants = [];
+      await refreshMetadataCache();
+      reportMessage('Кеш обложек и метаданных очищен.');
+    } catch (_) {
+      reportError('Не удалось очистить кеш.');
+    } finally {
+      cacheBusy = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   bool cloudflareEnabled = false;
   JackettConnection? jackettConnection;
   List<SearchRelease> sourceFeed = [];
@@ -217,6 +355,7 @@ class AppController extends ChangeNotifier {
     page = value;
     error = null;
     notifyListeners();
+    if (value == AppPage.settings) unawaited(refreshMetadataCache());
   }
 
   void back() {
@@ -257,8 +396,18 @@ class AppController extends ChangeNotifier {
     TorrentInfo info, {
     String? link,
     String? title,
+    String? artist,
   }) => run('Открываем коллекцию…', () async {
-    final tracks = torrents.tracks(info, link: link, album: title);
+    final identity = parseReleaseIdentity(title ?? info.title);
+    final tracks = torrents.tracks(
+      info,
+      link: link,
+      album: title,
+      artist:
+          artist ??
+          identity?.artist ??
+          inferredReleaseArtist(title ?? info.title),
+    );
     if (tracks.isEmpty) {
       throw const FormatException('В этой коллекции нет аудиотреков.');
     }
@@ -283,19 +432,228 @@ class AppController extends ChangeNotifier {
   }
 
   void openArtist(String value) {
+    _artistOperation?.cancel();
     selectedArtist = value;
+    artistProfile = null;
+    artistError = null;
+    artistLoading = true;
     navigate(AppPage.artist);
+    unawaited(_loadArtist(value));
+  }
+
+  Future<void> _loadArtist(String name) async {
+    final id = ++_artistRequest;
+    final operation = SourceOperation();
+    _artistOperation = operation;
+    try {
+      final profile = await metadata.artist(name, operation: operation);
+      if (_disposed || id != _artistRequest) return;
+      artistProfile = profile;
+      if (profile == null) {
+        artistError = 'Исполнитель пока не найден в MusicBrainz.';
+      }
+    } catch (e) {
+      if (!_disposed && id == _artistRequest) {
+        artistError = e is HttpException
+            ? e.message
+            : 'Музыкальная база сейчас недоступна.';
+      }
+    } finally {
+      if (!_disposed && id == _artistRequest) {
+        artistLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  void searchAlbumMetadata(MusicReleaseGroup album) {
+    trackSearchMode = false;
+    navigate(AppPage.search);
+    setQuery('${album.artist} ${album.title}');
+  }
+
+  void setTrackSearchMode(bool enabled) {
+    if (trackSearchMode == enabled) return;
+    trackSearchMode = enabled;
+    setQuery(query);
+  }
+
+  void cancelVersionSearch() {
+    ++_versionRequest;
+    _versionOperation?.cancel();
+    _versionOperation = null;
+    versionLoading = false;
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> findRecordingVersions(MusicRecording recording) async {
+    cancelVersionSearch();
+    _searchDebounce?.cancel();
+    _searchOperation?.cancel();
+    ++_searchId;
+    searching = false;
+    trackSearchMode = true;
+    selectedRecording = recording;
+    trackVariants = [];
+    versionError = null;
+    versionStatus = null;
+    navigate(AppPage.search);
+    if (!usesIndexer || !indexerConnected) {
+      versionError =
+          'Для поиска файлов треков подключи Jackett. Релизы напрямую можно открыть в режиме «Релизы».';
+      notifyListeners();
+      return;
+    }
+    final id = ++_versionRequest;
+    final operation = SourceOperation();
+    _versionOperation = operation;
+    versionLoading = true;
+    notifyListeners();
+    try {
+      recording = await metadata.recordingWithAlbums(
+        recording,
+        operation: operation,
+      );
+      if (!_disposed && id == _versionRequest) selectedRecording = recording;
+      final service = TrackSearchService(
+        indexer: indexer,
+        torrents: torrents,
+        cache: metadata.cache,
+        workDirectory: Directory('${library.root.path}/source-search-temp'),
+      );
+      final results = await operation
+          .wait(
+            service.find(
+              recording,
+              endpoint: library.settings['indexerUrl'] as String,
+              key: library.settings['indexerKey'] as String? ?? '',
+              operation: operation,
+              onStatus: (status) {
+                if (!_disposed && id == _versionRequest) {
+                  versionStatus = status;
+                  notifyListeners();
+                }
+              },
+              onResults: (results) {
+                if (!_disposed && id == _versionRequest) {
+                  trackVariants = results;
+                  notifyListeners();
+                }
+              },
+            ),
+          )
+          .timeout(
+            const Duration(seconds: 120),
+            onTimeout: () {
+              operation.cancel();
+              throw TimeoutException('Поиск версий занял больше двух минут.');
+            },
+          );
+      if (!_disposed && id == _versionRequest) {
+        trackVariants = results;
+        if (results.isEmpty) {
+          versionError =
+              'В проверенных коллекциях подходящих аудиофайлов не найдено. Попробуй поиск по альбому: база и имена файлов могут различаться.';
+        }
+      }
+    } on SourceCancelled {
+      /* A new selection owns the view. */
+    } catch (e) {
+      if (!_disposed && id == _versionRequest) {
+        versionError = e is HttpException
+            ? e.message
+            : e is TimeoutException
+            ? 'Поиск версий занял больше двух минут. Уже найденные варианты доступны.'
+            : 'Не удалось найти версии трека.';
+      }
+    } finally {
+      operation.cancel();
+      if (!_disposed && id == _versionRequest) {
+        versionLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<({MusicPlaylist playlist, List<Track> tracks, Track selected})?>
+  _importVariant(TrackVariant variant) =>
+      run('Открываем выбранную версию…', () async {
+        var source = variant.source;
+        if (!await File(source).exists()) {
+          final resolved = await indexer.resolve(
+            variant.release.link,
+            Directory('${library.root.path}/torrents'),
+          );
+          if (!resolved.file) {
+            throw const FormatException('Выбери раздачу с torrent-файлом.');
+          }
+          source = resolved.source;
+        }
+        final info = await torrents.upload(source);
+        if (info.hash != variant.info.hash ||
+            !info.files.any(
+              (f) =>
+                  f.index == variant.track.torrentIndex &&
+                  f.path == variant.track.torrentPath,
+            )) {
+          throw const FormatException(
+            'Список файлов раздачи изменился. Повтори поиск версий.',
+          );
+        }
+        final tracks = torrents.tracks(
+          info,
+          album: variant.track.album,
+          artist: variant.track.artist,
+        );
+        final playlist = await library.openSourceCollection(
+          hash: info.hash,
+          name: variant.release.title,
+          tracks: tracks,
+        );
+        final savedTracks = playlist.trackIds
+            .map(library.byId)
+            .whereType<Track>()
+            .toList();
+        final selected = library.byId(variant.track.id);
+        if (selected == null) {
+          throw const FormatException('Трек отсутствует в коллекции.');
+        }
+        return (playlist: playlist, tracks: savedTracks, selected: selected);
+      });
+
+  Future<void> playTrackVariant(TrackVariant variant) async {
+    final imported = await _importVariant(variant);
+    if (imported == null) return;
+    openPlaylist(imported.playlist);
+    await playback.playTracks(
+      imported.tracks,
+      index: imported.tracks.indexWhere((t) => t.id == imported.selected.id),
+      contextPlaylistId: imported.playlist.id,
+    );
+  }
+
+  Future<void> enqueueTrackVariant(TrackVariant variant) async {
+    final imported = await _importVariant(variant);
+    if (imported == null) return;
+    playback.enqueue(imported.selected);
+    reportMessage('Трек добавлен в очередь.');
   }
 
   void setQuery(String value) {
     _searchDebounce?.cancel();
     _searchOperation?.cancel();
     query = value;
+    cancelVersionSearch();
+    selectedRecording = null;
+    trackVariants = [];
+    recordingResults = [];
+    metadataError = null;
     releases = [];
     ++_searchId;
     searchCompleted = false;
     searching = false;
-    if (query.trim().isNotEmpty && (indexerConnected || !usesIndexer)) {
+    if (query.trim().isNotEmpty &&
+        (trackSearchMode || indexerConnected || !usesIndexer)) {
       searching = true;
       _searchDebounce = Timer(const Duration(milliseconds: 600), searchSources);
     }
@@ -426,6 +784,38 @@ class AppController extends ChangeNotifier {
   Future<void> searchSources() async {
     _searchDebounce?.cancel();
     _searchOperation?.cancel();
+    if (trackSearchMode) {
+      if (query.trim().isEmpty) return;
+      final id = ++_searchId;
+      final operation = SourceOperation();
+      _searchOperation = operation;
+      searching = true;
+      metadataError = null;
+      searchCompleted = false;
+      notifyListeners();
+      try {
+        final results = await metadata.searchRecordings(
+          query.trim(),
+          operation: operation,
+        );
+        if (!_disposed && id == _searchId) {
+          recordingResults = results;
+          searchCompleted = true;
+        }
+      } catch (e) {
+        if (!_disposed && id == _searchId) {
+          metadataError = e is HttpException
+              ? e.message
+              : 'Поиск MusicBrainz недоступен.';
+        }
+      } finally {
+        if (!_disposed && id == _searchId) {
+          searching = false;
+          notifyListeners();
+        }
+      }
+      return;
+    }
     final operation = SourceOperation();
     _searchOperation = operation;
     final endpoint = library.settings['indexerUrl'] as String? ?? '';
@@ -642,6 +1032,7 @@ class AppController extends ChangeNotifier {
     CatalogSection section, {
     bool back = false,
   }) async {
+    trackSearchMode = false;
     setQuery('');
     navigate(AppPage.search);
     final id = ++_catalogId;
@@ -807,18 +1198,24 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     _searchDebounce?.cancel();
     ++_searchId;
     _opening?.cancel();
     _searchOperation?.cancel();
+    _artistOperation?.cancel();
+    ++_artistRequest;
+    ++_versionRequest;
+    _versionOperation?.cancel();
     library.removeListener(_changed);
     downloads.removeListener(_changed);
     playback.removeListener(_onPlayback);
-    indexer.dispose();
-    unawaited(catalog.dispose());
-    unawaited(jackett.stop());
-    unawaited(flaresolverr.stop());
+    _disposeStep('indexer client', indexer.dispose);
+    _disposeStep('metadata client', metadata.dispose);
+    unawaited(_disposeCatalog());
+    unawaited(_stopJackett());
+    unawaited(_stopFlareSolverr());
     super.dispose();
   }
 }

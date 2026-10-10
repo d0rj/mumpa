@@ -1,5 +1,82 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.0 music discovery, persistent cache and Windows player
+
+- **117 unit/widget tests pass**, one opt-in Jackett test is skipped, and
+  `flutter analyze --no-pub` reports no issues. Coverage includes playlist and
+  source-collection favorites across profile reload/deletion, persistent FIFO
+  eviction and quota reduction, TTL, corrupt-index recovery, immutable cache
+  receive buffers, concurrent clear, and delayed multi-stage artist/cover work
+  that must not repopulate a cleared cache. UI checks cover animation pause and
+  reduced motion, square loading indicators, independent artist gestures,
+  stable asynchronous artwork, and 320 / 1200 px layouts. Shutdown checks inject
+  failures into session saving, decoder, engine, helpers and library flush;
+  cleanup still waits for the catalog browser before native quit completion.
+  Logs: `test-output/unit-1.2.0.log`, `analyze-1.2.0.log`.
+- A fresh native Windows discovery test uses the existing configured Jackett
+  endpoint/key in memory and an isolated library. Live MusicBrainz returns
+  **Ежемесячные with 15 release groups**. Searching **Роженица в метро** finds
+  one verified MP3 file in four inspected collections. Playback uses a fresh
+  HTTP torrent source, reports **240457 ms** duration and advances to **4480 ms**;
+  the collection becomes the queue. Opening plus the 2.5-second playback probe
+  takes **6788 ms**. Auto-cache is disabled only in this isolated network proof;
+  the user's saved setting is unchanged. The independently requested Discovery
+  Cover Art Archive thumbnail is **17616 bytes**, and the next request reuses
+  its cached file. Logs/evidence: `music-discovery-1.2.0.log` / `.json`;
+  `music-versions-1.2.0.png` shows the actual result UI. This proves one reachable
+  song, not availability of every recording or format. An initial cover probe
+  encountered a transient miss; the completed end-to-end rerun passes.
+- Native Windows shell integration confirms creation of SMTC, tray icon and
+  thumbnail toolbar; real window media commands and thumbnail notifications
+  control Play/Pause/Previous/Next. Closing hides the window, audio position
+  advances while hidden, and restoring works. The isolated test has muted
+  original fixture audio. Logs/evidence: `windows-shell-1.2.0.log` / `.json`.
+  A specific physical speaker's hardware button has not been pressed by this
+  test; it must emit a standard Windows media command.
+- A separate release fixture creates a WebView environment, a headless view
+  and an open browser in a temporary profile, deliberately leaving all three
+  native owners alive until WM_CLOSE. The process exits with **code 0**, without
+  forced termination or timeout, and its temporary profile is removed.
+  The pinned Windows WebView overlay shuts down its current-thread dispatcher
+  while the Flutter engine is still alive, before COM teardown. This fixes a
+  native exit crash also reproduced in the previous 1.1.5 package. Evidence:
+  `windows-browser-build-1.2.0.log`,
+  `windows-browser-exit-1.2.0.result.json`.
+- Native Windows and Android API 35 x86_64 pass local audio, outgoing peer-wire
+  streaming, favorites, automatic full-file caching, complete SHA256, exact
+  HTTP Range, seek, restart/offline and repeated peerless-reader cancellation.
+  First audio advances in **1448 / 1507 ms**, with **376832 / 360448 bytes**
+  served out of **2116844** before the full download is ready. Both observe one
+  rejected MSE handshake followed by an accepted plaintext connection. Android
+  registers its background audio service. These are local original-content
+  fixtures; physical Android hardware is untested. Logs:
+  `windows-outgoing-1.2.0.log`, `android-outgoing-1.2.0.log`.
+- The existing configured services were started through the old packaged app
+  before the live discovery check. All **7 favorite IDs**, library track IDs,
+  Jackett port/key, RuTracker.org configuration, automatic music caching and
+  the authorized Wi-Fi interface survive that startup. VPN, system routes and
+  firewall were not modified.
+- The final **1.2.0 Windows package** also starts against that existing profile,
+  reaches healthy managed Jackett/FlareSolverr, hides to tray and restores,
+  stops managed helpers on explicit exit, and exits with **code 0**. Restart
+  preserves all 7 favorite IDs, playlist favorites, library track IDs, Jackett
+  port/key, RuTracker.org configuration, automatic caching and the Wi-Fi
+  interface. One final packaged instance remains open.
+  Evidence: `packaged-startup-1.2.0.json`.
+- Windows **1.2.0+8** and ARM64 / ARMv7 / x86_64 Android release APKs build.
+  APK sizes are **43702991 / 43834843 / 45042717 bytes**. The Windows engine
+  matches its pinned SHA256, each APK includes the exact stripped pinned engine
+  for its ABI plus libmpv, and Windows/helper archives are absent from Android.
+  The x86_64 release installs and launches as **1.2.0 / versionCode 4008** on the
+  own API 35 emulator, without an app runtime crash. Evidence:
+  `windows-release-1.2.0.log`, `android-release-1.2.0.log`,
+  `apk-layout-1.2.0.json`, `android-release-startup-1.2.0.json`.
+
+New behavior and its limits are documented in [MUSIC_DISCOVERY.md](MUSIC_DISCOVERY.md)
+and [WINDOWS_PLAYER.md](WINDOWS_PLAYER.md). In particular, metadata/file matches
+do not imply a reachable swarm; Clean/Uncensored labels describe source text,
+and the metadata FIFO quota does not remove local or completed offline music.
+
 ## 1.1.5 explicit source interface and live route comparison
 
 The current public favorites are alive: a separate qBittorrent 5.1.2 temporary

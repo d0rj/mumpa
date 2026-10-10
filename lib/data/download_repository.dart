@@ -288,8 +288,16 @@ class DownloadRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> close() async {
+    dispose();
+    await Future.wait(
+      _jobs.values.map((job) => job._completion).whereType<Future<void>>(),
+    );
+  }
+
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     for (final job in _jobs.values) {
       _interrupt(job, DownloadState.paused);

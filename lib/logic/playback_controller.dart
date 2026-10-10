@@ -142,6 +142,7 @@ class PlaybackController extends ChangeNotifier {
   int _request = 0;
   bool loading = false, shuffle = false;
   bool _closed = false;
+  Future<void>? _closing;
   String? _contextPlaylistId;
   String? get contextPlaylistId => _contextPlaylistId;
   PlayerRepeatMode repeat = PlayerRepeatMode.off;
@@ -671,21 +672,34 @@ class PlaybackController extends ChangeNotifier {
     system?.publish();
   }
 
-  Future<void> close() async {
+  Future<void> close() => _closing ??= _close();
+
+  Future<void> _close() async {
     if (_closed) return;
     _closed = true;
     ++_request;
     _cancelConnection();
     _sleep?.cancel();
-    await saveSession();
-    await _completeSubscription.cancel();
-    await _errorSubscription.cancel();
-    for (final subscription in _sessionSubscriptions) {
-      await subscription.cancel();
+    Future<void> cleanup(String stage, FutureOr<void> Function() action) async {
+      try {
+        await action();
+      } catch (_) {
+        // Decoder/source errors can contain private URLs. Log only the stage.
+        debugPrint(
+          'Mumpa playback shutdown: $stage failed; continuing cleanup.',
+        );
+      }
     }
-    backend.removeListener(_onBackend);
-    await backend.close();
-    dispose();
+
+    await cleanup('save session', saveSession);
+    await cleanup('completion subscription', _completeSubscription.cancel);
+    await cleanup('error subscription', _errorSubscription.cancel);
+    for (final subscription in _sessionSubscriptions) {
+      await cleanup('audio session subscription', subscription.cancel);
+    }
+    await cleanup('decoder listener', () => backend.removeListener(_onBackend));
+    await cleanup('decoder', backend.close);
+    await cleanup('controller', dispose);
   }
 }
 

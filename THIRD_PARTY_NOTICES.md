@@ -25,13 +25,32 @@ The base torrent library is `github.com/tsynik/torrent v1.2.31`, pinned in the u
 - libmpv source/licenses: https://github.com/mpv-player/mpv.
 - FFmpeg source/licenses: https://ffmpeg.org/legal.html and https://git.ffmpeg.org/ffmpeg.git.
 
-For redistribution, keep this notice, the GPL text, dependency notices and corresponding source/build information alongside the application. The local release includes a Mumpa source archive and matching engine source archive. This project does not include third-party commercial music.
+For redistribution, keep this notice, the GPL text, dependency notices and corresponding source/build information alongside the application. The local release includes a Mumpa source archive and matching engine source archive. The distributed application package does not include third-party commercial music or remotely fetched album artwork.
+
+## MusicBrainz metadata and Cover Art Archive
+
+Music metadata is retrieved from [MusicBrainz](https://musicbrainz.org), maintained by the MetaBrainz Foundation and MusicBrainz contributors. Its [core data is released under CC0](https://musicbrainz.org/doc/About/Data_License). The displayed artist names, aliases, credits, MBIDs, recording durations and release facts belong to the core categories documented in the [database overview](https://musicbrainz.org/doc/MusicBrainz_Database).
+
+MusicBrainz supplementary data has a separate [CC BY-NC-SA 3.0 license](https://creativecommons.org/licenses/by-nc-sa/3.0/). It includes annotations, user tags/ratings, derived statistics and search indexes. The CC0 designation for core fields does not apply to those categories. API responses cached in the user's profile retain the applicable upstream data licenses; Mumpa's GPL license does not relicense them. This release does not bundle a MusicBrainz database dump. See the [MusicBrainz data license](https://musicbrainz.org/doc/About/Data_License) for the core/supplementary distinction.
+
+Album images are fetched at runtime from [Cover Art Archive](https://musicbrainz.org/doc/Cover_Art_Archive), the MusicBrainz/Internet Archive project, using its [public API](https://musicbrainz.org/doc/Cover_Art_Archive/API). Public access to an image does not establish an open license for that artwork. Rights remain with its respective artists, photographers, designers, labels or other rights holders; neither MusicBrainz core-data CC0 nor Mumpa's GPL license grants rights to the images. Cached images are separate from Mumpa's original procedural placeholders and are not included in the release archives.
+
+The integration, caching behavior and search limits are described in [Music discovery](docs/MUSIC_DISCOVERY.md). MusicBrainz metadata identifies artists and recordings; it does not provide music audio or permission to redistribute recordings.
 
 ## Other dependencies
 
 Windows includes the unmodified **Jackett v0.24.2806** binaries as a separate managed process. Jackett is GPL-2.0; its LICENSE remains inside the bundled archive and extracted runtime. Matching source: https://github.com/Jackett/Jackett/tree/v0.24.2806; source archive: https://github.com/Jackett/Jackett/archive/refs/tags/v0.24.2806.zip. Binary provenance and pinned SHA-256 are in `tools/prepare-jackett.ps1`. The release includes the matching Jackett source archive alongside Mumpa and TorrServer sources.
 
 `flutter_inappwebview` (Apache-2.0), `html`, `enough_convert` and `archive` retain their upstream licenses; their versioned notices are recorded in Flutter's license registry. Windows native browser uses the installed Microsoft Edge WebView2 runtime.
+
+Windows applies two checked shutdown overlays to **flutter_inappwebview_windows
+0.6.0** (Apache-2.0). The exact upstream package archive is pinned by
+`pubspec.lock`; the two source SHA256 values and replacements are retained in
+`windows/plugin_patches`. Patched translation units are generated in the build
+directory. The changes release browser/composition owners and finish the
+current-thread DispatcherQueue before COM teardown. Original component notices
+remain in Flutter's license assets. Matching source:
+https://pub.dev/packages/flutter_inappwebview_windows/versions/0.6.0.
 
 Flutter (BSD-3-Clause): https://github.com/flutter/flutter. `audio_service`, `audio_session`, `file_picker`, `path_provider`, `path`, `crypto`, `http`, `audio_metadata_reader` and `xml` retain their respective package licenses. Exact versions and transitive packages are recorded by `pubspec.lock`; notices are included in Flutter's `NOTICES` asset.
 

@@ -209,12 +209,7 @@ class _Sidebar extends StatelessWidget {
           Icons.library_music_outlined,
           AppPage.library,
         ),
-        _NavItem(
-          app,
-          'Любимые треки',
-          Icons.favorite_border_rounded,
-          AppPage.liked,
-        ),
+        _NavItem(app, 'Любимое', Icons.favorite_border_rounded, AppPage.liked),
         _NavItem(app, 'Офлайн', Icons.download_outlined, AppPage.downloads),
         const SizedBox(height: 20),
         Padding(

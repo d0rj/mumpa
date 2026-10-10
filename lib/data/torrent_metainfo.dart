@@ -1,0 +1,173 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
+import 'package:enough_convert/windows.dart';
+import '../domain/models.dart';
+
+/// Reads file names without starting an engine or downloading audio pieces.
+/// File IDs and paths follow TorrServer's one-based FileStats convention.
+TorrentInfo readTorrentMetainfo(Uint8List bytes) {
+  if (bytes.length > 16 * 1024 * 1024) {
+    throw const FormatException('Torrent-файл превышает 16 МБ.');
+  }
+  final reader = _BencodeReader(bytes);
+  final data = reader.read();
+  if (reader.offset != bytes.length ||
+      data is! Map ||
+      data['info'] is! Map ||
+      reader.infoStart == null) {
+    throw const FormatException('Некорректная метаинформация .torrent.');
+  }
+  final info = data['info'] as Map;
+  if (info['pieces'] is! Uint8List) {
+    throw const FormatException(
+      'Поиск по файлам пока поддерживает BitTorrent v1 и hybrid .torrent.',
+    );
+  }
+  String text(Object? value) {
+    if (value is! Uint8List) {
+      throw const FormatException('В torrent-файле нет имени.');
+    }
+    try {
+      return utf8.decode(value);
+    } catch (_) {
+      return const Windows1251Codec().decode(value);
+    }
+  }
+
+  String safe(Object? value) {
+    final name = text(value);
+    if (name.isEmpty ||
+        name == '.' ||
+        name == '..' ||
+        name.contains('/') ||
+        name.contains('\\') ||
+        name.contains('\u0000')) {
+      throw const FormatException('Недопустимое имя в torrent-файле.');
+    }
+    return name;
+  }
+
+  int length(Object? value) {
+    if (value is! int || value < 0) {
+      throw const FormatException('Некорректный размер файла.');
+    }
+    return value;
+  }
+
+  final name = safe(info['name.utf-8'] ?? info['name']);
+  final files = <TorrentFile>[];
+  if (info['files'] is List) {
+    final raw = info['files'] as List;
+    if (raw.length > 30000) {
+      throw const FormatException('В раздаче слишком много файлов.');
+    }
+    for (final (i, item) in raw.indexed) {
+      if (item is! Map) {
+        throw const FormatException('Некорректный список файлов.');
+      }
+      final path = item['path.utf-8'] ?? item['path'];
+      if (path is! List || path.isEmpty) {
+        throw const FormatException('Некорректный путь файла.');
+      }
+      files.add(
+        TorrentFile(
+          index: i + 1,
+          path: '$name/${path.map(safe).join('/')}',
+          bytes: length(item['length']),
+        ),
+      );
+    }
+  } else {
+    files.add(TorrentFile(index: 1, path: name, bytes: length(info['length'])));
+  }
+  return TorrentInfo(
+    hash: sha1
+        .convert(
+          Uint8List.sublistView(bytes, reader.infoStart!, reader.infoEnd!),
+        )
+        .toString(),
+    title: name,
+    files: List.unmodifiable(files),
+  );
+}
+
+class _BencodeReader {
+  _BencodeReader(this.bytes);
+  final Uint8List bytes;
+  int offset = 0, nodes = 0;
+  int? infoStart, infoEnd;
+  Object read([int depth = 0]) {
+    if (depth > 64 || ++nodes > 300000 || offset >= bytes.length) {
+      throw const FormatException('Некорректный bencode.');
+    }
+    final token = bytes[offset];
+    if (token == 105) {
+      final start = ++offset;
+      while (offset < bytes.length && bytes[offset] != 101) {
+        offset++;
+      }
+      if (offset >= bytes.length || offset - start > 20) {
+        throw const FormatException('Некорректное число bencode.');
+      }
+      final value = int.tryParse(
+        ascii.decode(Uint8List.sublistView(bytes, start, offset++)),
+      );
+      if (value == null) {
+        throw const FormatException('Некорректное число bencode.');
+      }
+      return value;
+    }
+    if (token == 108 || token == 100) {
+      offset++;
+      final list = <Object>[];
+      final dict = <String, Object>{};
+      while (offset < bytes.length && bytes[offset] != 101) {
+        if (token == 108) {
+          list.add(read(depth + 1));
+        } else {
+          final keyBytes = read(depth + 1);
+          if (keyBytes is! Uint8List) {
+            throw const FormatException('Некорректный ключ bencode.');
+          }
+          final key = utf8.decode(keyBytes, allowMalformed: true);
+          if (dict.containsKey(key)) {
+            throw const FormatException('Повторный ключ bencode.');
+          }
+          final start = offset;
+          dict[key] = read(depth + 1);
+          if (depth == 0 && key == 'info') {
+            infoStart = start;
+            infoEnd = offset;
+          }
+        }
+      }
+      if (offset >= bytes.length) {
+        throw const FormatException('Незавершённый bencode.');
+      }
+      offset++;
+      return token == 108 ? list : dict;
+    }
+    final start = offset;
+    while (offset < bytes.length &&
+        bytes[offset] >= 48 &&
+        bytes[offset] <= 57) {
+      offset++;
+    }
+    if (offset == start ||
+        offset >= bytes.length ||
+        bytes[offset] != 58 ||
+        offset - start > 8) {
+      throw const FormatException('Некорректная строка bencode.');
+    }
+    final length = int.tryParse(
+      ascii.decode(Uint8List.sublistView(bytes, start, offset++)),
+    );
+    if (length == null || length < 0 || offset + length > bytes.length) {
+      throw const FormatException('Незавершённая строка bencode.');
+    }
+    final value = Uint8List.sublistView(bytes, offset, offset + length);
+    offset += length;
+    return value;
+  }
+}

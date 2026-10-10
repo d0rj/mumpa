@@ -52,10 +52,11 @@ class PlayerBar extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            Text(
-                              t?.artist ?? 'Музыка всегда рядом',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            ArtistLink(
+                              artist: t?.artist ?? 'Музыка всегда рядом',
+                              onOpen: t == null
+                                  ? null
+                                  : () => app.openArtist(t.artist),
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: muted,
@@ -153,10 +154,11 @@ class PlayerBar extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 3),
-                          Text(
-                            t?.artist ?? 'Твоя музыка всегда рядом',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          ArtistLink(
+                            artist: t?.artist ?? 'Твоя музыка всегда рядом',
+                            onOpen: t == null
+                                ? null
+                                : () => app.openArtist(t.artist),
                             style: const TextStyle(fontSize: 10, color: muted),
                           ),
                         ],
@@ -460,8 +462,14 @@ class _NowPlaying extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            t?.artist ?? 'Музыка всегда рядом',
+                          ArtistLink(
+                            artist: t?.artist ?? 'Музыка всегда рядом',
+                            onOpen: t == null
+                                ? null
+                                : () {
+                                    Navigator.pop(context);
+                                    app.openArtist(t.artist);
+                                  },
                             style: const TextStyle(color: muted),
                           ),
                         ],
@@ -577,8 +585,12 @@ class _Queue extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                subtitle: Text(
-                  t.artist,
+                subtitle: ArtistLink(
+                  artist: t.artist,
+                  onOpen: () {
+                    Navigator.pop(context);
+                    app.openArtist(t.artist);
+                  },
                   style: const TextStyle(color: muted, fontSize: 11),
                 ),
                 trailing: IconButton(

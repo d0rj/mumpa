@@ -13,7 +13,9 @@ import 'data/flaresolverr_service.dart';
 import 'data/rutracker_service.dart';
 import 'data/browser_catalog_transport.dart';
 import 'data/torrent_service.dart';
+import 'data/windows_player_service.dart';
 import 'domain/models.dart';
+import 'domain/music_metadata.dart';
 import 'logic/app_controller.dart';
 import 'logic/playback_controller.dart';
 import 'ui/app_screen.dart';
@@ -23,12 +25,24 @@ Future<AppController> createApplication({
   Directory? dataDirectory,
   bool demo = false,
   bool catalogEnabled = true,
+  bool desktopIntegration = false,
 }) async {
   final root =
       dataDirectory ??
       Directory(p.join((await getApplicationSupportDirectory()).path, 'Mumpa'));
   final library = LibraryRepository(root);
   await library.load();
+  final identified = library.tracks
+      .where(
+        (track) =>
+            track.artist == 'Неизвестный исполнитель' &&
+            inferredReleaseArtist(track.album) != null,
+      )
+      .map(
+        (track) => track.copyWith(artist: inferredReleaseArtist(track.album)),
+      )
+      .toList();
+  if (identified.isNotEmpty) await library.upsert(identified);
   // A stable executable identity prevents repeated Windows Firewall prompts
   // when tests use isolated library/state folders.
   final support = await getApplicationSupportDirectory();
@@ -106,6 +120,14 @@ Future<AppController> createApplication({
       binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
     ),
   );
+  if (desktopIntegration && Platform.isWindows) {
+    final shell = WindowsPlayerService(
+      playback: playback,
+      onQuit: controller.shutdown,
+    );
+    controller.windowsPlayer = shell;
+    await shell.initialize();
+  }
   if (catalogEnabled) {
     if (!controller.usesIndexer) unawaited(controller.initializeCatalog());
     unawaited(controller.initializeSources());
@@ -124,6 +146,13 @@ void main() {
       'Mumpa',
       'TorrServer MatriX.145.2',
     ], await rootBundle.loadString('LICENSE'));
+    yield const LicenseEntryWithLineBreaks(
+      ['MusicBrainz / Cover Art Archive'],
+      'MusicBrainz core data: CC0 1.0. Supplementary data: CC BY-NC-SA 3.0. '
+      'https://musicbrainz.org/doc/About/Data_License\n\n'
+      'Cover images retain the rights of their respective owners. '
+      'https://musicbrainz.org/doc/Cover_Art_Archive',
+    );
   });
   runApp(const _Bootstrap());
 }
@@ -135,7 +164,9 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
-  late Future<AppController> future = createApplication();
+  late Future<AppController> future = createApplication(
+    desktopIntegration: true,
+  );
   @override
   Widget build(BuildContext context) => FutureBuilder<AppController>(
     future: future,
@@ -169,8 +200,11 @@ class _BootstrapState extends State<_Bootstrap> {
                     ),
                     const SizedBox(height: 20),
                     FilledButton(
-                      onPressed: () =>
-                          setState(() => future = createApplication()),
+                      onPressed: () => setState(
+                        () => future = createApplication(
+                          desktopIntegration: true,
+                        ),
+                      ),
                       child: const Text('Попробовать снова'),
                     ),
                   ] else
