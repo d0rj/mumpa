@@ -16,6 +16,7 @@ import 'package:mumpa/ui/app_screen.dart';
 void main() {
   const requirePlayback = bool.fromEnvironment('REQUIRE_FAVORITES_PLAYBACK');
   const diagnosticServer = String.fromEnvironment('FAVORITES_SERVER_URL');
+  const selectedInterface = String.fromEnvironment('FAVORITES_INTERFACE');
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   testWidgets(
@@ -50,6 +51,10 @@ void main() {
       );
       final evidence = <Map<String, Object?>>[];
       try {
+        if (selectedInterface.isNotEmpty) {
+          expect(diagnosticServer, isEmpty);
+          await app.library.setSetting('torrentInterface', selectedInterface);
+        }
         if (diagnosticServer.isNotEmpty) {
           final uri = Uri.parse(diagnosticServer);
           expect(uri.scheme, 'http');
@@ -82,12 +87,18 @@ void main() {
           (track) => hashes.add(track.torrentHash!),
         )) {
           final start = Stopwatch()..start();
+          int? firstAudioMs;
           await tester.tap(find.byKey(ValueKey('track-row-${track.id}')));
           final deadline = DateTime.now().add(const Duration(seconds: 70));
           while (app.playback.error == null &&
               app.playback.position.inMilliseconds < 2500 &&
               DateTime.now().isBefore(deadline)) {
             await tester.pump(const Duration(milliseconds: 100));
+            if (firstAudioMs == null &&
+                app.playback.playing &&
+                app.playback.position.inMilliseconds > 0) {
+              firstAudioMs = start.elapsedMilliseconds;
+            }
           }
           final played =
               app.playback.playing &&
@@ -111,6 +122,10 @@ void main() {
             'trackId': track.id,
             'nativePublicPlayback': played,
             'elapsedMs': start.elapsedMilliseconds,
+            'firstAudioMs': firstAudioMs,
+            'networkSelection': selectedInterface.isEmpty
+                ? 'system-route'
+                : 'explicit-interface',
             'positionMs': app.playback.position.inMilliseconds,
             'durationMs': app.playback.duration.inMilliseconds,
             'engineVersion': await app.torrents.version(),

@@ -77,9 +77,13 @@ original local fixture, not a public swarm.
 
 The separate strict Windows favorites check still received zero peers/audio
 with `mumpa2` and only original metainfo trackers. The local protocol fixes
-have **not** been shown to resolve current public-swarm unavailability or
-establish public playback. Tests/logs in `checks/` expose no tracker passkeys,
-credentials, user payloads, or public IP addresses.
+alone did not establish public playback on the failing VPN route. With the
+user-authorized explicit Wi-Fi selection, `mumpa3` subsequently plays the real
+favorite `Роженица в метро` from a fresh HTTP torrent source: first audio in
+2959 ms, duration 240457 ms, position 2650 ms, four connected peers. The strict
+native Windows test passes without a local/cache audio file. This is one public
+favorite, not a guarantee for all swarms or public DHT health. Tests/logs in
+`checks/` expose no tracker passkeys, credentials, user payloads, or public IPs.
 
 ## Pinned source and module overlay
 

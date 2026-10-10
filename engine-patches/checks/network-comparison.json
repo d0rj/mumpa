@@ -245,5 +245,7 @@
       "tcpReachablePeers": 0
     }
   ],
-  "mumpaFavoritePlaybackVerified": false
+  "mumpaFavoritePlaybackVerified": true,
+  "mumpaFavoritePlaybackBeforeWifiSelection": false,
+  "wifiPlaybackEvidence": "favorites-wifi-native.json"
 }

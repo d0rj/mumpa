@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-10",
+  "directWifiAuthorized": true,
+  "vpnStopped": false,
+  "systemRoutesModified": false,
+  "firewallRulesModified": false,
+  "fixtureUsed": false,
+  "completedLocalAudioUsed": false,
+  "autoCacheInIsolatedTest": false,
+  "strictNativeTestExitCode": 0,
+  "favorites": [
+    {
+      "title": "Роженица в метро",
+      "nativePublicPlayback": true,
+      "firstAudioMs": 2959,
+      "elapsedMs": 5483,
+      "positionMs": 2650,
+      "durationMs": 240457,
+      "engineVersion": "MatriX.145.2-mumpa3",
+      "activePeers": 4,
+      "downloadSpeed": 5136990.334993243,
+      "networkSelection": "explicit-interface",
+      "freshTorrentSource": true,
+      "boundedFailure": false
+    }
+  ]
+}

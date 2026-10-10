@@ -24,8 +24,11 @@ it from their routing tables. Loopback DHT binding tests establish the socket
 source, not public DHT health; tracker/peer playback is assessed separately.
 
 Independent qBittorrent successfully downloads the existing favorites through
-a different interface than the failing VPN route. This does not establish
-native Mumpa favorite playback. See [network evidence](NETWORK_DIAGNOSTICS.md).
+a different interface than the failing VPN route. After explicit authorization,
+native Mumpa plays an existing favorite using the Wi-Fi selection. First audio
+advances in 2959 ms with four peers; no local/cache file is used. This establishes
+one Windows public favorite, separately from qBittorrent or local fixtures.
+See [network evidence](NETWORK_DIAGNOSTICS.md).
 
 ## Outgoing peer compatibility — 1.1.4
 

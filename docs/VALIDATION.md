@@ -10,14 +10,16 @@ tracker HTTP requests use the VPN interface and receive no announce response;
 explicitly binding those requests to the same VPN source also fails. This
 identifies a route difference, not a measured external IP or a server-side
 explanation. The authorized OpenTrackr announce yields 5 / 4 leecher peers,
-zero seeders and no reachable TCP endpoints. Native favorite playback has not
-yet been verified. No VPN, system routes or firewall rules were changed.
+zero seeders and no reachable TCP endpoints. After separate user authorization,
+native Mumpa plays an existing favorite through Wi-Fi, as measured below. No
+VPN, system routes or firewall rules were changed.
 
 Windows now offers an optional interface selector, defaulting to the system
 route. It saves the name, resolves the current IPv4 address at engine startup,
 and fails if the named interface is missing. The setting applies after restart;
-the view explains direct traffic and provider-IP exposure. The user's current
-profile remains on the system route pending the separate direct-traffic choice.
+the view explains direct traffic and provider-IP exposure. The user authorized
+direct torrent traffic through Wi-Fi, and the current profile now selects
+`Беспроводная сеть` with automatic complete-track caching still enabled.
 
 - Managed `MatriX.145.2-mumpa3` binds outgoing TCP peers and HTTP(S)/UDP trackers
   to an explicit listener address. uTP and DHT use the same bound socket. It
@@ -54,10 +56,27 @@ profile remains on the system route pending the separate direct-traffic choice.
   launches as **1.1.5 / versionCode 4007** on API 35 without an app runtime crash.
 - Packaged Windows startup preserves all four likes, library track IDs,
   RuTracker.org, Jackett port/key, automatic caching and the unchanged system
-  torrent route. Managed FlareSolverr is healthy; the new app is left open.
+  torrent route at the initial checkpoint. Managed FlareSolverr is healthy.
   Evidence: `test-output/packaged-startup-1.1.5.json`, `apk-layout-1.1.5.json`,
   `android-release-startup-1.1.5.json` and final release build logs. The own
   emulator was closed after validation. Physical Android hardware is untested.
+- **Real favorite network playback passes.** The isolated native Windows test
+  uses the actual `Роженица в метро` favorite/metainfo and the normal managed
+  engine selected through `FAVORITES_INTERFACE`. No external diagnostic server,
+  fixture music, qBittorrent payload or completed local/cache file is used;
+  automatic caching is disabled in this isolated network-only test. First
+  advancing audio arrives in **2959 ms**; the decoder reports **240457 ms**
+  duration and advances to **2650 ms**, with **4 active peers** and a fresh HTTP
+  torrent source. `REQUIRE_FAVORITES_PLAYBACK=true` passes and the command exits
+  zero. Evidence: `engine-patches/checks/favorites-wifi-native.json` and
+  `test-output/real-favorites-wifi-native.log`.
+- The normal user profile is then updated only in `torrentInterface` and the
+  packaged app restarted. All other library data is preserved, including four
+  likes, track IDs, Jackett/RuTracker.org and automatic caching. Evidence:
+  `test-output/wifi-profile-applied.json`, `packaged-startup-wifi-1.1.5.json`.
+
+Reproduce the authorized network check with the actual Windows interface name:
+`flutter test integration_test/favorites_test.dart -d windows --dart-define=REAL_FAVORITES_TEST=true --dart-define=REQUIRE_FAVORITES_PLAYBACK=true --dart-define="FAVORITES_INTERFACE=Беспроводная сеть"`.
 
 The first Android release attempt used `--no-pub` after the native test and
 retained a dev-only Java plugin registration. The ordinary Flutter build
@@ -67,9 +86,11 @@ start with a random non-BEP42-bound ID when no public address is configured;
 strict public DHT acceptance remains unverified.
 
 Sanitized live comparison is in `engine-patches/checks/network-comparison.json`.
-See [network diagnosis](NETWORK_DIAGNOSTICS.md) for the remaining acceptance
-criterion: an existing favorite decoded from the network and advancing for at
-least 2.5 seconds. Independent downloads and local fixtures do not satisfy it.
+See [network diagnosis](NETWORK_DIAGNOSTICS.md) for the met acceptance criterion:
+an existing favorite decoded from the network and advancing for at least 2.5
+seconds. Independent downloads and local fixtures did not satisfy that check.
+This single successful public favorite does not prove every swarm or physical
+Android device will be reachable.
 
 ## 1.1.4 outgoing peers and strict public-favorite playback
 
