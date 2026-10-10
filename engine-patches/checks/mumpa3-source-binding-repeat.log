@@ -1,0 +1,292 @@
+=== RUN   TestMumpaScraperAnnounceOverrideIsExplicit
+--- PASS: TestMumpaScraperAnnounceOverrideIsExplicit (0.00s)
+=== RUN   TestMumpaOutgoingMSEErrorFallsBackToPlaintext
+--- PASS: TestMumpaOutgoingMSEErrorFallsBackToPlaintext (0.00s)
+=== RUN   TestMumpaOutgoingForceEncryptionNeverFallsBack
+--- PASS: TestMumpaOutgoingForceEncryptionNeverFallsBack (0.00s)
+=== RUN   TestMumpaOutgoingCancellationNeverFallsBack
+--- PASS: TestMumpaOutgoingCancellationNeverFallsBack (0.00s)
+=== RUN   TestMumpaOutgoingDeadlineNeverFallsBack
+--- PASS: TestMumpaOutgoingDeadlineNeverFallsBack (0.15s)
+=== RUN   TestMumpaOutgoingSupportedMSEKeepsEncryption
+--- PASS: TestMumpaOutgoingSupportedMSEKeepsEncryption (0.00s)
+=== RUN   TestMumpaPeerSocketSourceBinding
+=== RUN   TestMumpaPeerSocketSourceBinding/explicit
+=== RUN   TestMumpaPeerSocketSourceBinding/system-default
+--- PASS: TestMumpaPeerSocketSourceBinding (0.00s)
+    --- PASS: TestMumpaPeerSocketSourceBinding/explicit (0.00s)
+    --- PASS: TestMumpaPeerSocketSourceBinding/system-default (0.00s)
+=== RUN   TestMumpaClientSourceBindingRejectsProxy
+=== RUN   TestMumpaClientSourceBindingRejectsProxy/peer-proxy
+=== RUN   TestMumpaClientSourceBindingRejectsProxy/http-proxy
+--- PASS: TestMumpaClientSourceBindingRejectsProxy (0.00s)
+    --- PASS: TestMumpaClientSourceBindingRejectsProxy/peer-proxy (0.00s)
+    --- PASS: TestMumpaClientSourceBindingRejectsProxy/http-proxy (0.00s)
+=== RUN   TestMumpaSourceBindingValidation
+--- PASS: TestMumpaSourceBindingValidation (0.00s)
+=== RUN   TestMumpaPeerSourceBindingUnavailableDoesNotListenUnbound
+--- PASS: TestMumpaPeerSourceBindingUnavailableDoesNotListenUnbound (0.00s)
+=== RUN   TestMumpaUTPAndDHTShareBoundPacketSource
+--- PASS: TestMumpaUTPAndDHTShareBoundPacketSource (0.00s)
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result
+--- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result (0.00s)
+=== RUN   TestMumpaScraperAnnounceOverrideIsExplicit
+--- PASS: TestMumpaScraperAnnounceOverrideIsExplicit (0.00s)
+=== RUN   TestMumpaOutgoingMSEErrorFallsBackToPlaintext
+--- PASS: TestMumpaOutgoingMSEErrorFallsBackToPlaintext (0.00s)
+=== RUN   TestMumpaOutgoingForceEncryptionNeverFallsBack
+--- PASS: TestMumpaOutgoingForceEncryptionNeverFallsBack (0.00s)
+=== RUN   TestMumpaOutgoingCancellationNeverFallsBack
+--- PASS: TestMumpaOutgoingCancellationNeverFallsBack (0.00s)
+=== RUN   TestMumpaOutgoingDeadlineNeverFallsBack
+--- PASS: TestMumpaOutgoingDeadlineNeverFallsBack (0.15s)
+=== RUN   TestMumpaOutgoingSupportedMSEKeepsEncryption
+--- PASS: TestMumpaOutgoingSupportedMSEKeepsEncryption (0.00s)
+=== RUN   TestMumpaPeerSocketSourceBinding
+=== RUN   TestMumpaPeerSocketSourceBinding/explicit
+=== RUN   TestMumpaPeerSocketSourceBinding/system-default
+--- PASS: TestMumpaPeerSocketSourceBinding (0.00s)
+    --- PASS: TestMumpaPeerSocketSourceBinding/explicit (0.00s)
+    --- PASS: TestMumpaPeerSocketSourceBinding/system-default (0.00s)
+=== RUN   TestMumpaClientSourceBindingRejectsProxy
+=== RUN   TestMumpaClientSourceBindingRejectsProxy/peer-proxy
+=== RUN   TestMumpaClientSourceBindingRejectsProxy/http-proxy
+--- PASS: TestMumpaClientSourceBindingRejectsProxy (0.00s)
+    --- PASS: TestMumpaClientSourceBindingRejectsProxy/peer-proxy (0.00s)
+    --- PASS: TestMumpaClientSourceBindingRejectsProxy/http-proxy (0.00s)
+=== RUN   TestMumpaSourceBindingValidation
+--- PASS: TestMumpaSourceBindingValidation (0.00s)
+=== RUN   TestMumpaPeerSourceBindingUnavailableDoesNotListenUnbound
+--- PASS: TestMumpaPeerSourceBindingUnavailableDoesNotListenUnbound (0.00s)
+=== RUN   TestMumpaUTPAndDHTShareBoundPacketSource
+--- PASS: TestMumpaUTPAndDHTShareBoundPacketSource (0.00s)
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result
+--- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result (0.00s)
+=== RUN   TestMumpaScraperAnnounceOverrideIsExplicit
+--- PASS: TestMumpaScraperAnnounceOverrideIsExplicit (0.00s)
+=== RUN   TestMumpaOutgoingMSEErrorFallsBackToPlaintext
+--- PASS: TestMumpaOutgoingMSEErrorFallsBackToPlaintext (0.00s)
+=== RUN   TestMumpaOutgoingForceEncryptionNeverFallsBack
+--- PASS: TestMumpaOutgoingForceEncryptionNeverFallsBack (0.00s)
+=== RUN   TestMumpaOutgoingCancellationNeverFallsBack
+--- PASS: TestMumpaOutgoingCancellationNeverFallsBack (0.00s)
+=== RUN   TestMumpaOutgoingDeadlineNeverFallsBack
+--- PASS: TestMumpaOutgoingDeadlineNeverFallsBack (0.15s)
+=== RUN   TestMumpaOutgoingSupportedMSEKeepsEncryption
+--- PASS: TestMumpaOutgoingSupportedMSEKeepsEncryption (0.00s)
+=== RUN   TestMumpaPeerSocketSourceBinding
+=== RUN   TestMumpaPeerSocketSourceBinding/explicit
+=== RUN   TestMumpaPeerSocketSourceBinding/system-default
+--- PASS: TestMumpaPeerSocketSourceBinding (0.00s)
+    --- PASS: TestMumpaPeerSocketSourceBinding/explicit (0.00s)
+    --- PASS: TestMumpaPeerSocketSourceBinding/system-default (0.00s)
+=== RUN   TestMumpaClientSourceBindingRejectsProxy
+=== RUN   TestMumpaClientSourceBindingRejectsProxy/peer-proxy
+=== RUN   TestMumpaClientSourceBindingRejectsProxy/http-proxy
+--- PASS: TestMumpaClientSourceBindingRejectsProxy (0.00s)
+    --- PASS: TestMumpaClientSourceBindingRejectsProxy/peer-proxy (0.00s)
+    --- PASS: TestMumpaClientSourceBindingRejectsProxy/http-proxy (0.00s)
+=== RUN   TestMumpaSourceBindingValidation
+--- PASS: TestMumpaSourceBindingValidation (0.00s)
+=== RUN   TestMumpaPeerSourceBindingUnavailableDoesNotListenUnbound
+--- PASS: TestMumpaPeerSourceBindingUnavailableDoesNotListenUnbound (0.00s)
+=== RUN   TestMumpaUTPAndDHTShareBoundPacketSource
+--- PASS: TestMumpaUTPAndDHTShareBoundPacketSource (0.00s)
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result
+--- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result (0.00s)
+PASS
+ok  	github.com/anacrolix/torrent	0.900s
+=== RUN   TestMumpaAnnounceBareIP
+=== RUN   TestMumpaAnnounceBareIP/ipv4-zero-port
+=== RUN   TestMumpaAnnounceBareIP/ipv4-node-port
+=== RUN   TestMumpaAnnounceBareIP/ipv6-zero-port
+=== RUN   TestMumpaAnnounceBareIP/ipv6-node-port
+--- PASS: TestMumpaAnnounceBareIP (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv4-zero-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv4-node-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv6-zero-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv6-node-port (0.00s)
+=== RUN   TestMumpaAnnounceNoAutomaticIPOverride
+--- PASS: TestMumpaAnnounceNoAutomaticIPOverride (0.00s)
+=== RUN   TestMumpaTrackerHTTPSourceBinding
+=== RUN   TestMumpaTrackerHTTPSourceBinding/no-public-override
+=== RUN   TestMumpaTrackerHTTPSourceBinding/explicit-public-override
+--- PASS: TestMumpaTrackerHTTPSourceBinding (0.00s)
+    --- PASS: TestMumpaTrackerHTTPSourceBinding/no-public-override (0.00s)
+    --- PASS: TestMumpaTrackerHTTPSourceBinding/explicit-public-override (0.00s)
+=== RUN   TestMumpaTrackerHTTPSRedirectPreservesSource
+--- PASS: TestMumpaTrackerHTTPSRedirectPreservesSource (0.00s)
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/invalid
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/unavailable
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/proxy
+--- PASS: TestMumpaTrackerSourceBindingFailsClosed (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/invalid (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/unavailable (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/proxy (0.00s)
+=== RUN   TestMumpaTrackerUDPSourceBinding
+=== RUN   TestMumpaTrackerUDPSourceBinding/no-public-override
+=== RUN   TestMumpaTrackerUDPSourceBinding/explicit-public-override
+--- PASS: TestMumpaTrackerUDPSourceBinding (0.00s)
+    --- PASS: TestMumpaTrackerUDPSourceBinding/no-public-override (0.00s)
+    --- PASS: TestMumpaTrackerUDPSourceBinding/explicit-public-override (0.00s)
+=== RUN   TestMumpaTrackerBoundDialRejectsWrongFamily
+--- PASS: TestMumpaTrackerBoundDialRejectsWrongFamily (0.00s)
+=== RUN   TestMumpaAnnounceBareIP
+=== RUN   TestMumpaAnnounceBareIP/ipv4-zero-port
+=== RUN   TestMumpaAnnounceBareIP/ipv4-node-port
+=== RUN   TestMumpaAnnounceBareIP/ipv6-zero-port
+=== RUN   TestMumpaAnnounceBareIP/ipv6-node-port
+--- PASS: TestMumpaAnnounceBareIP (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv4-zero-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv4-node-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv6-zero-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv6-node-port (0.00s)
+=== RUN   TestMumpaAnnounceNoAutomaticIPOverride
+--- PASS: TestMumpaAnnounceNoAutomaticIPOverride (0.00s)
+=== RUN   TestMumpaTrackerHTTPSourceBinding
+=== RUN   TestMumpaTrackerHTTPSourceBinding/no-public-override
+=== RUN   TestMumpaTrackerHTTPSourceBinding/explicit-public-override
+--- PASS: TestMumpaTrackerHTTPSourceBinding (0.00s)
+    --- PASS: TestMumpaTrackerHTTPSourceBinding/no-public-override (0.00s)
+    --- PASS: TestMumpaTrackerHTTPSourceBinding/explicit-public-override (0.00s)
+=== RUN   TestMumpaTrackerHTTPSRedirectPreservesSource
+--- PASS: TestMumpaTrackerHTTPSRedirectPreservesSource (0.00s)
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/invalid
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/unavailable
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/proxy
+--- PASS: TestMumpaTrackerSourceBindingFailsClosed (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/invalid (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/unavailable (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/proxy (0.00s)
+=== RUN   TestMumpaTrackerUDPSourceBinding
+=== RUN   TestMumpaTrackerUDPSourceBinding/no-public-override
+=== RUN   TestMumpaTrackerUDPSourceBinding/explicit-public-override
+--- PASS: TestMumpaTrackerUDPSourceBinding (0.00s)
+    --- PASS: TestMumpaTrackerUDPSourceBinding/no-public-override (0.00s)
+    --- PASS: TestMumpaTrackerUDPSourceBinding/explicit-public-override (0.00s)
+=== RUN   TestMumpaTrackerBoundDialRejectsWrongFamily
+--- PASS: TestMumpaTrackerBoundDialRejectsWrongFamily (0.00s)
+=== RUN   TestMumpaAnnounceBareIP
+=== RUN   TestMumpaAnnounceBareIP/ipv4-zero-port
+=== RUN   TestMumpaAnnounceBareIP/ipv4-node-port
+=== RUN   TestMumpaAnnounceBareIP/ipv6-zero-port
+=== RUN   TestMumpaAnnounceBareIP/ipv6-node-port
+--- PASS: TestMumpaAnnounceBareIP (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv4-zero-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv4-node-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv6-zero-port (0.00s)
+    --- PASS: TestMumpaAnnounceBareIP/ipv6-node-port (0.00s)
+=== RUN   TestMumpaAnnounceNoAutomaticIPOverride
+--- PASS: TestMumpaAnnounceNoAutomaticIPOverride (0.00s)
+=== RUN   TestMumpaTrackerHTTPSourceBinding
+=== RUN   TestMumpaTrackerHTTPSourceBinding/no-public-override
+=== RUN   TestMumpaTrackerHTTPSourceBinding/explicit-public-override
+--- PASS: TestMumpaTrackerHTTPSourceBinding (0.00s)
+    --- PASS: TestMumpaTrackerHTTPSourceBinding/no-public-override (0.00s)
+    --- PASS: TestMumpaTrackerHTTPSourceBinding/explicit-public-override (0.00s)
+=== RUN   TestMumpaTrackerHTTPSRedirectPreservesSource
+--- PASS: TestMumpaTrackerHTTPSRedirectPreservesSource (0.00s)
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/invalid
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/unavailable
+=== RUN   TestMumpaTrackerSourceBindingFailsClosed/proxy
+--- PASS: TestMumpaTrackerSourceBindingFailsClosed (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/invalid (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/unavailable (0.00s)
+    --- PASS: TestMumpaTrackerSourceBindingFailsClosed/proxy (0.00s)
+=== RUN   TestMumpaTrackerUDPSourceBinding
+=== RUN   TestMumpaTrackerUDPSourceBinding/no-public-override
+=== RUN   TestMumpaTrackerUDPSourceBinding/explicit-public-override
+--- PASS: TestMumpaTrackerUDPSourceBinding (0.00s)
+    --- PASS: TestMumpaTrackerUDPSourceBinding/no-public-override (0.00s)
+    --- PASS: TestMumpaTrackerUDPSourceBinding/explicit-public-override (0.00s)
+=== RUN   TestMumpaTrackerBoundDialRejectsWrongFamily
+--- PASS: TestMumpaTrackerBoundDialRejectsWrongFamily (0.00s)
+PASS
+ok  	github.com/anacrolix/torrent/tracker	0.363s

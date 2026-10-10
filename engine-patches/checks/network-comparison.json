@@ -1,0 +1,249 @@
+{
+  "date": "2026-10-10",
+  "vpnStopped": false,
+  "routesModified": false,
+  "independentClient": {
+    "version": "v5.1.2",
+    "libtorrent": "1.2.20.0",
+    "preferences": {
+      "upnp": false,
+      "lsd": false,
+      "dht": true,
+      "pex": true,
+      "add_trackers_enabled": false,
+      "bittorrent_protocol": 0,
+      "proxy_type": "None",
+      "proxy_auth_enabled": false,
+      "proxy_bittorrent": true,
+      "proxy_peer_connections": false,
+      "proxyHostnamePresent": false
+    },
+    "finalSample": {
+      "elapsedMs": 30210,
+      "dhtNodes": 7,
+      "favorites": [
+        {
+          "title": "Слава КПСС - Аниме Гангрейв",
+          "connectedPeerTypes": {
+            "ipv4": 25,
+            "ipv6": 0,
+            "utp": 0,
+            "tcp": 25
+          },
+          "state": "downloading",
+          "num_seeds": 3,
+          "num_leechs": 1,
+          "downloaded": 15313583,
+          "dlspeed": 2580970,
+          "progress": 0.76171875,
+          "trackers": [
+            {
+              "host": "** [DHT] **",
+              "message": "",
+              "status": 2,
+              "num_peers": 0,
+              "num_seeds": 0,
+              "num_leeches": 0
+            },
+            {
+              "host": "** [PeX] **",
+              "message": "",
+              "status": 2,
+              "num_peers": 0,
+              "num_seeds": 0,
+              "num_leeches": 0
+            },
+            {
+              "host": "** [LSD] **",
+              "message": "",
+              "status": 0,
+              "num_peers": 0,
+              "num_seeds": 0,
+              "num_leeches": 0
+            },
+            {
+              "host": "bt.t-ru.org",
+              "message": "",
+              "status": 2,
+              "num_peers": 30,
+              "num_seeds": -1,
+              "num_leeches": -1
+            },
+            {
+              "host": "tracker.opentrackr.org",
+              "message": "torrent aborted",
+              "status": 4,
+              "num_peers": -1,
+              "num_seeds": -1,
+              "num_leeches": -1
+            }
+          ]
+        },
+        {
+          "title": "Роженица в метро",
+          "connectedPeerTypes": {
+            "ipv4": 7,
+            "ipv6": 0,
+            "utp": 0,
+            "tcp": 7
+          },
+          "state": "stalledUP",
+          "num_seeds": 0,
+          "num_leechs": 0,
+          "downloaded": 10491587,
+          "dlspeed": 1685462,
+          "progress": 1,
+          "trackers": [
+            {
+              "host": "** [DHT] **",
+              "message": "",
+              "status": 2,
+              "num_peers": 0,
+              "num_seeds": 0,
+              "num_leeches": 0
+            },
+            {
+              "host": "** [PeX] **",
+              "message": "",
+              "status": 2,
+              "num_peers": 0,
+              "num_seeds": 0,
+              "num_leeches": 0
+            },
+            {
+              "host": "** [LSD] **",
+              "message": "",
+              "status": 0,
+              "num_peers": 0,
+              "num_seeds": 0,
+              "num_leeches": 0
+            },
+            {
+              "host": "bt4.t-ru.org",
+              "message": "",
+              "status": 2,
+              "num_peers": 12,
+              "num_seeds": -1,
+              "num_leeches": -1
+            },
+            {
+              "host": "tracker.opentrackr.org",
+              "message": "torrent aborted",
+              "status": 4,
+              "num_peers": -1,
+              "num_seeds": -1,
+              "num_leeches": -1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "readOnlyRouteClassification": {
+    "readOnly": true,
+    "networkRequests": 0,
+    "routes": [
+      {
+        "case": 1,
+        "systemDefault": {
+          "ifIndex": 45,
+          "classification": "VPN"
+        },
+        "capturedSource": {
+          "ifIndex": 13,
+          "classification": "WiFi"
+        },
+        "capturedSourceAndWiFiInterface": {
+          "ifIndex": 13,
+          "classification": "WiFi"
+        }
+      },
+      {
+        "case": 2,
+        "systemDefault": {
+          "ifIndex": 45,
+          "classification": "VPN"
+        },
+        "capturedSource": {
+          "ifIndex": 13,
+          "classification": "WiFi"
+        },
+        "capturedSourceAndWiFiInterface": {
+          "ifIndex": 13,
+          "classification": "WiFi"
+        }
+      }
+    ]
+  },
+  "originalTrackerRequests": [
+    {
+      "title": "Слава КПСС - Аниме Гангрейв",
+      "host": "bt.t-ru.org",
+      "exactCapturedFraming": true,
+      "bindToVpn": false,
+      "sourceIsVpn": true,
+      "responseBytes": 0,
+      "errorType": "RemoteDisconnected",
+      "elapsedMs": 15072
+    },
+    {
+      "title": "Слава КПСС - Аниме Гангрейв",
+      "host": "bt.t-ru.org",
+      "exactCapturedFraming": true,
+      "bindToVpn": true,
+      "sourceIsVpn": true,
+      "responseBytes": 0,
+      "errorType": "RemoteDisconnected",
+      "elapsedMs": 15071
+    },
+    {
+      "title": "Роженица в метро",
+      "host": "bt4.t-ru.org",
+      "exactCapturedFraming": true,
+      "bindToVpn": false,
+      "sourceIsVpn": true,
+      "responseBytes": 0,
+      "errorType": "RemoteDisconnected",
+      "elapsedMs": 15073
+    },
+    {
+      "title": "Роженица в метро",
+      "host": "bt4.t-ru.org",
+      "exactCapturedFraming": true,
+      "bindToVpn": true,
+      "sourceIsVpn": true,
+      "responseBytes": 0,
+      "errorType": "RemoteDisconnected",
+      "elapsedMs": 15071
+    }
+  ],
+  "authorizedOpenTrackr": [
+    {
+      "title": "Слава КПСС - Аниме Гангрейв",
+      "trackerHost": "tracker.opentrackr.org",
+      "credentialQueryPresent": false,
+      "privateTorrent": false,
+      "action": 1,
+      "seeders": 0,
+      "leechers": 5,
+      "peerCount": 5,
+      "interval": 3663,
+      "tcpProbeCount": 5,
+      "tcpReachablePeers": 0
+    },
+    {
+      "title": "Роженица в метро",
+      "trackerHost": "tracker.opentrackr.org",
+      "credentialQueryPresent": false,
+      "privateTorrent": false,
+      "action": 1,
+      "seeders": 0,
+      "leechers": 4,
+      "peerCount": 4,
+      "interval": 3425,
+      "tcpProbeCount": 4,
+      "tcpReachablePeers": 0
+    }
+  ],
+  "mumpaFavoritePlaybackVerified": false
+}

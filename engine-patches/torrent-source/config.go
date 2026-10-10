@@ -31,7 +31,9 @@ type ClientConfig struct {
 	// specified.
 	DataDir string `long:"data-dir" description:"directory to store downloaded torrent data"`
 	// The address to listen for new uTP and TCP BitTorrent protocol connections. DHT shares a UDP
-	// socket with uTP unless configured otherwise.
+	// socket with uTP unless configured otherwise. A concrete IP also binds
+	// outgoing peer and tracker connections to that source. Empty/wildcard
+	// hosts retain system routing. Concrete source binding cannot use a proxy.
 	ListenHost              func(network string) string
 	ListenPort              int
 	NoDefaultPortForwarding bool

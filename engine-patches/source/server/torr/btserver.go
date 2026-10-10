@@ -139,7 +139,7 @@ func (bt *BTServer) configure() {
 		bt.config.UploadRateLimiter = utils.Limit(settings.BTsets.UploadRateLimit * 1024)
 	}
 	if settings.TorAddr != "" {
-		log.Println("Set listen addr", settings.TorAddr)
+		log.Println("Set configured torrent listen address")
 		bt.config.SetListenAddr(settings.TorAddr)
 	} else {
 		if settings.BTsets.PeersListenPort > 0 {
@@ -150,6 +150,7 @@ func (bt *BTServer) configure() {
 			bt.config.ListenPort = 0
 		}
 	}
+	boundSource := configureListenSource(bt.config)
 
 	// Configure proxy if enabled
 	if err := bt.configureProxy(); err != nil {
@@ -167,7 +168,7 @@ func (bt *BTServer) configure() {
 			bt.config.AnnounceIp4 = ip4
 		}
 	}
-	if bt.config.PublicIp4 == nil {
+	if bt.config.PublicIp4 == nil && !boundSource {
 		// Create a context with a 3-second timeout for the IP lookup
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -190,7 +191,7 @@ func (bt *BTServer) configure() {
 			bt.config.AnnounceIp6 = ip6
 		}
 	}
-	if bt.config.PublicIp6 == nil && settings.BTsets.EnableIPv6 {
+	if bt.config.PublicIp6 == nil && settings.BTsets.EnableIPv6 && !boundSource {
 		// Create a context with a 3-second timeout for the IP lookup
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
@@ -205,6 +206,22 @@ func (bt *BTServer) configure() {
 	if bt.config.PublicIp6 != nil {
 		log.Println("PublicIp6:", bt.config.PublicIp6)
 	}
+}
+
+// A concrete torrent listener also selects the outgoing network. Never discover
+// a public address through the unrelated system route in this mode, and never
+// open the other address family on an unselected interface.
+func configureListenSource(config *torrent.ClientConfig) bool {
+	ip := net.ParseIP(config.ListenHost("tcp4"))
+	if ip == nil || ip.IsUnspecified() {
+		return false
+	}
+	if ip.To4() != nil {
+		config.DisableIPv6 = true
+	} else {
+		config.DisableIPv4 = true
+	}
+	return true
 }
 
 func (bt *BTServer) configureProxy() error {

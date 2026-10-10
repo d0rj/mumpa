@@ -80,6 +80,34 @@ void main() {
   });
 
   test(
+    'missing selected network prevents native startup and permits system retry',
+    () async {
+      var selected = 'mumpa-test-nonexistent-interface';
+      var launches = 0;
+      engine = TorrentEngine.testing(
+        root,
+        executable: File('${root.path}/stable-engine.exe'),
+        networkInterface: () => selected,
+        clientFactory: () =>
+            MockClient((_) async => http.Response('ready', 200)),
+        startProcess: (_, arguments) async {
+          launches++;
+          expect(
+            arguments[arguments.indexOf('--torrentaddr') + 1],
+            startsWith('0.0.0.0:'),
+          );
+          return FakeEngineProcess();
+        },
+      );
+      await expectLater(engine.start(), throwsStateError);
+      expect(launches, 0);
+      selected = '';
+      await engine.start();
+      expect(launches, 1);
+    },
+  );
+
+  test(
     'skips TCP-available ports occupied by UDP and retains peer transports',
     () async {
       final occupied = await RawDatagramSocket.bind(

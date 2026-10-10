@@ -16,6 +16,7 @@ import 'package:xml/xml.dart';
 
 import '../domain/models.dart';
 import 'source_operation.dart';
+import 'torrent_network.dart';
 
 Future<bool> _validBinaryHash(String path, String expected) => Isolate.run(
   () async =>
@@ -35,7 +36,7 @@ List<int> torrentPeerPortCandidates(int preferred, {Random? random}) {
 }
 
 class TorrentEngine {
-  TorrentEngine(this.root, {this.binaryDirectory})
+  TorrentEngine(this.root, {this.binaryDirectory, this.networkInterface})
     : _executable = null,
       _startProcess = Process.start,
       _clientFactory = http.Client.new,
@@ -49,12 +50,14 @@ class TorrentEngine {
     required File this._executable,
     required this._startProcess,
     required this._clientFactory,
+    this.networkInterface,
     this._preferredPeerPort = 0,
     this._startupTimeout = const Duration(seconds: 30),
   }) : binaryDirectory = null;
 
   final Directory root;
   final Directory? binaryDirectory;
+  final String? Function()? networkInterface;
   final File? _executable;
   final Future<Process> Function(String, List<String>) _startProcess;
   final http.Client Function() _clientFactory;
@@ -83,7 +86,7 @@ class TorrentEngine {
   Future<File> _binary(Directory state) async {
     if (_executable != null) return _executable;
     const expected =
-        'b04344607b18de6a54a0a5a265a2c8c243d9bafadc90ddf8980cc547a95d3bb4';
+        '281a77382ffeb5cfd4ca8b2f5be05badc2c0633a64f70c359e0dd0037b2c9e74';
     final binaries = binaryDirectory ?? state;
     await binaries.create(recursive: true);
     final binary = File(p.join(binaries.path, 'TorrServer-MatriX.145.2.exe'));
@@ -104,6 +107,10 @@ class TorrentEngine {
   }
 
   Future<String> _start(int generation) async {
+    final sourceAddress = await resolveTorrentNetwork(networkInterface?.call());
+    if (sourceAddress != null && !Platform.isWindows && _executable == null) {
+      throw UnsupportedError('Выбор сетевого интерфейса доступен на Windows.');
+    }
     final state = Directory(p.join(root.path, 'engine'));
     await state.create(recursive: true);
     final settings = File(p.join(state.path, 'settings.json'));
@@ -174,7 +181,7 @@ class TorrentEngine {
           '-i',
           '127.0.0.1',
           '--torrentaddr',
-          '0.0.0.0:$torrentPort',
+          '${sourceAddress ?? '0.0.0.0'}:$torrentPort',
           '-d',
           state.path,
           '-l',

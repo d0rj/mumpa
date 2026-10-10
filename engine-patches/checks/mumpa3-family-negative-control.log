@@ -1,0 +1,41 @@
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6
+    source_binding_mumpa_test.go:242: tracker did not select the expected compatible candidate
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6
+    source_binding_mumpa_test.go:242: tracker did not select the expected compatible candidate
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4
+    source_binding_mumpa_test.go:242: tracker did not select the expected compatible candidate
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4
+    source_binding_mumpa_test.go:242: tracker did not select the expected compatible candidate
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable
+    source_binding_mumpa_test.go:237: incompatible candidates unexpectedly selected an address
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable
+    source_binding_mumpa_test.go:237: incompatible candidates unexpectedly selected an address
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback
+    source_binding_mumpa_test.go:237: incompatible candidates unexpectedly selected an address
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback
+    source_binding_mumpa_test.go:237: incompatible candidates unexpectedly selected an address
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4
+=== RUN   TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result
+--- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-skips-first-IPv6 (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-UDP-skips-first-IPv6 (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-skips-first-IPv4 (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-UDP-skips-first-IPv4 (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-udp6-unavailable (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-udp4-unavailable (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound6-no-IPv4-fallback (0.00s)
+    --- FAIL: TestMumpaTrackerAddressSelectionMatchesSourceFamily/bound4-no-IPv6-fallback (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard4-keeps-first-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/wildcard6-keeps-first-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp4-skips-IPv6 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/default-udp6-skips-IPv4 (0.00s)
+    --- PASS: TestMumpaTrackerAddressSelectionMatchesSourceFamily/empty-result (0.00s)
+FAIL
+FAIL	github.com/anacrolix/torrent	0.436s
+FAIL

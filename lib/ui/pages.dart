@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
@@ -854,6 +855,14 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isWindows) {
+      unawaited(widget.app.refreshTorrentNetworks());
+    }
+  }
+
   late final server = TextEditingController(
     text: widget.app.library.settings['serverUrl'] as String? ?? '',
   );
@@ -1017,6 +1026,49 @@ class _SettingsPageState extends State<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SectionTitle('Торрент-движок'),
+            if (Platform.isWindows) ...[
+              DropdownButtonFormField<String>(
+                key: ValueKey(widget.app.torrentInterface),
+                initialValue: widget.app.torrentInterface,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Интерфейс встроенного торрент-движка',
+                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: '',
+                    child: Text('Системный маршрут (по умолчанию)'),
+                  ),
+                  for (final name in {
+                    ...widget.app.torrentNetworks.map((n) => n.name),
+                    if (widget.app.torrentInterface.isNotEmpty)
+                      widget.app.torrentInterface,
+                  })
+                    DropdownMenuItem(value: name, child: Text(name)),
+                ],
+                onChanged: widget.app.busy == null
+                    ? (name) {
+                        if (name != null) {
+                          unawaited(widget.app.saveTorrentInterface(name));
+                        }
+                      }
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Выбор Wi-Fi или Ethernet может отправлять торрент-трафик напрямую: '
+                'трекеры и пиры увидят IP провайдера. Системный маршрут учитывает VPN. '
+                'Настройка применяется после перезапуска Mumpa. '
+                'Другой интерфейс не будет выбран автоматически.',
+                style: TextStyle(color: muted, fontSize: 12),
+              ),
+              TextButton.icon(
+                onPressed: widget.app.refreshTorrentNetworks,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Обновить список интерфейсов'),
+              ),
+              const SizedBox(height: 12),
+            ],
             const Text(
               'Встроенный движок работает автоматически. Можно подключить свой TorrServer — например, на домашнем сервере.',
               style: TextStyle(color: muted),
@@ -1112,7 +1164,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => showLicensePage(
                 context: context,
                 applicationName: 'Mumpa',
-                applicationVersion: '1.1.0',
+                applicationVersion: '1.1.5',
                 applicationLegalese:
                     'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
               ),

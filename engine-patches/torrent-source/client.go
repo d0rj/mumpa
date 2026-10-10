@@ -232,6 +232,9 @@ func NewClient(cfg *ClientConfig) (cl *Client, err error) {
 		torrents:          make(map[metainfo.Hash]*Torrent),
 		dialRateLimiter:   rate.NewLimiter(10, 10),
 	}
+	if err = validateSourceBinding(cfg, cl.listenNetworks()); err != nil {
+		return
+	}
 	go cl.acceptLimitClearer()
 	cl.initLogger()
 	defer func() {

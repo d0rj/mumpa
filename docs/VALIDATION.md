@@ -1,8 +1,79 @@
 # Mumpa verification — 2026-10-10
 
+## 1.1.5 explicit source interface and live route comparison
+
+The current public favorites are alive: a separate qBittorrent 5.1.2 temporary
+profile receives 30 / 12 peers from the original trackers and downloads both
+selected files over IPv4 TCP. A 50 ms socket capture plus read-only Windows
+route lookup shows its successful announces using Wi-Fi. Mumpa and replayed
+tracker HTTP requests use the VPN interface and receive no announce response;
+explicitly binding those requests to the same VPN source also fails. This
+identifies a route difference, not a measured external IP or a server-side
+explanation. The authorized OpenTrackr announce yields 5 / 4 leecher peers,
+zero seeders and no reachable TCP endpoints. Native favorite playback has not
+yet been verified. No VPN, system routes or firewall rules were changed.
+
+Windows now offers an optional interface selector, defaulting to the system
+route. It saves the name, resolves the current IPv4 address at engine startup,
+and fails if the named interface is missing. The setting applies after restart;
+the view explains direct traffic and provider-IP exposure. The user's current
+profile remains on the system route pending the separate direct-traffic choice.
+
+- Managed `MatriX.145.2-mumpa3` binds outgoing TCP peers and HTTP(S)/UDP trackers
+  to an explicit listener address. uTP and DHT use the same bound socket. It
+  disables the incompatible address family, skips unrelated automatic public-IP
+  discovery, preserves explicit announce-IP overrides, and rejects incompatible
+  proxy/source settings. Tracker DNS selection skips incompatible IPv4/IPv6
+  candidates without reverting to an unbound connection.
+- All 24 focused Go tests pass using loopback only. Nineteen torrent/tracker
+  tests pass three times. A negative control removes only DNS-family filtering:
+  eight explicit-source cases fail while six default/wildcard/empty cases pass.
+  Evidence: `engine-patches/checks/mumpa3-regressions.log`,
+  `mumpa3-source-binding-repeat.log`, `mumpa3-family-negative-control.log`.
+- All four native engine targets build with locked source, modules and
+  toolchains. A fresh Windows build reproduces SHA256
+  `281a77382ffeb5cfd4ca8b2f5be05badc2c0633a64f70c359e0dd0037b2c9e74`.
+  All binary hashes are in `engine-patches/managed-engine.lock.json`; complete
+  patched source accompanies the release.
+- **80 unit/widget tests pass**, one opt-in Jackett check is skipped, and static
+  analysis is clean. New cases cover the untouched default route, DHCP address
+  changes, missing/invalid selections and no native launch on a missing source.
+- Native Windows and Android API 35 x86_64 pass the final engine's outgoing
+  BitTorrent fixture. First audio advances in **1472 / 1580 ms**, with
+  **393,216 / 360,448 bytes** served out of **2,116,844** while automatic full-track
+  caching is incomplete. Both observe one rejected MSE connection followed by
+  one accepted plaintext connection. Complete SHA256, seek, exact HTTP Range,
+  restart/offline and three reader cancellations pass; Android's audio service
+  is registered. Evidence: `test-output/windows-outgoing-mumpa3-final.log` and
+  `android-outgoing-mumpa3-final.log`. These are local original-content fixtures.
+- Windows **1.1.5+7** and all three Android release APKs build and are packaged.
+  The Windows ZIP is **487,592,206 bytes**; ARM64/ARMv7/x86_64 APKs are
+  **43,609,967 / 43,737,511 / 44,952,681 bytes**. Their native engine hashes
+  match the lock after the pinned NDK's `llvm-strip --strip-unneeded`; libmpv
+  is present and Windows assets are absent. The x86_64 release installs and
+  launches as **1.1.5 / versionCode 4007** on API 35 without an app runtime crash.
+- Packaged Windows startup preserves all four likes, library track IDs,
+  RuTracker.org, Jackett port/key, automatic caching and the unchanged system
+  torrent route. Managed FlareSolverr is healthy; the new app is left open.
+  Evidence: `test-output/packaged-startup-1.1.5.json`, `apk-layout-1.1.5.json`,
+  `android-release-startup-1.1.5.json` and final release build logs. The own
+  emulator was closed after validation. Physical Android hardware is untested.
+
+The first Android release attempt used `--no-pub` after the native test and
+retained a dev-only Java plugin registration. The ordinary Flutter build
+regenerates release tooling and succeeds without dependency-version changes;
+README records that build-order constraint. The explicit-source DHT mode can
+start with a random non-BEP42-bound ID when no public address is configured;
+strict public DHT acceptance remains unverified.
+
+Sanitized live comparison is in `engine-patches/checks/network-comparison.json`.
+See [network diagnosis](NETWORK_DIAGNOSTICS.md) for the remaining acceptance
+criterion: an existing favorite decoded from the network and advancing for at
+least 2.5 seconds. Independent downloads and local fixtures do not satisfy it.
+
 ## 1.1.4 outgoing peers and strict public-favorite playback
 
-Managed `MatriX.145.2-mumpa2` fixes two source-confirmed defects: an outgoing MSE error skipped the optional plaintext fallback, and HTTP tracker IP parameters included a node port (`IP:0`). Auto-detected public IP remains available for DHT/peer protocols, while tracker IP overrides now require explicit configuration. These protocol fixes do **not** establish that the currently unavailable public swarms become reachable.
+Managed `MatriX.145.2-mumpa2` fixes two source-confirmed defects: an outgoing MSE error skipped the optional plaintext fallback, and HTTP tracker IP parameters included a node port (`IP:0`). Auto-detected public IP remains available for DHT/peer protocols, while tracker IP overrides now require explicit configuration. These protocol fixes do **not** establish public-swarm reachability through the observed network path.
 
 - Twelve focused Go regressions plus four IPv4/IPv6 subcases pass: outgoing MSE EOF→plaintext, forced encryption, explicit cancellation, deadline/no socket leak, successful RC4 without downgrade, explicit versus automatic scraper IP, bare tracker IP and the existing cancellation/Range behavior. Four negative controls deliberately restore the corresponding defects and fail as expected. The deadline case passes 30 repetitions. All use local/in-memory connections, with no public announces. Evidence: `engine-patches/checks/mumpa2-regressions.log`, `mumpa2-negative-controls.log`.
 - The exact torrent dependency ZIP is hash-locked and unpacked into fresh source trees; the original TorrServer module files remain unchanged. `managed.mod` changes only the local torrent replacement. All four targets build with pinned Go/NDK, and two fresh Windows builds produce the same SHA256. Final binary hashes are in `engine-patches/managed-engine.lock.json`; matching complete patched source includes the fork and build instructions.
@@ -13,7 +84,7 @@ Managed `MatriX.145.2-mumpa2` fixes two source-confirmed defects: an outgoing MS
 
 Network observations are isolated from the protocol regressions. Both original announce URLs are public RuTracker hosts without passkeys/query credentials, and both metainfo files have no private flag. DNS and TCP port 80 connect. Public root GET replies vary with User-Agent; the ordinary reply is a static HTML page, not a peer list. Real announces with four different User-Agents receive no response. HTTPS to both tracker hosts fails the TLS handshake, while the RuTracker website and control HTTPS work. Three standard DHT bootstrap hosts (four IPv4 endpoints) do not answer correctly encoded FIND_NODE queries, including a BEP42-secure ID probe. A plain public UDP DNS request and an OpenTrackr UDP **connect** reply succeed; the separate favorite announce diagnostic to OpenTrackr has not been approved or executed. This does not prove general UDP blocking, a dead swarm, or VPN as the cause. Safe evidence is in `test-output/original-announce-agents-current.json`, `tracker-root-agent-current.json`, `public-transport-current.json`, `dht-find-node-current.json`, `dht-secure-current.json`, and `public-udp-current.json`.
 
-At inspection, split default routes still use WireGuard. Separate permission requests for temporary VPN disconnection/restoration and an OpenTrackr announce diagnostic are pending. Automatic approval rejected the latter because it sends the user's favorite info hashes and connection IP to a third-party tracker. No VPN, route or firewall changes were performed. A real favorite beginning playback remains an open acceptance criterion.
+At that inspection, split default routes used WireGuard. The original OpenTrackr diagnostic was rejected by automatic approval because it sends favorite info hashes and connection IP to a third-party tracker. The user subsequently refused VPN disconnection and explicitly authorized OpenTrackr; its completed results and the live route comparison are recorded in the 1.1.5 section above. No VPN, route or firewall changes were performed. A real favorite beginning playback remains an open acceptance criterion.
 
 ## 1.1.3 liked tracks, first audio and safe cancellation
 

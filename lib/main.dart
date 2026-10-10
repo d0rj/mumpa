@@ -35,6 +35,7 @@ Future<AppController> createApplication({
   final engine = TorrentEngine(
     root,
     binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
+    networkInterface: () => library.settings['torrentInterface'] as String?,
   );
   final torrents = TorrentService(
     sources: Directory(p.join(root.path, 'torrents')),

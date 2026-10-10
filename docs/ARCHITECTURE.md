@@ -1,5 +1,32 @@
 # Mumpa architecture
 
+## Explicit network selection — 1.1.5
+
+Windows stores an optional interface name in `torrentInterface`. The data layer
+enumerates IPv4 interfaces and resolves that name again before each native
+startup, rather than persisting a DHCP address. Empty selection uses the
+system route; a missing named interface fails before process launch. The
+setting applies after application restart and does not alter VPN, OS routes
+or firewall. The settings view explains that a physical interface can expose
+the provider IP.
+
+The concrete `--torrentaddr` listener IP also binds outgoing TCP peers and
+HTTP(S)/UDP tracker requests. uTP and DHT share the existing bound PacketConn.
+The other address family is disabled for a concrete source; public-IP discovery
+through an unrelated system route is skipped. Explicit public announce IPs
+remain separate from this local source. A proxy cannot be combined with
+explicit source binding. Errors do not downgrade to an unbound socket. DNS
+still uses the system resolver, and the binding uses the current local IP.
+
+The pinned DHT dependency initializes a random, non-BEP42-bound node ID when
+no explicit public IP is supplied in this mode. Strict remote nodes may omit
+it from their routing tables. Loopback DHT binding tests establish the socket
+source, not public DHT health; tracker/peer playback is assessed separately.
+
+Independent qBittorrent successfully downloads the existing favorites through
+a different interface than the failing VPN route. This does not establish
+native Mumpa favorite playback. See [network evidence](NETWORK_DIAGNOSTICS.md).
+
 ## Outgoing peer compatibility — 1.1.4
 
 Managed `MatriX.145.2-mumpa2` retains the request cancellation patch and adds two protocol fixes in the pinned torrent dependency. An outgoing MSE error now permits a new plaintext connection when encryption is optional and the context remains live. Forced encryption, cancellation and expired deadlines never trigger that fallback; successful RC4 stays encrypted. Tracker `ip`/`ipv4`/`ipv6` values use bare IP addresses. Automatically detected public IP remains available for DHT and peer protocol use, while tracker overrides require explicit `--pubipv4`/`--pubipv6` configuration.

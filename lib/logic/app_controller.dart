@@ -9,6 +9,7 @@ import '../data/jackett_service.dart';
 import '../data/flaresolverr_service.dart';
 import '../data/rutracker_service.dart';
 import '../data/torrent_service.dart';
+import '../data/torrent_network.dart';
 import '../data/source_operation.dart';
 import '../domain/models.dart';
 import 'playback_controller.dart';
@@ -84,6 +85,27 @@ class AppController extends ChangeNotifier {
   String query = '';
   String? selectedAlbum, selectedPlaylist, selectedArtist;
   String? busy, message, error, engineVersion;
+  List<TorrentNetwork> torrentNetworks = const [];
+  String get torrentInterface =>
+      library.settings['torrentInterface'] as String? ?? '';
+  Future<void> refreshTorrentNetworks() async {
+    try {
+      torrentNetworks = List.unmodifiable(await listTorrentNetworks());
+      if (!_disposed) notifyListeners();
+    } catch (e) {
+      reportError('Не удалось прочитать сетевые интерфейсы: $e');
+    }
+  }
+
+  Future<void> saveTorrentInterface(String name) async {
+    await run('Сохраняем сетевой интерфейс', () async {
+      await resolveTorrentNetwork(name);
+      await library.setSetting('torrentInterface', name);
+      message =
+          'Сетевой интерфейс сохранён. Перезапустите Mumpa для применения.';
+    });
+  }
+
   List<SearchRelease> releases = [];
   bool searching = false;
   int _searchId = 0;

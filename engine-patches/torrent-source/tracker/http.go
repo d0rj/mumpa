@@ -114,20 +114,25 @@ func announceHTTP(opt Announce, _url *url.URL) (ret AnnounceResponse, err error)
 	if opt.Context != nil {
 		req = req.WithContext(opt.Context)
 	}
-	resp, err := (&http.Client{
-		Timeout: time.Second * 15,
-		Transport: &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout: 15 * time.Second,
-			}).Dial,
-			Proxy:               opt.HTTPProxy,
-			TLSHandshakeTimeout: 15 * time.Second,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-				ServerName:         opt.ServerName,
-			},
-			DisableKeepAlives: true,
+	transport := &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout: 15 * time.Second,
+		}).Dial,
+		Proxy:               opt.HTTPProxy,
+		TLSHandshakeTimeout: 15 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			ServerName:         opt.ServerName,
 		},
+		DisableKeepAlives: true,
+	}
+	if opt.hasSourceBinding() {
+		transport.Dial = nil
+		transport.DialContext = opt.dialBound
+	}
+	resp, err := (&http.Client{
+		Timeout:   time.Second * 15,
+		Transport: transport,
 	}).Do(req)
 	if err != nil {
 		return

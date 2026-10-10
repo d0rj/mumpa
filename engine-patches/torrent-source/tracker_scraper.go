@@ -63,11 +63,16 @@ func (me *trackerScraper) getIp() (ip net.IP, err error) {
 	if err != nil {
 		return
 	}
+	return me.getIpFrom(ips)
+}
+
+// Select from the complete DNS result before dialing. An address from the
+// other family must not prevent a later candidate using the selected source.
+func (me *trackerScraper) getIpFrom(ips []net.IP) (net.IP, error) {
 	if len(ips) == 0 {
-		err = errors.New("no ips")
-		return
+		return nil, errors.New("no ips")
 	}
-	for _, ip = range ips {
+	for _, ip := range ips {
 		if me.t.cl.ipIsBlocked(ip) {
 			continue
 		}
@@ -81,10 +86,23 @@ func (me *trackerScraper) getIp() (ip net.IP, err error) {
 				continue
 			}
 		}
-		return
+		if _, err := outgoingSourceIP(me.t.cl.config, me.sourceNetwork(ip)); err != nil {
+			continue
+		}
+		return ip, nil
 	}
-	err = errors.New("no acceptable ips")
-	return
+	return nil, errors.New("no acceptable ips")
+}
+
+func (me *trackerScraper) sourceNetwork(ip net.IP) string {
+	network := "tcp"
+	if me.u.Scheme == "udp" || me.u.Scheme == "udp4" || me.u.Scheme == "udp6" {
+		network = "udp"
+	}
+	if ip.To4() != nil {
+		return network + "4"
+	}
+	return network + "6"
 }
 
 func (me *trackerScraper) trackerUrl(ip net.IP) string {
@@ -107,6 +125,11 @@ func (me *trackerScraper) announce() (ret trackerAnnounceResult) {
 		ret.Err = fmt.Errorf("error getting ip: %s", err)
 		return
 	}
+	sourceIP, err := outgoingSourceIP(me.t.cl.config, me.sourceNetwork(ip))
+	if err != nil {
+		ret.Err = err
+		return
+	}
 	me.t.cl.lock()
 	req := me.t.announceRequest()
 	me.t.cl.unlock()
@@ -119,6 +142,7 @@ func (me *trackerScraper) announce() (ret trackerAnnounceResult) {
 		HostHeader: me.u.Host,
 		ServerName: me.u.Hostname(),
 		UdpNetwork: me.u.Scheme,
+		SourceIP:   sourceIP,
 		ClientIp4:  krpc.NodeAddr{IP: me.t.cl.config.AnnounceIp4},
 		ClientIp6:  krpc.NodeAddr{IP: me.t.cl.config.AnnounceIp6},
 	}.Do()

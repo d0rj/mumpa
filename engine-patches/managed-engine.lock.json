@@ -1,5 +1,5 @@
 {
-  "version": "MatriX.145.2-mumpa2",
+  "version": "MatriX.145.2-mumpa3",
   "upstream": {
     "tag": "MatriX.145.2",
     "commit": "bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9",
@@ -25,23 +25,27 @@
   "overlays": [
     {
       "path": "server/torr/btserver.go",
-      "sha256": "067123c44b2d780db883969eeab236c00076fe37ff70d6b50e5bb7504e7bdf19"
-    },
-    {
-      "path": "server/torr/request_reader_test.go",
-      "sha256": "54dc698999cc2fccdf778f9fa2713db0cf9c6e42e47b5bc6203b9fb3b6584964"
+      "sha256": "497ff183619c648aec257652ba22f471d55124c5663905eafcbf9b4720f0e634"
     },
     {
       "path": "server/torr/request_reader.go",
       "sha256": "2af9cc1f6aeb4a92b97ed17cb05f609d15ca309207b9db2bc436f65cf5e68f60"
     },
     {
-      "path": "server/torr/storage/torrstor/reader_context_test.go",
-      "sha256": "c83d3313390b908c1a8f06701def2ebc19d65f02acd5fa65e2b8d5090e8302fc"
+      "path": "server/torr/request_reader_test.go",
+      "sha256": "54dc698999cc2fccdf778f9fa2713db0cf9c6e42e47b5bc6203b9fb3b6584964"
+    },
+    {
+      "path": "server/torr/source_binding_test.go",
+      "sha256": "5f954f09eff5912f2409a6b0a1bb90bc389a7c3e9e03432726ca0f290c0447cd"
     },
     {
       "path": "server/torr/storage/torrstor/reader.go",
       "sha256": "50a6af87b70f8012423250c37631f83a2834c9f833e75d9c8c85c9d283b3968c"
+    },
+    {
+      "path": "server/torr/storage/torrstor/reader_context_test.go",
+      "sha256": "c83d3313390b908c1a8f06701def2ebc19d65f02acd5fa65e2b8d5090e8302fc"
     },
     {
       "path": "server/torr/stream.go",
@@ -60,7 +64,7 @@
       "path": "assets/engine/TorrServer.exe",
       "toolchain": "go1.27.1",
       "cgo": "0",
-      "sha256": "b04344607b18de6a54a0a5a265a2c8c243d9bafadc90ddf8980cc547a95d3bb4",
+      "sha256": "281a77382ffeb5cfd4ca8b2f5be05badc2c0633a64f70c359e0dd0037b2c9e74",
       "goamd64": "v1"
     },
     {
@@ -74,7 +78,7 @@
       "path": "android/app/src/main/jniLibs/arm64-v8a/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "df54f54ceaa44766804deb0f9b5a12d3cb239858969d9d84fef31375bd757196",
+      "sha256": "870942a7f7c4e248b79560d3f4f8c94cdbd8612f395510e67ea1adf616f7627c",
       "goamd64": ""
     },
     {
@@ -88,7 +92,7 @@
       "path": "android/app/src/main/jniLibs/armeabi-v7a/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "48f2ea92cfeb9c430abdf968ba4e878a907c8900143d763fecb5a4e7f1ba3638",
+      "sha256": "ba85a14ca1493ac94e9524aa9a512da44fc65723a5ded9edff233fa6b9a1b809",
       "goamd64": ""
     },
     {
@@ -102,7 +106,7 @@
       "path": "android/app/src/main/jniLibs/x86_64/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "6058d057383f850ea03edc9585a1d738f009b1d4e64185b45a9cef87535e6f0b",
+      "sha256": "da43c8b7d1c0098b59a54956d13431ccbc388e6bdf18a7b01d410a5110848bc3",
       "goamd64": "v1"
     }
   ],
@@ -123,27 +127,55 @@
       },
       {
         "path": "client.go",
-        "sha256": "f186f90f26436387d46157d3d07b8ee6a51f682510c2a1e2fa83217dadb2f567"
+        "sha256": "196e1de0b936868a72b20d56d30e8573b5171b174b7bb3718f1ef1dc263c33ba"
       },
       {
         "path": "config.go",
-        "sha256": "26656b50a8fbdec04469449f1886922ebda7dbb9962b9abdbbf48d16cfb35302"
+        "sha256": "37e7c79b37ae16734e4d8d7798cebbaf7bd7222a089f95f32b5c5169f879e95d"
       },
       {
         "path": "outgoing_mumpa_test.go",
         "sha256": "5690d4c7968d8b4464c774cfe7be730f3cfc4f705d70600a416207c2cbcf16c7"
       },
       {
-        "path": "tracker_scraper.go",
-        "sha256": "0ea04e5291f9dcbad7aa7fa0bb38f7d7ef625ec5fa8a98164e90a8d26e11c0e8"
+        "path": "socket.go",
+        "sha256": "cb81c8994f5e61ce8d8f1221ba4ca7e7628387911c7d22e61595a91bc064ad61"
+      },
+      {
+        "path": "source_bind.go",
+        "sha256": "464765813beebf1b4ad68260a3b1455c24e1aad534f76332323ae4f9b40d90c7"
+      },
+      {
+        "path": "source_binding_mumpa_test.go",
+        "sha256": "713d8a29f1ab26a1da99bd301eafb0577c02f0cea8e514d7598eb8be939bacb1"
+      },
+      {
+        "path": "tracker/http.go",
+        "sha256": "40e89b3b65369a46f105347432d5ee9a3457039b0793a5a6bd6dcc9d476dceb3"
       },
       {
         "path": "tracker/http_mumpa_test.go",
         "sha256": "d7bc77171455d5842a9ed5e5711d8a274e95dba6c232ec08c291e334cfaedbdc"
       },
       {
-        "path": "tracker/http.go",
-        "sha256": "96b539c95bac3bdbfc4436e26dede52326abeb6ad2a6a36be05431a1d36039a0"
+        "path": "tracker/source_bind.go",
+        "sha256": "372f71d26eb5885f4e7427218f001f0c0d8fbb52ebd503fe5653e8badf149011"
+      },
+      {
+        "path": "tracker/source_binding_mumpa_test.go",
+        "sha256": "bf83a1930174763483060b3abd356d6c5b6b90f6b3c57247669b06b9bf1e0ae9"
+      },
+      {
+        "path": "tracker/tracker.go",
+        "sha256": "950baa16d71f28d00bba848eb2f7151cd6d5e74f59994f0ee880d920c82a9903"
+      },
+      {
+        "path": "tracker/udp.go",
+        "sha256": "4ce8a5d0aa6f5f86282c65ab7c679c6e1fa68feaeb51c0124eb6e49cef72332e"
+      },
+      {
+        "path": "tracker_scraper.go",
+        "sha256": "ddb6115f0123cdf323c219d5f792182e3620361e2cda3c3b9e0f1dc538ffb082"
       }
     ]
   }
