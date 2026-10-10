@@ -4,17 +4,17 @@ Mumpa application code is GPL-3.0; see `LICENSE`. Original generated demo audio,
 
 ## Torrent engine
 
-The packaged executables are TorrServer **MatriX.145.2-mumpa1**, GPL-3.0, built from upstream revision **bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9** with Mumpa's request-context cancellation patch. Copyright belongs to the TorrServer contributors and the authors of the included changes. The upstream license is retained.
+The packaged executables are TorrServer **MatriX.145.2-mumpa2**, GPL-3.0, built from upstream revision **bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9** with Mumpa's request-context cancellation, outgoing handshake fallback and tracker IP patches. Copyright belongs to the TorrServer contributors and the authors of the included changes. The upstream license is retained.
 
 - Source: https://github.com/YouROK/TorrServer/tree/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9
 - Source archive: https://github.com/YouROK/TorrServer/archive/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9.zip
 - Release/binary provenance: https://github.com/YouROK/TorrServer/releases/tag/MatriX.145.2
 - Copyright/license: https://github.com/YouROK/TorrServer/blob/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9/LICENSE
-- Corresponding patched source archive: `artifacts/TorrServer-MatriX.145.2-mumpa1-source.zip`.
+- Corresponding patched source archive: `artifacts/TorrServer-MatriX.145.2-mumpa2-source.zip`.
 - Checked overlays, toolchain versions and executable SHA-256: `engine-patches/managed-engine.lock.json` and `engine-patches/README.md`.
 - Build and verification: `tools/build-managed-engine.ps1`, `tools/prepare-engines.ps1`.
 
-The torrent library replacement remains `github.com/tsynik/torrent v1.2.31`, as specified in the unchanged upstream `server/go.mod`/`go.sum`. The source patch binds blocking torrent reads to the HTTP request context so a client disconnect releases readers waiting for unavailable data. It preserves seek/range behavior and is covered by Go regressions. Executables are compiled from the corresponding source and started as separate processes.
+The base torrent library is `github.com/tsynik/torrent v1.2.31`, pinned in the unchanged upstream `server/go.mod`/`go.sum`. Its exact module ZIP and checked overlays are unpacked into `server/mumpa-deps/torrent`; `managed.mod` replaces only that dependency with the local source. Its license is retained in the corresponding source archive. The patches bind blocking reads to the HTTP request context, retry a failed outgoing MSE handshake in plaintext when encryption is optional, and send bare tracker IP values only for explicit IP overrides. Cancellation, encryption policy and seek/range behavior are covered by Go regressions. Executables are compiled from the corresponding source and started as separate processes.
 
 ## Playback libraries
 

@@ -1,5 +1,11 @@
 # Mumpa architecture
 
+## Outgoing peer compatibility — 1.1.4
+
+Managed `MatriX.145.2-mumpa2` retains the request cancellation patch and adds two protocol fixes in the pinned torrent dependency. An outgoing MSE error now permits a new plaintext connection when encryption is optional and the context remains live. Forced encryption, cancellation and expired deadlines never trigger that fallback; successful RC4 stays encrypted. Tracker `ip`/`ipv4`/`ipv6` values use bare IP addresses. Automatically detected public IP remains available for DHT and peer protocol use, while tracker overrides require explicit `--pubipv4`/`--pubipv6` configuration.
+
+The dependency fork is extracted into each fresh source tree from its hash-locked upstream ZIP. `managed.mod` changes only its local replacement, with original upstream module files preserved and checked. The opt-in native outgoing-peer fixture returns a compact peer address from a real local tracker, refuses the first encrypted connection and accepts only the subsequent standard BitTorrent handshake. The separate strict favorites test requires actual network decoding and advancing playback; controlled fixtures cannot satisfy that public-source assertion.
+
 Decision record: 2026-10-08. Target platforms: Windows desktop and Android. This document describes the implementation contract; it does not by itself establish that a build or platform has passed validation.
 
 ## Product contract

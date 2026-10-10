@@ -1,5 +1,5 @@
 {
-  "version": "MatriX.145.2-mumpa1",
+  "version": "MatriX.145.2-mumpa2",
   "upstream": {
     "tag": "MatriX.145.2",
     "commit": "bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9",
@@ -24,24 +24,28 @@
   ],
   "overlays": [
     {
-      "sha256": "54dc698999cc2fccdf778f9fa2713db0cf9c6e42e47b5bc6203b9fb3b6584964",
-      "path": "server/torr/request_reader_test.go"
+      "path": "server/torr/btserver.go",
+      "sha256": "067123c44b2d780db883969eeab236c00076fe37ff70d6b50e5bb7504e7bdf19"
     },
     {
-      "sha256": "2af9cc1f6aeb4a92b97ed17cb05f609d15ca309207b9db2bc436f65cf5e68f60",
-      "path": "server/torr/request_reader.go"
+      "path": "server/torr/request_reader_test.go",
+      "sha256": "54dc698999cc2fccdf778f9fa2713db0cf9c6e42e47b5bc6203b9fb3b6584964"
     },
     {
-      "sha256": "c83d3313390b908c1a8f06701def2ebc19d65f02acd5fa65e2b8d5090e8302fc",
-      "path": "server/torr/storage/torrstor/reader_context_test.go"
+      "path": "server/torr/request_reader.go",
+      "sha256": "2af9cc1f6aeb4a92b97ed17cb05f609d15ca309207b9db2bc436f65cf5e68f60"
     },
     {
-      "sha256": "50a6af87b70f8012423250c37631f83a2834c9f833e75d9c8c85c9d283b3968c",
-      "path": "server/torr/storage/torrstor/reader.go"
+      "path": "server/torr/storage/torrstor/reader_context_test.go",
+      "sha256": "c83d3313390b908c1a8f06701def2ebc19d65f02acd5fa65e2b8d5090e8302fc"
     },
     {
-      "sha256": "0d073ece32bbddaadd3365473cbb6273b28ac0dc32199575fbe2937736ff3e3c",
-      "path": "server/torr/stream.go"
+      "path": "server/torr/storage/torrstor/reader.go",
+      "sha256": "50a6af87b70f8012423250c37631f83a2834c9f833e75d9c8c85c9d283b3968c"
+    },
+    {
+      "path": "server/torr/stream.go",
+      "sha256": "0d073ece32bbddaadd3365473cbb6273b28ac0dc32199575fbe2937736ff3e3c"
     }
   ],
   "targets": [
@@ -56,7 +60,7 @@
       "path": "assets/engine/TorrServer.exe",
       "toolchain": "go1.27.1",
       "cgo": "0",
-      "sha256": "d94cf58177189d6c01cd7ff7640f7c91b7de7c06cbe4cf48c02ca461d3d97d94",
+      "sha256": "b04344607b18de6a54a0a5a265a2c8c243d9bafadc90ddf8980cc547a95d3bb4",
       "goamd64": "v1"
     },
     {
@@ -70,7 +74,7 @@
       "path": "android/app/src/main/jniLibs/arm64-v8a/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "6f734d9a50641f26bab45a96a8046d836ec480ba1fc944c56c5631c9e5ccd1df",
+      "sha256": "df54f54ceaa44766804deb0f9b5a12d3cb239858969d9d84fef31375bd757196",
       "goamd64": ""
     },
     {
@@ -84,7 +88,7 @@
       "path": "android/app/src/main/jniLibs/armeabi-v7a/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "4415db9b7170e3dbc1ace0184f14c392e8c2774b20bf22033694157099bcc8a7",
+      "sha256": "48f2ea92cfeb9c430abdf968ba4e878a907c8900143d763fecb5a4e7f1ba3638",
       "goamd64": ""
     },
     {
@@ -98,8 +102,49 @@
       "path": "android/app/src/main/jniLibs/x86_64/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "189e6a394992d57ad9c0d16b1dd86ba8d97b4c22f7e8ea9c751a8d97cc3dad8d",
+      "sha256": "6058d057383f850ea03edc9585a1d738f009b1d4e64185b45a9cef87535e6f0b",
       "goamd64": "v1"
     }
-  ]
+  ],
+  "pendingBinaries": false,
+  "torrentOverlay": {
+    "module": "github.com/anacrolix/torrent",
+    "sourceModule": "github.com/tsynik/torrent",
+    "version": "v1.2.31",
+    "archive": "engine-patches/upstream/tsynik-torrent-v1.2.31.zip",
+    "root": "github.com/tsynik/torrent@v1.2.31",
+    "url": "https://proxy.golang.org/github.com/tsynik/torrent/@v/v1.2.31.zip",
+    "sha256": "a1f1e92c3969b4a020271a0c99ff3f574f9b7f7e842f3362916af1d2e20e5e32",
+    "sum": "h1:3MV8hzdi4xOD6nn8nExwYWHtxfEd9JES2HlSqx2JKdo=",
+    "overlays": [
+      {
+        "path": "announce_mumpa_test.go",
+        "sha256": "6c0b89662df566e8a8bb9a8661895a3bcf6dfc9f7bac00fffdff3164966996fc"
+      },
+      {
+        "path": "client.go",
+        "sha256": "f186f90f26436387d46157d3d07b8ee6a51f682510c2a1e2fa83217dadb2f567"
+      },
+      {
+        "path": "config.go",
+        "sha256": "26656b50a8fbdec04469449f1886922ebda7dbb9962b9abdbbf48d16cfb35302"
+      },
+      {
+        "path": "outgoing_mumpa_test.go",
+        "sha256": "5690d4c7968d8b4464c774cfe7be730f3cfc4f705d70600a416207c2cbcf16c7"
+      },
+      {
+        "path": "tracker_scraper.go",
+        "sha256": "0ea04e5291f9dcbad7aa7fa0bb38f7d7ef625ec5fa8a98164e90a8d26e11c0e8"
+      },
+      {
+        "path": "tracker/http_mumpa_test.go",
+        "sha256": "d7bc77171455d5842a9ed5e5711d8a274e95dba6c232ec08c291e334cfaedbdc"
+      },
+      {
+        "path": "tracker/http.go",
+        "sha256": "96b539c95bac3bdbfc4436e26dede52326abeb6ad2a6a36be05431a1d36039a0"
+      }
+    ]
+  }
 }

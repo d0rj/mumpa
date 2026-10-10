@@ -9,14 +9,19 @@ import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/logic/app_controller.dart';
+import 'package:mumpa/logic/playback_controller.dart';
 import 'package:mumpa/main.dart';
 import 'package:mumpa/ui/app_screen.dart';
 
 void main() {
+  const requirePlayback = bool.fromEnvironment('REQUIRE_FAVORITES_PLAYBACK');
+  const diagnosticServer = String.fromEnvironment('FAVORITES_SERVER_URL');
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   testWidgets(
-    'existing liked tracks play or report bounded network failure',
+    requirePlayback
+        ? 'a real liked torrent plays from the network'
+        : 'existing liked tracks play or report bounded network failure',
     (tester) async {
       final support = await getApplicationSupportDirectory();
       final profile = Directory('${support.path}/Mumpa');
@@ -32,8 +37,10 @@ void main() {
             (track) =>
                 liked.contains(track.id) && track.source == TrackSource.torrent,
           )
+          .map((track) => track.copyWith(clearCache: true))
           .toList();
       expect(tracks, isNotEmpty);
+      expect(tracks.every((track) => track.localPath == null), isTrue);
       final root = await Directory(
         '${(await getTemporaryDirectory()).path}/mumpa-favorites-${DateTime.now().microsecondsSinceEpoch}',
       ).create();
@@ -43,6 +50,14 @@ void main() {
       );
       final evidence = <Map<String, Object?>>[];
       try {
+        if (diagnosticServer.isNotEmpty) {
+          final uri = Uri.parse(diagnosticServer);
+          expect(uri.scheme, 'http');
+          expect(uri.host, '127.0.0.1');
+          expect(uri.userInfo, isEmpty);
+          expect(uri.query, isEmpty);
+          await app.library.setSetting('serverUrl', diagnosticServer);
+        }
         await app.library.setSetting('autoCache', false);
         await app.library.upsert(tracks);
         await app.playback.setVolume(0);
@@ -70,13 +85,13 @@ void main() {
           await tester.tap(find.byKey(ValueKey('track-row-${track.id}')));
           final deadline = DateTime.now().add(const Duration(seconds: 70));
           while (app.playback.error == null &&
-              app.playback.position.inMilliseconds < 750 &&
+              app.playback.position.inMilliseconds < 2500 &&
               DateTime.now().isBefore(deadline)) {
             await tester.pump(const Duration(milliseconds: 100));
           }
           final played =
               app.playback.playing &&
-              app.playback.position.inMilliseconds >= 750;
+              app.playback.position.inMilliseconds >= 2500;
           await tester.pump();
           if (!played) {
             expect(
@@ -90,20 +105,47 @@ void main() {
           }
           expect(app.playback.current!.id, track.id);
           expect(app.playback.queue.length, tracks.length);
+          final torrent = await app.torrents.get(track.torrentHash!);
           evidence.add({
             'title': track.title,
+            'trackId': track.id,
             'nativePublicPlayback': played,
             'elapsedMs': start.elapsedMilliseconds,
+            'positionMs': app.playback.position.inMilliseconds,
+            'durationMs': app.playback.duration.inMilliseconds,
+            'engineVersion': await app.torrents.version(),
+            'activePeers': torrent.peers,
+            'downloadSpeed': torrent.speed,
+            'freshTorrentSource': (app.playback.backend as NativeAudioBackend)
+                .player
+                .state
+                .playlist
+                .medias
+                .any((media) => Uri.tryParse(media.uri)?.scheme == 'http'),
             'boundedFailure': !played,
             'retryVisible': !played,
           });
           await app.playback.stop();
+          if (requirePlayback && played) break;
         }
         binding.reportData = {'favorites': evidence};
         await File(
           'test-output/real-favorites-result.json',
         ).writeAsString(jsonEncode(evidence));
         debugPrint('MUMPA_FAVORITES ${jsonEncode(evidence)}');
+        if (requirePlayback) {
+          expect(
+            evidence.any(
+              (result) =>
+                  result['nativePublicPlayback'] == true &&
+                  result['freshTorrentSource'] == true &&
+                  (result['durationMs'] as int) > 0,
+            ),
+            isTrue,
+            reason:
+                'At least one real liked torrent must play from the network.',
+          );
+        }
       } finally {
         await tester.pumpWidget(const SizedBox());
         app.dispose();

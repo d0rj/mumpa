@@ -75,6 +75,9 @@ class TestSeeder {
   int uniqueBytesSent = 0;
   final Set<Socket> peers = {};
   final Set<int> connecting = {};
+  ServerSocket? _listener;
+  int rejectedEncryptedConnections = 0;
+  int acceptedPlaintextConnections = 0;
 
   List<int> packet(int id, List<int> body) {
     final header = ByteData(4)..setUint32(0, body.length + 1);
@@ -84,26 +87,53 @@ class TestSeeder {
   Future<void> connect(int port) async {
     if (!connecting.add(port)) return;
     final peer = await Socket.connect(InternetAddress.loopbackIPv4, port);
+    _attach(peer, initiate: true, dialingPort: port);
+  }
+
+  Future<int> listenForEngine() async {
+    _listener = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    _listener!.listen((peer) => _attach(peer, initiate: false));
+    return _listener!.port;
+  }
+
+  void _attach(Socket peer, {required bool initiate, int? dialingPort}) {
     peers.add(peer);
     // A process restart can reset the upload side of the old connection. The
     // stream listener handles inbound errors; IOSink.done is a separate future.
     unawaited(peer.done.then<void>((_) {}, onError: (Object _) {}));
-    // Initiate plaintext: the shipped engine starts outbound with MSE. Our
-    // deliberately small fixture implements the standard plaintext peer wire.
-    peer.add([
+    final greeting = [
       19,
       ...'BitTorrent protocol'.codeUnits,
       ...List.filled(8, 0),
       ...infoHash,
       ...'-MU0001-123456789012'.codeUnits,
-    ]);
+    ];
+    if (initiate) peer.add(greeting);
     var buffer = <int>[];
     var handshake = false;
     peer.listen(
       (bytes) {
         buffer.addAll(bytes);
         if (!handshake) {
+          // The outgoing fixture closes an MSE handshake immediately. The
+          // engine must reconnect and send the standard plaintext peer wire.
+          if (buffer.first != 19 ||
+              (buffer.length >= 20 &&
+                  ascii.decode(buffer.sublist(1, 20), allowInvalid: true) !=
+                      'BitTorrent protocol')) {
+            rejectedEncryptedConnections++;
+            peer.destroy();
+            return;
+          }
           if (buffer.length < 68) return;
+          if (infoHash.asMap().entries.any(
+            (entry) => buffer[28 + entry.key] != entry.value,
+          )) {
+            peer.destroy();
+            return;
+          }
+          if (!initiate) peer.add(greeting);
+          acceptedPlaintextConnections++;
           buffer = buffer.sublist(68);
           handshake = true;
           final pieces = (audio.length / pieceSize).ceil();
@@ -160,13 +190,15 @@ class TestSeeder {
       onError: (Object _) {},
       onDone: () {
         peers.remove(peer);
-        connecting.remove(port);
+        connecting.remove(dialingPort);
         peer.destroy();
       },
     );
   }
 
   Future<void> close() async {
+    await _listener?.close();
+    _listener = null;
     for (final peer in peers.toList()) {
       peer.destroy();
     }
@@ -175,6 +207,7 @@ class TestSeeder {
 }
 
 void main() {
+  const outgoingPeerTest = bool.fromEnvironment('OUTGOING_PEER_TEST');
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
   testWidgets(
@@ -244,6 +277,9 @@ void main() {
           () => seedRequests++,
           bytesPerSecond: 300 * 1024,
         );
+        final outgoingPeerPort = outgoingPeerTest
+            ? await peerSeed.listenForEngine()
+            : null;
         final metainfo = Uint8List.fromList(
           bencode(<String, Object>{
             'announce': '$seedUrl/announce',
@@ -267,17 +303,28 @@ void main() {
                   encoding: latin1,
                 )['port']!,
               );
-              unawaited(
-                peerSeed!.connect(port).catchError((Object e) {
-                  debugPrint('Fixture peer connection: $e');
-                }),
-              );
+              if (outgoingPeerPort == null) {
+                unawaited(
+                  peerSeed!.connect(port).catchError((Object e) {
+                    debugPrint('Fixture peer connection: $e');
+                  }),
+                );
+              }
               request.response.add(
                 bencode(<String, Object>{
                   'interval': 5,
                   'complete': 1,
                   'incomplete': 0,
-                  'peers': Uint8List(0),
+                  'peers': outgoingPeerPort == null
+                      ? Uint8List(0)
+                      : Uint8List.fromList([
+                          127,
+                          0,
+                          0,
+                          1,
+                          outgoingPeerPort >> 8,
+                          outgoingPeerPort & 255,
+                        ]),
                 }),
               );
             } else {
@@ -343,6 +390,15 @@ void main() {
         );
         expect(app.playback.error, isNull);
         expect(seedRequests, greaterThan(0));
+        if (outgoingPeerTest) {
+          expect(peerSeed.rejectedEncryptedConnections, greaterThan(0));
+          expect(peerSeed.acceptedPlaintextConnections, greaterThan(0));
+          evidence['outgoingMSEFailureThenPlaintextPlayback'] = true;
+          evidence['rejectedEncryptedConnections'] =
+              peerSeed.rejectedEncryptedConnections;
+          evidence['acceptedPlaintextConnections'] =
+              peerSeed.acceptedPlaintextConnections;
+        }
         expect(startTime.elapsed.inSeconds, lessThan(5));
         expect(peerSeed.uniqueBytesSent, lessThan(audio.length));
         expect(app.downloads.jobs.single.state, DownloadState.downloading);

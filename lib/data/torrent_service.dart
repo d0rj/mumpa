@@ -83,7 +83,7 @@ class TorrentEngine {
   Future<File> _binary(Directory state) async {
     if (_executable != null) return _executable;
     const expected =
-        'd94cf58177189d6c01cd7ff7640f7c91b7de7c06cbe4cf48c02ca461d3d97d94';
+        'b04344607b18de6a54a0a5a265a2c8c243d9bafadc90ddf8980cc547a95d3bb4';
     final binaries = binaryDirectory ?? state;
     await binaries.create(recursive: true);
     final binary = File(p.join(binaries.path, 'TorrServer-MatriX.145.2.exe'));

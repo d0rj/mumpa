@@ -1,21 +1,28 @@
 param(
     [ValidateSet('all','windows','android')][string]$Platform = 'all',
     [string]$GoExecutable = 'C:\Program Files\Go\bin\go.exe',
+    [string]$AndroidGoExecutable = '',
     [string]$AndroidNdk = '',
+    [string]$LockFile = '',
     [switch]$UpdateLock,
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [switch]$TestsOnly
 )
 $ErrorActionPreference = 'Stop'
 $mumpaRoot = Split-Path $PSScriptRoot -Parent
-$mumpaLockPath = Join-Path $mumpaRoot 'engine-patches/managed-engine.lock.json'
+$mumpaLockPath = if ($LockFile) { [IO.Path]::GetFullPath((Join-Path $mumpaRoot $LockFile)) } else { Join-Path $mumpaRoot 'engine-patches/managed-engine.lock.json' }
 $mumpaLock = Get-Content -LiteralPath $mumpaLockPath -Raw | ConvertFrom-Json
 if (-not (Test-Path -LiteralPath $GoExecutable)) { throw "Go executable missing: $GoExecutable" }
+if ($AndroidGoExecutable -and -not (Test-Path -LiteralPath $AndroidGoExecutable)) { throw "Android Go executable missing: $AndroidGoExecutable" }
+if ($TestsOnly -and ($SkipTests -or $UpdateLock)) { throw '-TestsOnly cannot skip tests or update binary hashes' }
+if ($mumpaLock.pendingBinaries -and -not $TestsOnly -and (-not $UpdateLock -or $Platform -ne 'all')) { throw 'Pending patch requires an intentional -Platform all -UpdateLock build; use -TestsOnly for source validation' }
 
 function Get-MumpaHash([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 function Invoke-MumpaGo([string[]]$Arguments) {
-    & $GoExecutable @Arguments
+    $mumpaCompiler = if ($env:GOOS -eq 'android' -and $AndroidGoExecutable) { $AndroidGoExecutable } else { $GoExecutable }
+    & $mumpaCompiler @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Go command failed with exit code $LASTEXITCODE" }
 }
 function Write-MumpaSourceArchive([string]$Source, [string]$Destination) {
@@ -58,6 +65,38 @@ foreach ($mumpaOverlay in $mumpaLock.overlays) {
 foreach ($mumpaModuleFile in $mumpaLock.modules) {
     if ((Get-MumpaHash (Join-Path $mumpaSource $mumpaModuleFile.path)) -ne $mumpaModuleFile.sha256) { throw 'Pinned module graph changed' }
 }
+$mumpaModFlags = @('-mod=readonly')
+$mumpaManagedModHash = ''
+if ($mumpaLock.torrentOverlay) {
+    # The exact upstream dependency ZIP is unpacked inside this fresh source
+    # tree. Never patch a global Go module cache entry used by other builds.
+    $mumpaDependency = $mumpaLock.torrentOverlay
+    $mumpaDependencyZip = Join-Path $mumpaRoot $mumpaDependency.archive
+    if (-not (Test-Path -LiteralPath $mumpaDependencyZip)) { throw 'Pinned torrent dependency ZIP missing' }
+    if ((Get-MumpaHash $mumpaDependencyZip) -ne $mumpaDependency.sha256) { throw 'Pinned torrent dependency ZIP SHA256 mismatch' }
+    $mumpaDependencyUnpack = Join-Path $mumpaWork 'dependency-archive'
+    Expand-Archive -LiteralPath $mumpaDependencyZip -DestinationPath $mumpaDependencyUnpack
+    $mumpaDependencySource = Join-Path $mumpaDependencyUnpack $mumpaDependency.root
+    $mumpaDependencyDestination = Join-Path $mumpaSource 'server/mumpa-deps/torrent'
+    New-Item -ItemType Directory -Force (Split-Path $mumpaDependencyDestination -Parent) | Out-Null
+    Copy-Item -LiteralPath $mumpaDependencySource -Destination $mumpaDependencyDestination -Recurse
+    foreach ($mumpaDependencyOverlay in $mumpaDependency.overlays) {
+        $mumpaOverlayFile = Join-Path $mumpaRoot ('engine-patches/torrent-source/' + $mumpaDependencyOverlay.path)
+        if ((Get-MumpaHash $mumpaOverlayFile) -ne $mumpaDependencyOverlay.sha256) { throw "Torrent patch integrity mismatch: $($mumpaDependencyOverlay.path)" }
+        $mumpaDestination = Join-Path $mumpaDependencyDestination $mumpaDependencyOverlay.path
+        New-Item -ItemType Directory -Force (Split-Path $mumpaDestination -Parent) | Out-Null
+        Copy-Item -LiteralPath $mumpaOverlayFile -Destination $mumpaDestination -Force
+    }
+    $mumpaOriginalModPath = Join-Path $mumpaSource 'server/go.mod'
+    $mumpaOriginalMod = [IO.File]::ReadAllText($mumpaOriginalModPath)
+    $mumpaOriginalReplacement = 'github.com/anacrolix/torrent v1.59.1 => github.com/tsynik/torrent v1.2.31'
+    if (($mumpaOriginalMod.Split(@($mumpaOriginalReplacement), [StringSplitOptions]::None).Length - 1) -ne 1) { throw 'Unexpected pinned torrent replacement' }
+    $mumpaManagedModPath = Join-Path $mumpaSource 'server/managed.mod'
+    [IO.File]::WriteAllText($mumpaManagedModPath, $mumpaOriginalMod.Replace($mumpaOriginalReplacement, 'github.com/anacrolix/torrent v1.59.1 => ./mumpa-deps/torrent'), [Text.UTF8Encoding]::new($false))
+    Copy-Item -LiteralPath (Join-Path $mumpaSource 'server/go.sum') -Destination (Join-Path $mumpaSource 'server/managed.sum')
+    $mumpaManagedModHash = Get-MumpaHash $mumpaManagedModPath
+    $mumpaModFlags += '-modfile=managed.mod'
+}
 $mumpaEnvironmentKeys = @('GOTOOLCHAIN','GOMAXPROCS','GOOS','GOARCH','CGO_ENABLED','GOARM','GOARM64','GOAMD64','CC','CXX','GOFLAGS','GOWORK')
 $mumpaEnvironment = @{}
 foreach ($mumpaKey in $mumpaEnvironmentKeys) { $mumpaEnvironment[$mumpaKey] = [Environment]::GetEnvironmentVariable($mumpaKey, 'Process') }
@@ -76,13 +115,15 @@ try {
     try {
         Invoke-MumpaGo @('version')
         # Preserve the exact module graph; no tidy or latest generators.
-        Invoke-MumpaGo @('mod','download')
+        if (-not $TestsOnly) { Invoke-MumpaGo (@('mod','download') + @($mumpaModFlags | Where-Object { $_ -like '-modfile=*' })) }
         if (-not $SkipTests) {
             # Other upstream tests start a full client and fetch public IP/tracker
             # lists; restrict this build check to deterministic local regressions.
-            Invoke-MumpaGo @('test','-mod=readonly','-buildvcs=false','-p','2','-tags','nosqlite','-ldflags','-checklinkname=0','-run','TestRequestReader|TestReaderContextCancellation|TestReaderOffDoesNotPark','-count=1','-timeout=120s','-v','./torr','./torr/storage/torrstor')
+            $mumpaTestPackages = @('./torr','./torr/storage/torrstor')
+            if ($mumpaLock.torrentOverlay) { $mumpaTestPackages += @('github.com/anacrolix/torrent','github.com/anacrolix/torrent/tracker') }
+            Invoke-MumpaGo (@('test') + $mumpaModFlags + @('-buildvcs=false','-p','2','-tags','nosqlite','-ldflags','-checklinkname=0','-run','TestRequestReader|TestReaderContextCancellation|TestReaderOffDoesNotPark|TestMumpa','-count=1','-timeout=120s','-v') + $mumpaTestPackages)
         }
-        if ($Platform -in @('all','android')) {
+        if (-not $TestsOnly -and $Platform -in @('all','android')) {
             if (-not $AndroidNdk) {
                 $mumpaLocalProperties = Join-Path $mumpaRoot 'android/local.properties'
                 if (Test-Path -LiteralPath $mumpaLocalProperties) {
@@ -98,6 +139,7 @@ try {
             if ($mumpaNdkRevision -ne $mumpaLock.toolchains.ndk) { throw "Expected NDK $($mumpaLock.toolchains.ndk), found $mumpaNdkRevision" }
         }
         foreach ($mumpaTarget in $mumpaLock.targets) {
+            if ($TestsOnly) { continue }
             if ($Platform -ne 'all' -and $mumpaTarget.platform -ne $Platform) { continue }
             $env:GOTOOLCHAIN = $mumpaTarget.toolchain
             $env:GOOS = $mumpaTarget.goos
@@ -114,9 +156,10 @@ try {
                 $env:CXX = '"' + (Join-Path $mumpaLlvm 'clang++.exe') + '" --target=' + $mumpaTarget.clangTarget
             }
             Write-Output "Building $($mumpaTarget.id) with $($mumpaTarget.toolchain)"
+            Invoke-MumpaGo @('version')
             $mumpaOutput = Join-Path $mumpaWork ($mumpaTarget.id + '.binary')
             $mumpaLdflags = '-s -w -buildid= -checklinkname=0 -X server/version.Version=' + $mumpaLock.version
-            Invoke-MumpaGo @('build','-mod=readonly','-buildvcs=false','-p','2','-trimpath','-tags','nosqlite','-ldflags',$mumpaLdflags,'-o',$mumpaOutput,'./cmd')
+            Invoke-MumpaGo (@('build') + $mumpaModFlags + @('-buildvcs=false','-p','2','-trimpath','-tags','nosqlite','-ldflags',$mumpaLdflags,'-o',$mumpaOutput,'./cmd'))
             $mumpaHash = Get-MumpaHash $mumpaOutput
             if (-not $UpdateLock -and $mumpaHash -ne $mumpaTarget.sha256) { throw "Reproducibility mismatch for $($mumpaTarget.id): $mumpaHash" }
             $mumpaFinal = Join-Path $mumpaRoot $mumpaTarget.path
@@ -130,8 +173,19 @@ try {
         foreach ($mumpaModuleFile in $mumpaLock.modules) {
             if ((Get-MumpaHash (Join-Path $mumpaSource $mumpaModuleFile.path)) -ne $mumpaModuleFile.sha256) { throw 'Build modified pinned module graph' }
         }
+        if ($mumpaLock.torrentOverlay) {
+            if ((Get-MumpaHash (Join-Path $mumpaSource 'server/managed.mod')) -ne $mumpaManagedModHash) { throw 'Build modified managed module graph' }
+            $mumpaOriginalSum = $mumpaLock.modules | Where-Object { $_.path -eq 'server/go.sum' }
+            if ((Get-MumpaHash (Join-Path $mumpaSource 'server/managed.sum')) -ne $mumpaOriginalSum.sha256) { throw 'Build modified managed dependency sums' }
+        }
     } finally { Pop-Location }
+    if ($TestsOnly) {
+        Write-Output "Source and regressions verified for $($mumpaLock.version); binaries unchanged"
+        Write-Output "Prepared source: $mumpaSource"
+        return
+    }
     if ($UpdateLock) {
+        if ($mumpaLock.pendingBinaries) { $mumpaLock.pendingBinaries = $false }
         [IO.File]::WriteAllText($mumpaLockPath, ($mumpaLock | ConvertTo-Json -Depth 10) + "`n", [Text.UTF8Encoding]::new($false))
     }
     $mumpaBuildFolder = Join-Path $mumpaSource 'mumpa-build'
