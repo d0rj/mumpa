@@ -4,6 +4,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseSigning = listOf(
+    "MUMPA_KEYSTORE_PATH", "ANDROID_KEYSTORE_PASSWORD",
+    "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD",
+).associateWith { System.getenv(it)?.takeIf(String::isNotBlank) }
+val hasReleaseSigning = releaseSigning.values.any { it != null }
+require(!hasReleaseSigning || releaseSigning.values.all { it != null }) {
+    "Configure all four Android signing environment variables, or none."
+}
+
 android {
     namespace = "app.mumpa.mumpa"
     compileSdk = flutter.compileSdkVersion
@@ -28,11 +37,20 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseSigning.getValue("MUMPA_KEYSTORE_PATH")!!)
+                storePassword = releaseSigning.getValue("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = releaseSigning.getValue("ANDROID_KEY_ALIAS")
+                keyPassword = releaseSigning.getValue("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (hasReleaseSigning) "release" else "debug")
         }
     }
 }

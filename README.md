@@ -100,6 +100,7 @@ flutter build apk --release --split-per-abi
 
 ## Документы
 
+- [GitHub CI, ручные сборки и подпись Android](docs/CI.md)
 - [Архитектура и решения](docs/ARCHITECTURE.md)
 - [Проверки и их границы](docs/VALIDATION.md)
 - [Исполнители, обложки и поиск версий треков](docs/MUSIC_DISCOVERY.md)

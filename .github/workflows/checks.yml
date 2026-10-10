@@ -1,0 +1,124 @@
+name: Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch, or tag to check; empty checks the selected revision.
+        required: false
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit, branch, or tag to check; empty checks the caller revision.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    name: Flutter / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.ref || github.ref }}-flutter-${{ matrix.os }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.44.4'
+          channel: stable
+          cache: true
+
+      - name: Get locked dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Check Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        # Native archives are checked by the release build, not the analyzer.
+        run: flutter analyze --no-pub lib test integration_test
+
+      - name: Prepare test fonts and shaders without Windows helper archives
+        run: flutter build bundle --debug --no-pub --target-platform=android-arm64 --asset-dir=build/unit_test_assets
+
+      - name: Run unit and widget tests
+        run: flutter test --no-pub --no-test-assets --coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: coverage-${{ matrix.os }}-${{ github.run_attempt }}
+          path: coverage/lcov.info
+          if-no-files-found: ignore
+          retention-days: 14
+
+  engine:
+    name: Managed engine regressions
+    runs-on: windows-2022
+    timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || inputs.ref || github.ref }}-engine
+      cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GOMODCACHE: ${{ github.workspace }}/.local/engine-build/module-cache
+      GOPROXY: https://proxy.golang.org,direct
+      GOSUMDB: sum.golang.org
+    steps:
+      - name: Check out the tested revision
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.1'
+          cache: false
+
+      - name: Select the Go build cache
+        run: |
+          $mumpaBuildCache = Join-Path $env:LOCALAPPDATA 'go-build'
+          "GOCACHE=$mumpaBuildCache" >> $env:GITHUB_ENV
+
+      - name: Cache Go dependencies and compiled packages
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ${{ env.GOMODCACHE }}
+            ${{ env.GOCACHE }}
+          key: ${{ runner.os }}-go-1.27.1-managed-${{ hashFiles('engine-patches/managed-engine.lock.json') }}
+
+      - name: Validate GitHub workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+
+      - name: Verify pinned source and local protocol regressions
+        run: |
+          $mumpaGo = (Get-Command go.exe -ErrorAction Stop).Source
+          ./tools/build-managed-engine.ps1 -TestsOnly -GoExecutable $mumpaGo

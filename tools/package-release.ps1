@@ -1,7 +1,15 @@
-param([string]$Version = '1.2.2')
+param(
+    [string]$Version = '',
+    [string]$OutputDirectory = (Join-Path $PSScriptRoot '../artifacts')
+)
 $ErrorActionPreference = 'Stop'
 $mumpaRoot = Split-Path $PSScriptRoot -Parent
-$mumpaOutput = Join-Path $mumpaRoot 'artifacts'
+if (-not $Version) {
+    $mumpaVersionLine = Get-Content -LiteralPath (Join-Path $mumpaRoot 'pubspec.yaml') | Where-Object { $_ -match '^version:\s*' }
+    $Version = ($mumpaVersionLine -replace '^version:\s*', '').Split('+')[0].Trim()
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Invalid release version.' }
+$mumpaOutput = [IO.Path]::GetFullPath($OutputDirectory)
 $mumpaWindows = Join-Path $mumpaRoot 'build/windows/x64/runner/Release'
 $mumpaApks = Join-Path $mumpaRoot 'build/app/outputs/flutter-apk'
 if (!(Test-Path -LiteralPath (Join-Path $mumpaWindows 'mumpa.exe'))) { throw 'Build Windows release first.' }

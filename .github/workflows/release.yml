@@ -1,0 +1,127 @@
+name: Build release
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    types: [closed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    uses: ./.github/workflows/checks.yml
+    with:
+      ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+  build:
+    needs: checks
+    runs-on: windows-2022
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GOMODCACHE: ${{ github.workspace }}\.local\engine-build\module-cache
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          persist-credentials: false
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+          pub-cache: true
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: 1.27.1
+          cache: false
+      - name: Cache Go dependencies and compiled packages
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            .local/engine-build/module-cache
+            ~/AppData/Local/go-build
+          key: go-windows-1.27.1-1.25.14-${{ hashFiles('engine-patches/managed-engine.lock.json') }}
+      - name: Cache Gradle dependencies
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-windows-${{ hashFiles('android/**/*.gradle.kts', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+      - name: Cache verified helper archives
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            assets/jackett/*.zip
+            assets/flaresolverr/*.zip
+            artifacts/sources/Jackett-*-source.zip
+            artifacts/sources/FlareSolverr-*-source.zip
+          key: helpers-windows-${{ hashFiles('tools/prepare-jackett.ps1', 'tools/prepare-flaresolverr.ps1') }}
+      - name: Install pinned Android SDK and select CI resource limits
+        run: |
+          $sdkManager = Join-Path $env:ANDROID_HOME 'cmdline-tools/latest/bin/sdkmanager.bat'
+          & $sdkManager --install 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358'
+          if ($LASTEXITCODE -ne 0) { throw 'Android SDK installation failed' }
+          flutter config --jdk-dir "$env:JAVA_HOME"
+          if ($LASTEXITCODE -ne 0) { throw 'Flutter JDK configuration failed' }
+          Add-Content android/gradle.properties "`norg.gradle.jvmargs=-Xmx3G -XX:MaxMetaspaceSize=1G -XX:ReservedCodeCacheSize=256m"
+          Add-Content android/gradle.properties 'org.gradle.workers.max=2'
+      - name: Configure optional persistent Android signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          $values = @($env:ANDROID_KEYSTORE_BASE64, $env:ANDROID_KEYSTORE_PASSWORD, $env:ANDROID_KEY_ALIAS, $env:ANDROID_KEY_PASSWORD)
+          $configured = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count
+          if ($configured -eq 0) {
+            Write-Output '::warning::Android APKs will use an ephemeral debug key. Configure the four ANDROID signing secrets for installable updates.'
+          } elseif ($configured -ne 4) {
+            throw 'Configure all four Android signing secrets, or none.'
+          } else {
+            $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.jks'
+            [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+            "MUMPA_KEYSTORE_PATH=$keystore" | Add-Content $env:GITHUB_ENV
+          }
+      - name: Build engines, Windows app, APKs and source packages
+        id: package
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          $goCompiler = (Get-Command go.exe -ErrorAction Stop).Source
+          $ndk = Join-Path $env:ANDROID_HOME 'ndk/28.2.13676358'
+          ./tools/ci/build-release.ps1 -GoExecutable $goCompiler -AndroidNdk $ndk
+      - name: Upload release packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Mumpa-${{ steps.package.outputs.version }}-${{ github.run_id }}
+          path: |
+            artifacts/ci-release/*.zip
+            artifacts/ci-release/*.apk
+            artifacts/ci-release/*.json
+            artifacts/ci-release/sources/*.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Remove temporary signing key
+        if: always()
+        run: |
+          $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.jks'
+          if (Test-Path -LiteralPath $keystore) { Remove-Item -LiteralPath $keystore -Force }
