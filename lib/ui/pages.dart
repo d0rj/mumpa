@@ -12,6 +12,7 @@ import '../logic/app_controller.dart';
 import 'components.dart';
 import 'dialogs.dart';
 import 'theme.dart';
+import 'search_fields.dart';
 
 class ContentPage extends StatelessWidget {
   const ContentPage({super.key, required this.app});
@@ -120,27 +121,6 @@ class _HomePage extends StatelessWidget {
         style: Theme.of(context).textTheme.headlineLarge,
       ),
       const SizedBox(height: 18),
-      TextField(
-        key: const Key('catalog-home-search'),
-        onChanged: app.setQuery,
-        onSubmitted: (_) {
-          app.navigate(AppPage.search);
-          app.searchSources();
-        },
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search_rounded),
-          hintText: 'Исполнитель или альбом',
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.arrow_forward_rounded),
-            tooltip: 'Найти музыку',
-            onPressed: () {
-              app.navigate(AppPage.search);
-              app.searchSources();
-            },
-          ),
-        ),
-      ),
-      const SizedBox(height: 14),
       Wrap(
         spacing: 12,
         runSpacing: 8,
@@ -225,94 +205,165 @@ class _LibraryPage extends StatelessWidget {
   const _LibraryPage(this.app);
   final AppController app;
   @override
-  Widget build(BuildContext context) => _PageBody(
-    children: [
-      SectionTitle(
-        'Медиатека',
-        subtitle: 'Всё, что хочется слушать',
-        action: IconButton(
-          onPressed: () => showAddMusic(context, app),
-          tooltip: 'Добавить музыку',
-          icon: const Icon(Icons.add_rounded),
+  Widget build(BuildContext context) {
+    final searching = normalizeMusicName(app.localQuery('library')).isNotEmpty;
+    return _PageBody(
+      children: [
+        SectionTitle(
+          'Медиатека',
+          subtitle: 'Всё, что хочется слушать',
+          action: IconButton(
+            onPressed: () => showAddMusic(context, app),
+            tooltip: 'Добавить музыку',
+            icon: const Icon(Icons.add_rounded),
+          ),
         ),
-      ),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          _Tab(
-            'Все альбомы',
-            app.filter == LibraryFilter.all,
-            () => app.setFilter(LibraryFilter.all),
-          ),
-          _Tab(
-            'Офлайн',
-            app.filter == LibraryFilter.offline,
-            () => app.setFilter(LibraryFilter.offline),
-          ),
-          _Tab(
-            'Торренты',
-            app.filter == LibraryFilter.torrents,
-            () => app.setFilter(LibraryFilter.torrents),
-          ),
-          PopupMenuButton<LibrarySort>(
-            initialValue: app.sort,
-            onSelected: app.setSort,
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: LibrarySort.added,
-                child: Text('Недавно добавленные'),
-              ),
-              PopupMenuItem(
-                value: LibrarySort.name,
-                child: Text('По названию'),
-              ),
-              PopupMenuItem(
-                value: LibrarySort.artist,
-                child: Text('По исполнителю'),
-              ),
-            ],
-            child: const Padding(
-              padding: EdgeInsets.all(10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.sort_rounded, size: 16, color: muted),
-                  SizedBox(width: 6),
-                  Text(
-                    'Сортировка',
-                    style: TextStyle(fontSize: 12, color: muted),
-                  ),
-                ],
+        LocalSearchField(
+          app: app,
+          scope: 'library',
+          hint: 'Поиск в медиатеке: исполнитель, альбом, трек',
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _Tab(
+              'Все альбомы',
+              app.filter == LibraryFilter.all,
+              () => app.setFilter(LibraryFilter.all),
+            ),
+            _Tab(
+              'Офлайн',
+              app.filter == LibraryFilter.offline,
+              () => app.setFilter(LibraryFilter.offline),
+            ),
+            _Tab(
+              'Торренты',
+              app.filter == LibraryFilter.torrents,
+              () => app.setFilter(LibraryFilter.torrents),
+            ),
+            PopupMenuButton<LibrarySort>(
+              initialValue: app.sort,
+              onSelected: app.setSort,
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: LibrarySort.added,
+                  child: Text('Недавно добавленные'),
+                ),
+                PopupMenuItem(
+                  value: LibrarySort.name,
+                  child: Text('По названию'),
+                ),
+                PopupMenuItem(
+                  value: LibrarySort.artist,
+                  child: Text('По исполнителю'),
+                ),
+              ],
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.sort_rounded, size: 16, color: muted),
+                    SizedBox(width: 6),
+                    Text(
+                      'Сортировка',
+                      style: TextStyle(fontSize: 12, color: muted),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      if (app.albums.isEmpty)
-        const EmptyState(
-          icon: Icons.album_outlined,
-          title: 'Здесь пока тихо',
-          description: 'Добавь альбом или выбери другой фильтр.',
-        )
-      else
-        albumGrid(app, app.albums),
-      SectionTitle(
-        'Плейлисты',
-        action: TextButton.icon(
-          onPressed: () async {
-            final name = await askName(context, 'Новый плейлист');
-            if (name != null) {
-              app.openPlaylist(await app.library.createPlaylist(name));
-            }
-          },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Создать'),
+          ],
         ),
+        if (searching)
+          ..._localResultSections(app, app.librarySearchResults)
+        else ...[
+          if (app.albums.isEmpty)
+            const EmptyState(
+              icon: Icons.album_outlined,
+              title: 'Здесь пока тихо',
+              description: 'Добавь альбом или выбери другой фильтр.',
+            )
+          else
+            albumGrid(app, app.albums),
+          SectionTitle(
+            'Плейлисты',
+            action: TextButton.icon(
+              onPressed: () async {
+                final name = await askName(context, 'Новый плейлист');
+                if (name != null) {
+                  app.openPlaylist(await app.library.createPlaylist(name));
+                }
+              },
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text('Создать'),
+            ),
+          ),
+          _PlaylistGrid(app),
+        ],
+      ],
+    );
+  }
+}
+
+List<Widget> _localResultSections(
+  AppController app,
+  LocalMusicResults results,
+) {
+  final count =
+      results.artists.length +
+      results.albums.length +
+      results.playlists.length +
+      results.tracks.length;
+  if (count == 0) {
+    return const [
+      EmptyState(
+        icon: Icons.search_off_rounded,
+        title: 'Ничего не найдено в этом разделе',
+        description: 'Попробуй другой запрос или очисти поиск.',
       ),
-      _PlaylistGrid(app),
+    ];
+  }
+  return [
+    if (results.artists.isNotEmpty) ...[
+      SectionTitle(
+        'Исполнители',
+        subtitle: '${results.artists.length} найдено',
+      ),
+      LazyRows(
+        count: results.artists.length,
+        builder: (_, index) {
+          final artist = results.artists[index];
+          return ListTile(
+            key: ValueKey('local-artist-$artist'),
+            leading: const CircleAvatar(
+              backgroundColor: Color(0xFF27382B),
+              child: Icon(Icons.person_rounded, color: accent),
+            ),
+            title: Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis),
+            trailing: const Icon(Icons.chevron_right_rounded, color: muted),
+            onTap: () => app.openArtist(artist),
+          );
+        },
+      ),
     ],
-  );
+    if (results.albums.isNotEmpty) ...[
+      SectionTitle('Альбомы', subtitle: '${results.albums.length} найдено'),
+      albumGrid(app, results.albums),
+    ],
+    if (results.playlists.isNotEmpty) ...[
+      SectionTitle(
+        'Плейлисты и коллекции',
+        subtitle: '${results.playlists.length} найдено',
+      ),
+      _PlaylistGrid(app, playlists: results.playlists),
+    ],
+    if (results.tracks.isNotEmpty) ...[
+      SectionTitle('Треки', subtitle: '${results.tracks.length} найдено'),
+      TrackList(app: app, tracks: results.tracks),
+    ],
+  ];
 }
 
 class _PlaylistGrid extends SliverContent {
@@ -377,6 +428,7 @@ class _LikedPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final albums = app.library.favoriteAlbums;
+    final searching = normalizeMusicName(app.localQuery('liked')).isNotEmpty;
     return _PageBody(
       children: [
         const SectionTitle(
@@ -384,37 +436,47 @@ class _LikedPage extends StatelessWidget {
           subtitle:
               'Треки, альбомы, плейлисты и коллекции, к которым хочется возвращаться',
         ),
-        if (albums.isNotEmpty) ...[
-          const SectionTitle('Любимые альбомы'),
-          albumGrid(app, albums),
-        ],
-        if (app.library.favoritePlaylists.isNotEmpty) ...[
-          const SectionTitle('Плейлисты и коллекции'),
-          _PlaylistGrid(app, playlists: app.library.favoritePlaylists),
-        ],
-        SectionTitle(
-          'Любимые треки',
-          subtitle: '${app.likedTracks.length} треков',
-          action: app.likedTracks.isEmpty
-              ? null
-              : FilledButton.icon(
-                  onPressed: () => app.playCollection(app.likedTracks),
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: const Text('Слушать'),
-                ),
+        LocalSearchField(
+          app: app,
+          scope: 'liked',
+          hint: 'Поиск в любимом: треки, альбомы, плейлисты',
         ),
-        if (app.likedTracks.isNotEmpty)
-          TrackList(app: app, tracks: app.likedTracks)
-        else
-          EmptyState(
-            icon: Icons.favorite_border_rounded,
-            title: app.library.favoritePlaylists.isEmpty && albums.isEmpty
-                ? 'Сохрани музыку в любимое'
-                : 'Любимых треков пока нет',
-            description: app.library.favoritePlaylists.isEmpty && albums.isEmpty
-                ? 'Сердечко у трека, альбома, плейлиста или коллекции добавит их сюда.'
-                : 'Нажми сердечко у трека, чтобы сохранить его здесь.',
+        if (searching)
+          ..._localResultSections(app, app.likedSearchResults)
+        else ...[
+          if (albums.isNotEmpty) ...[
+            const SectionTitle('Любимые альбомы'),
+            albumGrid(app, albums),
+          ],
+          if (app.library.favoritePlaylists.isNotEmpty) ...[
+            const SectionTitle('Плейлисты и коллекции'),
+            _PlaylistGrid(app, playlists: app.library.favoritePlaylists),
+          ],
+          SectionTitle(
+            'Любимые треки',
+            subtitle: '${app.likedTracks.length} треков',
+            action: app.likedTracks.isEmpty
+                ? null
+                : FilledButton.icon(
+                    onPressed: () => app.playCollection(app.likedTracks),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Слушать'),
+                  ),
           ),
+          if (app.likedTracks.isNotEmpty)
+            TrackList(app: app, tracks: app.likedTracks)
+          else
+            EmptyState(
+              icon: Icons.favorite_border_rounded,
+              title: app.library.favoritePlaylists.isEmpty && albums.isEmpty
+                  ? 'Сохрани музыку в любимое'
+                  : 'Любимых треков пока нет',
+              description:
+                  app.library.favoritePlaylists.isEmpty && albums.isEmpty
+                  ? 'Сердечко у трека, альбома, плейлиста или коллекции добавит их сюда.'
+                  : 'Нажми сердечко у трека, чтобы сохранить его здесь.',
+            ),
+        ],
       ],
     );
   }
@@ -430,6 +492,13 @@ class _ArtistPage extends StatelessWidget {
     final name = profile?.name ?? app.selectedArtist ?? 'Исполнитель';
     final tracks = app.artistTracks;
     final albums = app.artistAlbums;
+    final visibleTracks = app.artistSearchTracks;
+    final visibleAlbums = app.artistSearchAlbums;
+    final discography = app.artistSearchDiscography;
+    final recordings = app.artistSearchRecordings;
+    final searching = normalizeMusicName(
+      app.localQuery(app.artistSearchScope),
+    ).isNotEmpty;
     return _PageBody(
       children: [
         const SizedBox(height: 12),
@@ -542,9 +611,7 @@ class _ArtistPage extends StatelessWidget {
             ),
             OutlinedButton.icon(
               onPressed: () {
-                app.setTrackSearchMode(false);
-                app.setQuery(name);
-                app.navigate(AppPage.search);
+                app.openGlobalSearch(name, tracks: false);
                 unawaited(app.searchSources());
               },
               icon: const Icon(Icons.search_rounded, size: 18),
@@ -552,13 +619,18 @@ class _ArtistPage extends StatelessWidget {
             ),
           ],
         ),
-        if (tracks.isNotEmpty) ...[
+        LocalSearchField(
+          app: app,
+          scope: app.artistSearchScope,
+          hint: 'Поиск у исполнителя: альбом или трек',
+        ),
+        if (visibleTracks.isNotEmpty) ...[
           const SectionTitle('Треки в твоей медиатеке'),
-          TrackList(app: app, tracks: tracks),
+          TrackList(app: app, tracks: visibleTracks),
         ],
-        if (albums.isNotEmpty) ...[
+        if (visibleAlbums.isNotEmpty) ...[
           const SectionTitle('Твои альбомы'),
-          albumGrid(app, albums),
+          albumGrid(app, visibleAlbums),
         ],
         if (app.artistLoading) ...[
           const SectionTitle('Узнаём исполнителя'),
@@ -572,21 +644,32 @@ class _ArtistPage extends StatelessWidget {
               style: const TextStyle(color: muted, fontSize: 12),
             ),
           ),
-        if (profile != null && profile.albums.isNotEmpty) ...[
+        if (discography.isNotEmpty) ...[
           const SectionTitle(
             'Дискография',
             subtitle:
                 'MusicBrainz · выбери альбом, чтобы найти его в источниках',
           ),
-          _DiscographyGrid(app, profile.albums),
+          _DiscographyGrid(app, discography),
         ],
-        if (profile != null && profile.recordings.isNotEmpty) ...[
+        if (recordings.isNotEmpty) ...[
           const SectionTitle(
             'Треки из каталога',
             subtitle: 'Выбери трек для поиска доступных версий',
           ),
-          RecordingRows(app: app, recordings: profile.recordings),
+          RecordingRows(app: app, recordings: recordings),
         ],
+        if (searching &&
+            !app.artistLoading &&
+            visibleTracks.isEmpty &&
+            visibleAlbums.isEmpty &&
+            discography.isEmpty &&
+            recordings.isEmpty)
+          const EmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'Ничего не найдено у этого исполнителя',
+            description: 'Попробуй другой запрос или очисти поиск.',
+          ),
         if (profile != null) ...[
           SectionTitle(
             'Об исполнителе',
@@ -597,7 +680,7 @@ class _ArtistPage extends StatelessWidget {
               'Также известен как: ${profile.aliases.take(8).join(', ')}',
               style: const TextStyle(color: muted, fontSize: 12),
             ),
-        ] else if (!app.artistLoading && tracks.isEmpty)
+        ] else if (!searching && !app.artistLoading && tracks.isEmpty)
           const EmptyState(
             icon: Icons.person_search_rounded,
             title: 'Пока нет треков этого исполнителя',
@@ -1131,40 +1214,9 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   }
 }
 
-class _SearchPage extends StatefulWidget {
+class _SearchPage extends StatelessWidget {
   const _SearchPage(this.app);
   final AppController app;
-  @override
-  State<_SearchPage> createState() => _SearchPageState();
-}
-
-class _SearchPageState extends State<_SearchPage> {
-  late final TextEditingController _query;
-  AppController get app => widget.app;
-
-  @override
-  void initState() {
-    super.initState();
-    _query = TextEditingController(text: app.query);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SearchPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_query.text != app.query) {
-      _query.value = TextEditingValue(
-        text: app.query,
-        selection: TextSelection.collapsed(offset: app.query.length),
-      );
-    }
-  }
-
-  @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) => _PageBody(
     children: [
@@ -1174,18 +1226,6 @@ class _SearchPageState extends State<_SearchPage> {
             ? 'Твоя медиатека и музыкальные трекеры Jackett'
             : 'Твоя медиатека и музыкальный каталог RuTracker',
       ),
-      TextFormField(
-        key: ValueKey('music-search'),
-        controller: _query,
-        autofocus: app.catalogTrail.isEmpty,
-        onChanged: app.setQuery,
-        onFieldSubmitted: (_) => app.searchSources(),
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.search_rounded),
-          hintText: 'Исполнитель, альбом или трек',
-        ),
-      ),
-      const SizedBox(height: 16),
       SearchOptionsPanel(app: app),
       const SizedBox(height: 12),
       Wrap(
@@ -1387,106 +1427,127 @@ class _DownloadsPage extends StatelessWidget {
   const _DownloadsPage(this.app);
   final AppController app;
   @override
-  Widget build(BuildContext context) => _PageBody(
-    children: [
-      SectionTitle(
-        'С тобой без интернета',
-        subtitle:
-            '${app.offlineTracks.length} скачанных треков · ${formatBytes(app.offlineTracks.fold<int>(0, (a, t) => a + t.bytes))}',
-      ),
-      if (app.downloads.jobs.isNotEmpty) ...[
-        const SectionTitle('Загрузки'),
-        LazyRows(
-          count: app.downloads.jobs.length,
-          builder: (_, i) {
-            final job = app.downloads.jobs[i];
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Row(
-                children: [
-                  CoverArt(
-                    seed: job.track.album,
-                    path: job.track.artPath,
-                    size: 46,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          job.track.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 5),
-                        if (job.state == DownloadState.downloading)
-                          LinearProgressIndicator(
-                            value: job.progress,
-                            minHeight: 3,
-                          ),
-                        const SizedBox(height: 5),
-                        Text(
-                          job.error ??
-                              switch (job.state) {
-                                DownloadState.queued => 'В очереди',
-                                DownloadState.downloading =>
-                                  '${formatBytes(job.received)} / ${formatBytes(job.total)}',
-                                DownloadState.paused =>
-                                  'Приостановлено · ${formatBytes(job.received)}',
-                                DownloadState.complete => 'Готово для офлайн',
-                                DownloadState.failed => 'Ошибка загрузки',
-                              },
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: job.state == DownloadState.failed
-                                ? const Color(0xFFFF9292)
-                                : muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (job.state == DownloadState.downloading ||
-                      job.state == DownloadState.queued)
-                    IconButton(
-                      onPressed: () => app.downloads.pause(job.track.id),
-                      tooltip: 'Приостановить',
-                      icon: const Icon(Icons.pause_rounded),
-                    )
-                  else if (job.state == DownloadState.paused ||
-                      job.state == DownloadState.failed)
-                    IconButton(
-                      onPressed: () => app.downloads.retry(job.track.id),
-                      tooltip: 'Продолжить',
-                      icon: const Icon(Icons.play_arrow_rounded, color: accent),
-                    )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Icon(Icons.check_circle_rounded, color: accent),
-                    ),
-                ],
-              ),
-            );
-          },
+  Widget build(BuildContext context) {
+    final tracks = app.offlineSearchTracks;
+    final jobs = app.downloadSearchJobs;
+    final searching = normalizeMusicName(
+      app.localQuery('downloads'),
+    ).isNotEmpty;
+    return _PageBody(
+      children: [
+        SectionTitle(
+          'С тобой без интернета',
+          subtitle:
+              '${app.offlineTracks.length} скачанных треков · ${formatBytes(app.offlineTracks.fold<int>(0, (a, t) => a + t.bytes))}',
         ),
+        LocalSearchField(
+          app: app,
+          scope: 'downloads',
+          hint: 'Поиск в офлайн-музыке и загрузках',
+        ),
+        if (jobs.isNotEmpty) ...[
+          const SectionTitle('Загрузки'),
+          LazyRows(
+            count: jobs.length,
+            builder: (_, i) {
+              final job = jobs[i];
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    CoverArt(
+                      seed: job.track.album,
+                      path: job.track.artPath,
+                      size: 46,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            job.track.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 5),
+                          if (job.state == DownloadState.downloading)
+                            LinearProgressIndicator(
+                              value: job.progress,
+                              minHeight: 3,
+                            ),
+                          const SizedBox(height: 5),
+                          Text(
+                            job.error ??
+                                switch (job.state) {
+                                  DownloadState.queued => 'В очереди',
+                                  DownloadState.downloading =>
+                                    '${formatBytes(job.received)} / ${formatBytes(job.total)}',
+                                  DownloadState.paused =>
+                                    'Приостановлено · ${formatBytes(job.received)}',
+                                  DownloadState.complete => 'Готово для офлайн',
+                                  DownloadState.failed => 'Ошибка загрузки',
+                                },
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: job.state == DownloadState.failed
+                                  ? const Color(0xFFFF9292)
+                                  : muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (job.state == DownloadState.downloading ||
+                        job.state == DownloadState.queued)
+                      IconButton(
+                        onPressed: () => app.downloads.pause(job.track.id),
+                        tooltip: 'Приостановить',
+                        icon: const Icon(Icons.pause_rounded),
+                      )
+                    else if (job.state == DownloadState.paused ||
+                        job.state == DownloadState.failed)
+                      IconButton(
+                        onPressed: () => app.downloads.retry(job.track.id),
+                        tooltip: 'Продолжить',
+                        icon: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: accent,
+                        ),
+                      )
+                    else
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Icon(Icons.check_circle_rounded, color: accent),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+        if (tracks.isNotEmpty) ...[
+          const SectionTitle('Скачанные треки'),
+          TrackList(app: app, tracks: tracks),
+        ] else if (searching && jobs.isEmpty)
+          const EmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'Ничего не найдено в этом разделе',
+            description: 'Попробуй другой запрос или очисти поиск.',
+          )
+        else if (!searching)
+          const EmptyState(
+            icon: Icons.offline_bolt_rounded,
+            title: 'Сохрани музыку для дороги',
+            description:
+                'Открой торрент-альбом и нажми «Скачать альбом». Завершённые загрузки играют без сети.',
+          ),
       ],
-      if (app.offlineTracks.isNotEmpty) ...[
-        const SectionTitle('Скачанные треки'),
-        TrackList(app: app, tracks: app.offlineTracks),
-      ] else
-        const EmptyState(
-          icon: Icons.offline_bolt_rounded,
-          title: 'Сохрани музыку для дороги',
-          description:
-              'Открой торрент-альбом и нажми «Скачать альбом». Завершённые загрузки играют без сети.',
-        ),
-    ],
-  );
+    );
+  }
 }
 
 class SettingsPage extends StatefulWidget {

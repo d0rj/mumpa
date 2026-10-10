@@ -18,6 +18,7 @@ import '../data/track_search_service.dart';
 import '../data/windows_player_service.dart';
 import '../domain/models.dart';
 import '../domain/music_metadata.dart';
+import '../domain/collection_filter.dart';
 import 'corrected_music_search.dart';
 import 'playback_controller.dart';
 
@@ -32,6 +33,13 @@ enum AppPage {
   playlist,
   artist,
 }
+
+typedef LocalMusicResults = ({
+  List<String> artists,
+  List<Album> albums,
+  List<MusicPlaylist> playlists,
+  List<Track> tracks,
+});
 
 enum LibraryFilter { all, offline, torrents }
 
@@ -336,6 +344,18 @@ class AppController extends ChangeNotifier {
       )
       .toList();
   List<Album> get artistAlbums => groupAlbums(artistTracks);
+  List<Track> get artistSearchTracks =>
+      filterCollectionTracks(artistTracks, localQuery(artistSearchScope));
+  List<Album> get artistSearchAlbums =>
+      filterAlbums(artistAlbums, localQuery(artistSearchScope));
+  List<MusicReleaseGroup> get artistSearchDiscography => filterReleaseGroups(
+    artistProfile?.albums ?? const [],
+    localQuery(artistSearchScope),
+  );
+  List<MusicRecording> get artistSearchRecordings => filterRecordings(
+    artistProfile?.recordings ?? const [],
+    localQuery(artistSearchScope),
+  );
 
   Future<void> refreshMetadataCache() async {
     cacheStats = await metadata.cache.stats();
@@ -412,6 +432,73 @@ class AppController extends ChangeNotifier {
   AppPage page = AppPage.home;
   LibraryFilter filter = LibraryFilter.all;
   LibrarySort sort = LibrarySort.added;
+  final Map<String, String> _localQueries = {};
+
+  String localQuery(String scope) => _localQueries[scope] ?? '';
+
+  void setLocalQuery(String scope, String value) {
+    if (localQuery(scope) == value) return;
+    if (value.isEmpty) {
+      _localQueries.remove(scope);
+    } else {
+      _localQueries[scope] = value;
+    }
+    notifyListeners();
+  }
+
+  String get artistSearchScope =>
+      'artist:${normalizeMusicName(selectedArtist ?? '')}';
+
+  LocalMusicResults _localResults(
+    String scope, {
+    required List<Track> tracks,
+    required List<Album> albums,
+    required List<MusicPlaylist> playlists,
+  }) {
+    final query = localQuery(scope);
+    return (
+      artists: filterArtistNames(tracks, query),
+      albums: filterAlbums(albums, query),
+      playlists: filterPlaylists(playlists, query, tracks),
+      tracks: filterCollectionTracks(tracks, query),
+    );
+  }
+
+  LocalMusicResults get librarySearchResults => _localResults(
+    'library',
+    tracks: library.tracks
+        .where(
+          (track) => switch (filter) {
+            LibraryFilter.offline => track.offline,
+            LibraryFilter.torrents => track.source == TrackSource.torrent,
+            _ => true,
+          },
+        )
+        .toList(),
+    albums: albums,
+    playlists: library.playlists,
+  );
+
+  LocalMusicResults get likedSearchResults {
+    final albums = library.favoriteAlbums;
+    final playlists = library.favoritePlaylists;
+    final indexed = {for (final track in library.tracks) track.id: track};
+    final tracks = {
+      for (final track in likedTracks) track.id: track,
+      for (final album in albums)
+        for (final track in album.tracks) track.id: track,
+      for (final playlist in playlists)
+        for (final id in playlist.trackIds)
+          if (indexed[id] case final Track track) track.id: track,
+    }.values.toList();
+    return _localResults(
+      'liked',
+      tracks: tracks,
+      albums: albums,
+      playlists: playlists,
+    );
+  }
+
   String query = '';
   String? selectedAlbum, selectedPlaylist, selectedArtist;
   String? _selectedAlbumAnchor;
@@ -534,15 +621,8 @@ class AppController extends ChangeNotifier {
     return albums;
   }
 
-  List<Track> get searchTracks => query.trim().isEmpty
-      ? []
-      : library.tracks
-            .where(
-              (t) => '${t.title} ${t.artist} ${t.album}'.toLowerCase().contains(
-                query.toLowerCase().trim(),
-              ),
-            )
-            .toList();
+  List<Track> get searchTracks =>
+      query.trim().isEmpty ? [] : filterCollectionTracks(library.tracks, query);
   Album? get album {
     final currentKey = library.byId(_selectedAlbumAnchor ?? '')?.albumKey;
     final key = currentKey ?? selectedAlbum;
@@ -565,6 +645,17 @@ class AppController extends ChangeNotifier {
       library.tracks.where((t) => library.liked.contains(t.id)).toList();
   List<Track> get offlineTracks =>
       library.tracks.where((t) => t.cachedPath != null).toList();
+  List<Track> get offlineSearchTracks =>
+      filterCollectionTracks(offlineTracks, localQuery('downloads'));
+  List<DownloadJob> get downloadSearchJobs {
+    final jobs = downloads.jobs;
+    final matches = filterCollectionTracks(
+      jobs.map((job) => job.track).toList(),
+      localQuery('downloads'),
+    ).map((track) => track.id).toSet();
+    return jobs.where((job) => matches.contains(job.track.id)).toList();
+  }
+
   List<Track> get recentTracks =>
       library.recent.map(library.byId).whereType<Track>().toList();
   List<Album> get recentAlbums {
@@ -806,9 +897,7 @@ class AppController extends ChangeNotifier {
   }
 
   void searchAlbumMetadata(MusicReleaseGroup album) {
-    trackSearchMode = false;
-    navigate(AppPage.search);
-    setQuery('${album.artist} ${album.title}');
+    openGlobalSearch('${album.artist} ${album.title}', tracks: false);
   }
 
   void setTrackSearchMode(bool enabled) {
@@ -817,12 +906,14 @@ class AppController extends ChangeNotifier {
     setQuery(query);
   }
 
-  void cancelVersionSearch() {
+  void cancelVersionSearch() => _cancelVersionSearch();
+
+  void _cancelVersionSearch({bool notify = true}) {
     ++_versionRequest;
     _versionOperation?.cancel();
     _versionOperation = null;
     versionLoading = false;
-    if (!_disposed) notifyListeners();
+    if (notify && !_disposed) notifyListeners();
   }
 
   Future<void> findRecordingVersions(MusicRecording recording) async {
@@ -1002,11 +1093,25 @@ class AppController extends ChangeNotifier {
     reportMessage('Трек добавлен в очередь.');
   }
 
-  void setQuery(String value) {
+  /// Switching the results page and updating the shared field is one change,
+  /// so listeners never replace an in-progress edit with the previous query.
+  void openGlobalSearch(String value, {bool? tracks}) {
+    _navigate(
+      AppPage.search,
+      select: () {
+        if (tracks != null) trackSearchMode = tracks;
+        _setQuery(value, notify: false);
+      },
+    );
+  }
+
+  void setQuery(String value) => _setQuery(value);
+
+  void _setQuery(String value, {bool notify = true}) {
     _searchDebounce?.cancel();
     _searchOperation?.cancel();
     query = value;
-    cancelVersionSearch();
+    _cancelVersionSearch(notify: false);
     selectedRecording = null;
     trackVariants = [];
     versionFormat = null;
@@ -1024,7 +1129,7 @@ class AppController extends ChangeNotifier {
       searching = true;
       _searchDebounce = Timer(const Duration(milliseconds: 600), searchSources);
     }
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   void setFilter(LibraryFilter value) {
@@ -1182,8 +1287,12 @@ class AppController extends ChangeNotifier {
     searchCorrectionCandidate = null;
     searchCorrectionSuggestions = const [];
     final requestedQuery = query.trim();
+    if (requestedQuery.isEmpty) {
+      searching = false;
+      notifyListeners();
+      return;
+    }
     if (trackSearchMode) {
-      if (requestedQuery.isEmpty) return;
       final id = ++_searchId;
       final operation = SourceOperation();
       _searchOperation = operation;
@@ -1218,13 +1327,13 @@ class AppController extends ChangeNotifier {
     _searchOperation = operation;
     final endpoint = library.settings['indexerUrl'] as String? ?? '';
     if (usesIndexer && endpoint.isEmpty) {
-      navigate(AppPage.settings);
+      searching = false;
+      searchCompleted = true;
       message =
           'Настрой Jackett: добавь RuTracker и войди в свой аккаунт. На Windows можно запустить Jackett из Mumpa.';
       notifyListeners();
       return;
     }
-    if (requestedQuery.isEmpty) return;
     final id = ++_searchId;
     searching = true;
     searchCompleted = false;

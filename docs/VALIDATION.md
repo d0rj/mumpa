@@ -1,5 +1,33 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.4 global and section search
+
+- **251 unit/widget tests pass**, one opt-in Jackett check is skipped, and
+  `flutter analyze --no-pub lib test integration_test` reports no issues.
+  Formatting passes for `lib`, `test` and the new native test. New checks cover
+  complete album/playlist results, exact favorite membership, artist and offline
+  filters, independent queries and Back at 320/1200 px. Global-field tests cover
+  stable focus/controller, selection and IME composition across notifications
+  and resizing, Ctrl+K, one Enter request before debounce, ignored late replies,
+  empty submissions and unconfigured indexers. Both artist-to-search actions
+  restore the previous global query/mode on Back. Evidence:
+  `test-output/unit-1.2.4.log`, `analyze-1.2.4.log`, `global-search-1.2.4.log`.
+- The opt-in native Windows test copies the existing **Ежемесячные** collection
+  into an isolated library, excluding settings and torrent access URLs. Searching
+  the library returns **72 complete albums / 493 tracks**, **Лимбо: 6/6 tracks**
+  with its existing real cover, and exactly the real **твои уши** file. Opening
+  an album and Back retain the local query. Focusing the shared header does not
+  navigate; typing opens Search while the same global field remains present.
+  The test verifies **0 HTTP requests / 0 engine requests** and byte-identical
+  production library contents afterward. Audio uses a fake backend because this
+  check concerns search/navigation. Evidence:
+  `test-output/native-local-search-1.2.4.log`, `real-local-search-1.2.4.png`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.4+12** with the existing pinned engine. APKs use the local development
+  signing key. No physical Android runtime check was repeated; mobile layouts
+  and keyboard actions are covered by the 320 px widget scenarios. Build logs:
+  `test-output/windows-build-1.2.4.log`, `android-build-1.2.4.log`.
+
 ## 1.2.3 favorites for individual discography albums
 
 - **222 unit/widget tests pass**, one opt-in Jackett check is skipped, and

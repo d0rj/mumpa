@@ -1,5 +1,26 @@
 # Mumpa architecture
 
+## Global and section searches — 1.2.4
+
+AppScreen owns the global query controller and focus node outside the routed
+content. Focusing the field or using Ctrl+K does not navigate. Editing opens
+the results route while preserving the same field, cursor and IME composition.
+Navigation snapshots the outgoing query and mode before an artist or album
+selection updates them. Enter cancels the debounce before submitting; abandoned
+requests cannot replace a restored page. An unconfigured indexer does not
+redirect the user away from local results.
+
+AppController keeps independent in-memory queries for Library, Favorites,
+Downloads and each normalized artist identity. Domain filters normalize case,
+punctuation and ё/е, match all terms in one result, and retain original ordering.
+Library returns separate artist, complete album, playlist and track results.
+Favorite tracks are the union of individually liked files and the exact saved
+membership of favorite albums/playlists, rather than every file sharing an
+album name. UI-only filtering never rewrites collections or saved favorites.
+Artist queries filter both local files and already retrieved catalogue metadata
+without initiating another request. Existing album/playlist filters still keep
+the full collection playback context and their route-specific PageStorage.
+
 ## Artwork, navigation and bounded query correction — 1.2.2
 
 Startup presents its themed bootstrap frame before synchronous native decoder

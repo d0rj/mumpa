@@ -31,7 +31,41 @@ class AppScreen extends StatefulWidget {
 class _AppScreenState extends State<AppScreen> {
   final _mouseButtons = <int, int>{};
   final _pageStorage = <int, PageStorageBucket>{};
+  late final TextEditingController _globalQuery;
+  final _globalSearchFocus = FocusNode(debugLabel: 'global-search');
   AppController get app => widget.app;
+
+  @override
+  void initState() {
+    super.initState();
+    _globalQuery = TextEditingController(text: app.query);
+    app.addListener(_syncGlobalQuery);
+  }
+
+  void _syncGlobalQuery() {
+    if (_globalQuery.text == app.query) return;
+    _globalQuery.value = TextEditingValue(
+      text: app.query,
+      selection: TextSelection.collapsed(offset: app.query.length),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant AppScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.app == app) return;
+    oldWidget.app.removeListener(_syncGlobalQuery);
+    app.addListener(_syncGlobalQuery);
+    _syncGlobalQuery();
+  }
+
+  @override
+  void dispose() {
+    app.removeListener(_syncGlobalQuery);
+    _globalQuery.dispose();
+    _globalSearchFocus.dispose();
+    super.dispose();
+  }
 
   void _mouse(PointerEvent event) {
     if (event.kind != PointerDeviceKind.mouse) return;
@@ -61,7 +95,7 @@ class _AppScreenState extends State<AppScreen> {
         }
         if (HardwareKeyboard.instance.isControlPressed &&
             event.logicalKey == LogicalKeyboardKey.keyK) {
-          app.navigate(AppPage.search);
+          _globalSearchFocus.requestFocus();
           return KeyEventResult.handled;
         }
         final editing =
@@ -120,7 +154,12 @@ class _AppScreenState extends State<AppScreen> {
                                 type: MaterialType.transparency,
                                 child: Column(
                                   children: [
-                                    _TopBar(app, desktop),
+                                    _TopBar(
+                                      app,
+                                      desktop,
+                                      query: _globalQuery,
+                                      searchFocus: _globalSearchFocus,
+                                    ),
                                     if (app.busy != null)
                                       const LinearProgressIndicator(
                                         minHeight: 2,
@@ -383,9 +422,16 @@ class _NavItem extends StatelessWidget {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar(this.app, this.desktop);
+  const _TopBar(
+    this.app,
+    this.desktop, {
+    required this.query,
+    required this.searchFocus,
+  });
   final AppController app;
   final bool desktop;
+  final TextEditingController query;
+  final FocusNode searchFocus;
   @override
   Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.fromLTRB(desktop ? 26 : 10, 12, desktop ? 26 : 10, 8),
@@ -399,64 +445,97 @@ class _TopBar extends StatelessWidget {
         ),
         if (desktop) const SizedBox(width: 16),
         Expanded(
-          child: desktop
-              ? InkWell(
-                  onTap: () => app.navigate(AppPage.search),
-                  borderRadius: BorderRadius.circular(24),
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 430),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF242A25),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.search_rounded, size: 19, color: muted),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Треки, альбомы, исполнители',
-                            style: TextStyle(fontSize: 11, color: muted),
-                          ),
-                        ),
-                        Text(
+          child: TextFormField(
+            key: const ValueKey('music-search'),
+            controller: query,
+            focusNode: searchFocus,
+            textInputAction: TextInputAction.search,
+            style: TextStyle(fontSize: desktop ? 13 : 12),
+            onChanged: app.openGlobalSearch,
+            onEditingComplete: () {},
+            onFieldSubmitted: (value) {
+              if (value.trim().isEmpty) return;
+              if (app.page != AppPage.search || app.query != value) {
+                app.openGlobalSearch(value);
+              }
+              app.searchSources();
+              if (!desktop) searchFocus.unfocus();
+            },
+            decoration: InputDecoration(
+              hintText: desktop
+                  ? 'Общий поиск: треки, альбомы, исполнители'
+                  : 'Общий поиск',
+              hintStyle: TextStyle(fontSize: desktop ? 12 : 11, color: muted),
+              filled: true,
+              fillColor: const Color(0xFF242A25),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 13,
+              ),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                size: 19,
+                color: muted,
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 36,
+                minHeight: 40,
+              ),
+              suffixIcon: query.text.isNotEmpty
+                  ? IconButton(
+                      key: const ValueKey('global-search-clear'),
+                      tooltip: 'Очистить общий поиск',
+                      onPressed: () {
+                        app.setQuery('');
+                        searchFocus.requestFocus();
+                      },
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      visualDensity: VisualDensity.compact,
+                    )
+                  : desktop
+                  ? const Padding(
+                      padding: EdgeInsets.only(right: 14),
+                      child: Center(
+                        widthFactor: 1,
+                        heightFactor: 1,
+                        child: Text(
                           'Ctrl K',
                           style: TextStyle(fontSize: 9, color: muted),
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              : const Row(
-                  children: [
-                    Icon(Icons.graphic_eq_rounded, size: 21, color: accent),
-                    SizedBox(width: 6),
-                    Text(
-                      'mumpa',
-                      style: TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -1,
                       ),
-                    ),
-                  ],
-                ),
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(color: accent),
+              ),
+            ),
+          ),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: desktop ? 16 : 4),
         IconButton(
           onPressed: app.busy == null ? () => showAddMusic(context, app) : null,
           tooltip: 'Добавить музыку',
           icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+          visualDensity: desktop
+              ? VisualDensity.standard
+              : VisualDensity.compact,
         ),
         if (!desktop)
           IconButton(
             onPressed: () => app.navigate(AppPage.settings),
             tooltip: 'Настройки',
             icon: const Icon(Icons.tune_rounded, size: 21),
+            visualDensity: VisualDensity.compact,
           ),
         if (desktop)
           Container(
