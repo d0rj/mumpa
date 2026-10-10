@@ -80,6 +80,66 @@ void main() {
   });
 
   test(
+    'bootstrap probes stay local across launches and release both ports',
+    () async {
+      final tcpAddresses = <InternetAddress>[];
+      final udpAddresses = <InternetAddress>[];
+      final executables = <String>[];
+      engine = TorrentEngine.testing(
+        root,
+        executable: File('${root.path}/stable-engine.exe'),
+        clientFactory: () =>
+            MockClient((_) async => http.Response('ready', 200)),
+        tcpBinder: (address, port) async {
+          tcpAddresses.add(address);
+          final socket = await ServerSocket.bind(address, port);
+          expect(socket.address.isLoopback, isTrue);
+          return socket;
+        },
+        udpBinder: (address, port) async {
+          udpAddresses.add(address);
+          final socket = await RawDatagramSocket.bind(
+            address,
+            port,
+            reuseAddress: false,
+          );
+          expect(socket.address.isLoopback, isTrue);
+          return socket;
+        },
+        startProcess: (executable, arguments) async {
+          executables.add(executable);
+          final peerAddress = arguments[arguments.indexOf('--torrentaddr') + 1];
+          expect(peerAddress, startsWith('0.0.0.0:'));
+          final peerPort = int.parse(peerAddress.split(':').last);
+          // Both preflight sockets are already closed when native ownership starts.
+          final tcp = await ServerSocket.bind(
+            InternetAddress.loopbackIPv4,
+            peerPort,
+          );
+          final udp = await RawDatagramSocket.bind(
+            InternetAddress.loopbackIPv4,
+            peerPort,
+            reuseAddress: false,
+          );
+          udp.close();
+          await tcp.close();
+          return FakeEngineProcess();
+        },
+      );
+      await engine.start();
+      await engine.stop();
+      await engine.start();
+      expect(executables, hasLength(2));
+      expect(executables.toSet(), {'${root.path}/stable-engine.exe'});
+      // Excluded UDP ranges may require extra candidates on Windows.
+      expect(tcpAddresses.length, greaterThanOrEqualTo(4));
+      expect(udpAddresses.length, greaterThanOrEqualTo(2));
+      expect(tcpAddresses.every((address) => address.isLoopback), isTrue);
+      expect(udpAddresses.every((address) => address.isLoopback), isTrue);
+    },
+  );
+
+  test(
     'missing selected network prevents native startup and permits system retry',
     () async {
       var selected = 'mumpa-test-nonexistent-interface';
@@ -111,7 +171,7 @@ void main() {
     'skips TCP-available ports occupied by UDP and retains peer transports',
     () async {
       final occupied = await RawDatagramSocket.bind(
-        InternetAddress.anyIPv4,
+        InternetAddress.loopbackIPv4,
         0,
         reuseAddress: false,
       );
@@ -135,11 +195,11 @@ void main() {
           // The production reservation has been released for the native process,
           // and this exact port permits both transports at the same time.
           final tcp = await ServerSocket.bind(
-            InternetAddress.anyIPv4,
+            InternetAddress.loopbackIPv4,
             selected,
           );
           final udp = await RawDatagramSocket.bind(
-            InternetAddress.anyIPv4,
+            InternetAddress.loopbackIPv4,
             selected,
             reuseAddress: false,
           );

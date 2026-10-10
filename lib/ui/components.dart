@@ -10,11 +10,13 @@ class CoverArt extends StatelessWidget {
   const CoverArt({
     super.key,
     this.path,
+    this.imageProvider,
     required this.seed,
     this.size = 64,
     this.radius = 8,
   });
   final String? path;
+  final ImageProvider<Object>? imageProvider;
   final String seed;
   final double size, radius;
   @override
@@ -25,8 +27,8 @@ class CoverArt extends StatelessWidget {
       height: size,
       child: path == null
           ? CustomPaint(painter: _CoverPainter(seed))
-          : Image.file(
-              File(path!),
+          : Image(
+              image: imageProvider ?? FileImage(File(path!)),
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) =>
                   CustomPaint(painter: _CoverPainter(seed)),
@@ -127,10 +129,8 @@ class TrackArtwork extends StatelessWidget {
         : value.artist;
     return AsyncCoverArt(
       requestKey:
-          '${app.metadata.cache.generation}:album:$artist:${value.album}',
-      load: () => hasArtistPage(artist) && value.album.trim().isNotEmpty
-          ? app.metadata.coverForAlbum(artist, value.album)
-          : Future.value(null),
+          '${app.metadata.cache.generation}:album:$artist:${value.album}:${value.torrentHash}:${value.torrentAlbumPath}',
+      load: () => app.loadTrackArtwork(value),
       seed: value.album,
       path: app.artworkForTrack(value),
       size: size,
@@ -155,10 +155,8 @@ class AlbumArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AsyncCoverArt(
     requestKey:
-        '${app.metadata.cache.generation}:album:${album.artist}:${album.title}',
-    load: () => hasArtistPage(album.artist) && album.title.trim().isNotEmpty
-        ? app.metadata.coverForAlbum(album.artist, album.title)
-        : Future.value(null),
+        '${app.metadata.cache.generation}:album:${album.artist}:${album.title}:${album.tracks.first.torrentHash}:${album.tracks.first.torrentAlbumPath}',
+    load: () => app.loadTrackArtwork(album.tracks.first),
     seed: album.title,
     path: album.artPath ?? app.artworkForTrack(album.tracks.first),
     size: size,
@@ -167,12 +165,30 @@ class AlbumArtwork extends StatelessWidget {
 }
 
 class _AsyncCoverArtState extends State<AsyncCoverArt> {
-  late Future<String?> _cover;
+  late Future<_CoverArtifact?> _cover;
+
+  Future<_CoverArtifact?> _loadCover() async {
+    final requestKey = widget.requestKey;
+    final path = await widget.load();
+    if (path == null) return null;
+    // Keep I/O out of build. A new lookup reads the file revision once, so a
+    // refreshed TTL entry at the same path cannot reuse old decoded pixels.
+    final stat = await File(path).stat();
+    return _CoverArtifact(
+      path,
+      _RevisionFileImage(
+        File(path),
+        requestKey: requestKey,
+        modified: stat.modified.microsecondsSinceEpoch,
+        bytes: stat.size,
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    _cover = widget.path != null ? Future.value(widget.path) : widget.load();
+    _cover = widget.path != null ? Future.value(null) : _loadCover();
   }
 
   @override
@@ -180,21 +196,56 @@ class _AsyncCoverArtState extends State<AsyncCoverArt> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.requestKey != widget.requestKey ||
         oldWidget.path != widget.path) {
-      _cover = widget.path != null ? Future.value(widget.path) : widget.load();
+      _cover = widget.path != null ? Future.value(null) : _loadCover();
     }
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<String?>(
+  Widget build(BuildContext context) => FutureBuilder<_CoverArtifact?>(
     key: ValueKey(widget.requestKey),
     future: _cover,
     builder: (_, snapshot) => CoverArt(
       seed: widget.seed,
-      path: widget.path ?? snapshot.data,
+      path: widget.path ?? snapshot.data?.path,
+      imageProvider: widget.path == null ? snapshot.data?.imageProvider : null,
       size: widget.size,
       radius: widget.radius,
     ),
   );
+}
+
+class _CoverArtifact {
+  const _CoverArtifact(this.path, this.imageProvider);
+  final String path;
+  final ImageProvider<Object> imageProvider;
+}
+
+/// FileImage normally keys decoded pixels by path and scale alone. Include the
+/// lookup generation and asynchronous stat revision without evicting unrelated
+/// covers or re-reading the disk on every player update.
+class _RevisionFileImage extends FileImage {
+  const _RevisionFileImage(
+    super.file, {
+    required this.requestKey,
+    required this.modified,
+    required this.bytes,
+  });
+
+  final String requestKey;
+  final int modified, bytes;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _RevisionFileImage &&
+      other.file.path == file.path &&
+      other.scale == scale &&
+      other.requestKey == requestKey &&
+      other.modified == modified &&
+      other.bytes == bytes;
+
+  @override
+  int get hashCode =>
+      Object.hash(file.path, scale, requestKey, modified, bytes);
 }
 
 /// A decorative playback indicator; its motion follows the player state.

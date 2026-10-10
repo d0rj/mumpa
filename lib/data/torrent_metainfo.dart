@@ -5,7 +5,10 @@ import 'package:enough_convert/windows.dart';
 import '../domain/models.dart';
 
 /// Reads file names without starting an engine or downloading audio pieces.
-/// File IDs and paths follow TorrServer's one-based FileStats convention.
+/// IDs are one-based metainfo ordinals, not native TorrServer IDs: the server
+/// sorts its file list. Resolve a selected file by full path after upload and
+/// use the server's returned ID for streaming; the original ordinals are safe
+/// immutable cache identities within this exact info hash.
 TorrentInfo readTorrentMetainfo(Uint8List bytes) {
   if (bytes.length > 16 * 1024 * 1024) {
     throw const FormatException('Torrent-файл превышает 16 МБ.');

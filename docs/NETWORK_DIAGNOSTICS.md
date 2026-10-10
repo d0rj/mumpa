@@ -53,3 +53,42 @@ acceptance criterion of native network playback with positive duration and
 at least 2.5 seconds of advancing audio is now met for one existing favorite.
 This does not promise availability of every swarm or establish public Android
 playback, physical-phone behavior or public DHT health.
+
+## Repeated Windows Firewall notifications
+
+A read-only check of the running portable 1.2.1 app found an unnecessary
+inbound-listener operation in Mumpa's bootstrap. Before launching TorrServer,
+`_PeerPort.reserve` opened a TCP listener and bound UDP on `0.0.0.0` in
+`mumpa.exe` itself, solely to test whether a candidate port was available.
+Firewall's active application filters contain separate TCP/UDP `Query User`
+block rules for the portable Mumpa executable paths from versions 1.1.0 through
+1.2.1. This matches the changing application path of each released build.
+Microsoft documents that notifications are triggered by application listen
+operations and that application rules use the complete executable path; rules
+for one portable release do not cover a different release directory.
+[Windows Firewall application rules](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/rules#applications-rules).
+
+The bootstrap probe now reserves TCP and UDP on `127.0.0.1` only. It still
+spreads candidate ports to avoid Windows UDP exclusion ranges, closes both
+sockets before native startup, and detects an early engine exit. A preflight
+reservation cannot eliminate the existing gap between releasing a port and
+the native engine binding it; a simultaneous bind on another interface can
+still make the engine report a startup error. The actual peer listener remains
+owned by the native engine at its stable runtime executable path, and its
+selected network interface and peer transports are unchanged.
+
+The live process check found no remaining listeners in the Mumpa process.
+Jackett and FlareSolverr HTTP listeners were loopback-only, while TorrServer
+owned the peer TCP/UDP sockets. All three helper executable paths were in the
+persistent runtime directory. Sanitized evidence is saved locally in
+`test-output/firewall-listener-diagnosis.json`; no firewall rules, VPN settings
+or routes were changed. The evidence establishes repeated notifications across
+different portable release paths; it does not establish repeated prompts for
+the identical executable path after an existing rule has already been created.
+
+The engine regression checks every bootstrap bind address over two starts,
+verifies that both reservation sockets have been released before native
+ownership, and retains the occupied-UDP and startup-failure checks. Test sockets
+also use loopback, avoiding a new inbound-listener notification during these
+unit checks. A first permission request for a genuine peer-facing helper on a
+new installation remains an operating-system decision.

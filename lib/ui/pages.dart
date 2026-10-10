@@ -640,7 +640,7 @@ class _DiscographyGrid extends SliverContent {
                   builder: (_, constraints) => AsyncCoverArt(
                     requestKey:
                         '${app.metadata.cache.generation}:release-group-${group.id}',
-                    load: () => app.metadata.coverForGroup(group.id),
+                    load: () => app.loadReleaseGroupArtwork(group),
                     seed: group.title,
                     size: constraints.maxWidth,
                     radius: 10,
@@ -977,9 +977,34 @@ class _CollectionTracksBody extends StatefulWidget {
 class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   final _search = TextEditingController();
   late bool _albums = widget.section.groupByAlbum;
+  bool _restored = false;
+
+  String get _storageId => 'collection-view:${widget.section.scope}';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restored) return;
+    _restored = true;
+    final saved = PageStorage.maybeOf(
+      context,
+    )?.readState(context, identifier: _storageId);
+    if (saved is ({String query, bool albums})) {
+      _search.text = saved.query;
+      _albums = saved.albums;
+    }
+  }
+
+  void _saveView() {
+    PageStorage.maybeOf(context)?.writeState(context, (
+      query: _search.text,
+      albums: _albums,
+    ), identifier: _storageId);
+  }
 
   void _clear() {
     _search.clear();
+    _saveView();
     setState(() {});
   }
 
@@ -1008,7 +1033,10 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                 TextField(
                   key: const ValueKey('collection-search'),
                   controller: _search,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) {
+                    _saveView();
+                    setState(() {});
+                  },
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search_rounded),
                     hintText: section.groupByAlbum
@@ -1039,14 +1067,20 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                         selected: showAlbums,
                         onSelected: searching
                             ? null
-                            : (_) => setState(() => _albums = true),
+                            : (_) => setState(() {
+                                _albums = true;
+                                _saveView();
+                              }),
                       ),
                       ChoiceChip(
                         key: const ValueKey('collection-tracks-view'),
                         avatar: const Icon(Icons.queue_music_rounded, size: 18),
                         label: const Text('Все треки'),
                         selected: !showAlbums,
-                        onSelected: (_) => setState(() => _albums = false),
+                        onSelected: (_) => setState(() {
+                          _albums = false;
+                          _saveView();
+                        }),
                       ),
                     ],
                   ),
@@ -1089,9 +1123,40 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   }
 }
 
-class _SearchPage extends StatelessWidget {
+class _SearchPage extends StatefulWidget {
   const _SearchPage(this.app);
   final AppController app;
+  @override
+  State<_SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<_SearchPage> {
+  late final TextEditingController _query;
+  AppController get app => widget.app;
+
+  @override
+  void initState() {
+    super.initState();
+    _query = TextEditingController(text: app.query);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SearchPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_query.text != app.query) {
+      _query.value = TextEditingValue(
+        text: app.query,
+        selection: TextSelection.collapsed(offset: app.query.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => _PageBody(
     children: [
@@ -1103,7 +1168,7 @@ class _SearchPage extends StatelessWidget {
       ),
       TextFormField(
         key: ValueKey('music-search'),
-        initialValue: app.query,
+        controller: _query,
         autofocus: app.catalogTrail.isEmpty,
         onChanged: app.setQuery,
         onFieldSubmitted: (_) => app.searchSources(),
@@ -1228,6 +1293,47 @@ class _SearchPage extends StatelessWidget {
           CatalogNotice(app: app),
       ],
       if (app.query.trim().isNotEmpty && !app.trackSearchMode) ...[
+        if (app.searchCorrectionCandidate != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'По исходному запросу ничего не найдено. Проверяем «${app.searchCorrectionCandidate}»…',
+              style: const TextStyle(color: muted),
+            ),
+          )
+        else if (app.correctedSearchQuery != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              app.releases.isNotEmpty
+                  ? 'По запросу «${app.query.trim()}» ничего не найдено. Показаны результаты для «${app.correctedSearchQuery}».'
+                  : 'Также проверили «${app.correctedSearchQuery}»: раздачи не найдены.',
+              style: const TextStyle(color: muted),
+            ),
+          ),
+        if (app.searchCorrectionSuggestions.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Есть несколько похожих названий. Уточни запрос:',
+              style: TextStyle(color: muted),
+            ),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final suggestion in app.searchCorrectionSuggestions)
+                ActionChip(
+                  label: Text(suggestion),
+                  onPressed: () {
+                    app.setQuery(suggestion);
+                    app.searchSources();
+                  },
+                ),
+            ],
+          ),
+        ],
         SectionTitle(
           app.usesIndexer ? 'В трекерах Jackett' : 'На RuTracker',
           subtitle: app.searching
@@ -1805,7 +1911,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => showLicensePage(
                 context: context,
                 applicationName: 'Mumpa',
-                applicationVersion: '1.2.1',
+                applicationVersion: '1.2.2',
                 applicationLegalese:
                     'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
               ),

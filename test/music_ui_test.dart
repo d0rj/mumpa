@@ -50,6 +50,12 @@ class _Metadata extends MusicMetadataRepository {
   Future<String?> coverForReleaseTitle(String title) async => null;
 
   @override
+  Future<String?> cachedCoverForAlbum(
+    String artistName,
+    String albumTitle,
+  ) async => null;
+
+  @override
   Future<String?> coverForAlbum(String artist, String album) async => null;
 }
 

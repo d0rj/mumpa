@@ -26,6 +26,11 @@ Future<bool> _validBinaryHash(String path, String expected) => Isolate.run(
 Future<bool> _validAssetHash(Uint8List bytes, String expected) =>
     Isolate.run(() => sha256.convert(bytes).toString() == expected);
 
+Future<ServerSocket> _bindTcpSocket(InternetAddress address, int port) =>
+    ServerSocket.bind(address, port);
+Future<RawDatagramSocket> _bindUdpSocket(InternetAddress address, int port) =>
+    RawDatagramSocket.bind(address, port, reuseAddress: false);
+
 @visibleForTesting
 List<int> torrentPeerPortCandidates(int preferred, {Random? random}) {
   final generator = random ?? Random.secure();
@@ -41,6 +46,8 @@ class TorrentEngine {
     : _executable = null,
       _startProcess = Process.start,
       _clientFactory = http.Client.new,
+      _tcpBinder = _bindTcpSocket,
+      _udpBinder = _bindUdpSocket,
       _preferredPeerPort = 0,
       _startupTimeout = const Duration(seconds: 30);
 
@@ -51,6 +58,8 @@ class TorrentEngine {
     required File this._executable,
     required this._startProcess,
     required this._clientFactory,
+    this._tcpBinder = _bindTcpSocket,
+    this._udpBinder = _bindUdpSocket,
     this.networkInterface,
     this._preferredPeerPort = 0,
     this._startupTimeout = const Duration(seconds: 30),
@@ -62,6 +71,8 @@ class TorrentEngine {
   final File? _executable;
   final Future<Process> Function(String, List<String>) _startProcess;
   final http.Client Function() _clientFactory;
+  final Future<ServerSocket> Function(InternetAddress, int) _tcpBinder;
+  final Future<RawDatagramSocket> Function(InternetAddress, int) _udpBinder;
   final int _preferredPeerPort;
   final Duration _startupTimeout;
   _EngineProcess? _process;
@@ -87,7 +98,7 @@ class TorrentEngine {
   Future<File> _binary(Directory state) async {
     if (_executable != null) return _executable;
     const expected =
-        '281a77382ffeb5cfd4ca8b2f5be05badc2c0633a64f70c359e0dd0037b2c9e74';
+        '45c1a2bb3b91d6d371ba4ac8bbaa75d55d2a39b983826c73f5a71dbae4d5e4f1';
     final binaries = binaryDirectory ?? state;
     await binaries.create(recursive: true);
     final binary = File(p.join(binaries.path, 'TorrServer-MatriX.145.2.exe'));
@@ -151,14 +162,18 @@ class TorrentEngine {
     // between launches so Windows Firewall sees a stable binary identity.
     final binary = android ? null : await _binary(state);
     _checkActive(generation);
-    final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final socket = await _tcpBinder(InternetAddress.loopbackIPv4, 0);
     final port = socket.port;
     _PeerPort? peer;
     _EngineProcess? process;
     var nativeStartAttempted = false;
     http.Client? client;
     try {
-      peer = await _PeerPort.reserve(_preferredPeerPort);
+      peer = await _PeerPort.reserve(
+        _preferredPeerPort,
+        tcpBinder: _tcpBinder,
+        udpBinder: _udpBinder,
+      );
       final torrentPort = peer.port;
       _checkActive(generation);
       // Both transports must accept the chosen peer port. The fork otherwise
@@ -300,7 +315,11 @@ class _PeerPort {
   final RawDatagramSocket udp;
   int get port => tcp.port;
 
-  static Future<_PeerPort> reserve(int preferred) async {
+  static Future<_PeerPort> reserve(
+    int preferred, {
+    required Future<ServerSocket> Function(InternetAddress, int) tcpBinder,
+    required Future<RawDatagramSocket> Function(InternetAddress, int) udpBinder,
+  }) async {
     Object? lastError;
     // Windows can exclude entire UDP ephemeral blocks while TCP port=0 walks
     // sequentially through the same block. Spread explicit candidates over the
@@ -309,12 +328,12 @@ class _PeerPort {
       ServerSocket? tcp;
       RawDatagramSocket? udp;
       try {
-        tcp = await ServerSocket.bind(InternetAddress.anyIPv4, candidate);
-        udp = await RawDatagramSocket.bind(
-          InternetAddress.anyIPv4,
-          tcp.port,
-          reuseAddress: false,
-        );
+        // This only probes availability and Windows' UDP port exclusions. A
+        // wildcard listen/bind makes mumpa.exe an inbound network server and
+        // generates a Firewall prompt for every new portable application path.
+        // Only the stable native engine owns the actual peer-facing sockets.
+        tcp = await tcpBinder(InternetAddress.loopbackIPv4, candidate);
+        udp = await udpBinder(InternetAddress.loopbackIPv4, tcp.port);
         return _PeerPort(tcp, udp);
       } on SocketException catch (e) {
         lastError = e;
@@ -532,8 +551,10 @@ class TorrentService {
     return _waitFiles(hash, operation: operation, onProgress: onProgress);
   }
 
-  Future<TorrentInfo> get(String hash) async =>
-      TorrentInfo.fromJson(await _request({'action': 'get', 'hash': hash}));
+  Future<TorrentInfo> get(String hash, {SourceOperation? operation}) async =>
+      TorrentInfo.fromJson(
+        await _request({'action': 'get', 'hash': hash}, operation: operation),
+      );
   Future<TorrentInfo> _waitFiles(
     String hash, {
     SourceOperation? operation,

@@ -1,5 +1,56 @@
 # Mumpa architecture
 
+## Artwork, navigation and bounded query correction — 1.2.2
+
+Startup presents its themed bootstrap frame before synchronous native decoder
+loading or library initialization. Download restoration lists the downloads
+directory once and inspects only matching partial files, rather than issuing one
+filesystem existence request for every uncached library track. Managed catalog
+helpers initialize asynchronously and do not gate the first frame.
+
+Album cards and track rows use one artwork pipeline in AppController. Embedded
+images and persistent cache hits resolve first. TorrentArtworkRepository reads
+the saved metainfo in an isolate, selects an unambiguous small front image in the
+track's physical album directory, and streams only that file through the existing
+locally bound engine. Two cancellable transfers share the metadata FIFO quota;
+hash/file-index keys retain immutable covers until eviction. Public catalogue
+artwork uses exact artist/album matching through MusicBrainz/Cover Art Archive
+and a Deezer artist-scoped album catalogue fallback. Transport failures are not
+stored as definitive missing covers. Cache clearing invalidates every stage.
+After cache misses, torrent and public metadata work run concurrently; the
+first successful image is displayed. A slower bounded torrent transfer may
+still warm the shared cache. Asynchronous File.stat revisions and cache
+generation form decoded-image identities, so a same-path clear/TTL rewrite
+cannot retain old Flutter ImageCache pixels.
+
+Navigation entries snapshot route context before selection changes. Stable IDs
+resolve albums and playlists against current library metadata; completed search
+results, filters, collection queries and scroll positions are restored on Back.
+In-flight requests from abandoned views are cancelled or rejected by request
+generation. Windows mouse Back and BrowserBack invoke this route history.
+
+The Jackett search wrapper first sends the literal query. An empty response may
+trigger one conservative spelling correction from known library/catalogue names
+or one MusicBrainz artist hint. Ambiguous candidates require selection; only one
+corrected Jackett request is allowed, and the original text remains visible.
+This does not add fuzzy or per-file indexing capabilities to Jackett itself.
+
+Temporary peer-port availability probes bind loopback in the UI process. The
+native engine still owns the actual selected-interface torrent listener from its
+stable profile path. No Windows firewall rule or VPN route is changed.
+
+Metainfo ordinals are distinct from native `file_stats.id`: TorrServer sorts
+paths before assigning IDs. Artwork keeps immutable metainfo ordinals in cache
+keys but resolves the live stream ID by unique full path and size. Imported
+recording variants use the same path/size check and retain the server's track
+IDs, playlist order and existing favorites.
+
+Managed engine mumpa4 requests active-reader chunks first within the current
+piece. Remaining chunks and whole-piece verification remain intact. This avoids
+waiting for an unrelated prefix before a small JPEG near a 1 MiB piece boundary.
+Upstream ordering between multiple Now-pieces and already dispatched requests
+remain unchanged; real public cover transfer time is measured separately.
+
 ## Collection identity and discographies — 1.2.1
 
 Torrent track IDs and collection IDs still identify their source files. Optional

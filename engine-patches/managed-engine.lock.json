@@ -1,5 +1,5 @@
 {
-  "version": "MatriX.145.2-mumpa3",
+  "version": "MatriX.145.2-mumpa4",
   "upstream": {
     "tag": "MatriX.145.2",
     "commit": "bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9",
@@ -64,7 +64,7 @@
       "path": "assets/engine/TorrServer.exe",
       "toolchain": "go1.27.1",
       "cgo": "0",
-      "sha256": "281a77382ffeb5cfd4ca8b2f5be05badc2c0633a64f70c359e0dd0037b2c9e74",
+      "sha256": "45c1a2bb3b91d6d371ba4ac8bbaa75d55d2a39b983826c73f5a71dbae4d5e4f1",
       "goamd64": "v1"
     },
     {
@@ -78,7 +78,7 @@
       "path": "android/app/src/main/jniLibs/arm64-v8a/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "870942a7f7c4e248b79560d3f4f8c94cdbd8612f395510e67ea1adf616f7627c",
+      "sha256": "b727e93e106862b9c7a2847f136b614f1a87ea31decc734a5d0aa8e514c885a2",
       "goamd64": ""
     },
     {
@@ -92,7 +92,7 @@
       "path": "android/app/src/main/jniLibs/armeabi-v7a/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "ba85a14ca1493ac94e9524aa9a512da44fc65723a5ded9edff233fa6b9a1b809",
+      "sha256": "94affa939790872461dbea577eca83304b62933a90ff59c6caf48274fb93465d",
       "goamd64": ""
     },
     {
@@ -106,7 +106,7 @@
       "path": "android/app/src/main/jniLibs/x86_64/libtorrserver.so",
       "toolchain": "go1.25.14",
       "cgo": "1",
-      "sha256": "da43c8b7d1c0098b59a54956d13431ccbc388e6bdf18a7b01d410a5110848bc3",
+      "sha256": "f9a4b882952d1a28b9fa2f8d6c09fd8229e59a040caf6a5784b1ca5d7272ecfa",
       "goamd64": "v1"
     }
   ],
@@ -176,6 +176,18 @@
       {
         "path": "tracker_scraper.go",
         "sha256": "ddb6115f0123cdf323c219d5f792182e3620361e2cda3c3b9e0f1dc538ffb082"
+      },
+      {
+        "path": "connection.go",
+        "sha256": "e1170fe4d15206151ab8044b7e7b05e3bcb21483a73c98c18ca046c758334a13"
+      },
+      {
+        "path": "reader_chunks_mumpa.go",
+        "sha256": "8984c59b4175397f2d4ecd57c8c26627b646ab4636069ae8bc35a53bcbb5d459"
+      },
+      {
+        "path": "reader_chunks_mumpa_test.go",
+        "sha256": "13c4791334f031ad826ea68ae0d9a1b42c06fadddf6071ec5e96b976aca822f8"
       }
     ]
   }

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../domain/music_metadata.dart';
+import 'deezer_artwork_repository.dart';
 import 'media_cache.dart';
 import 'source_operation.dart';
 
@@ -21,13 +22,18 @@ class MusicMetadataRepository {
   final DiskMediaCache cache;
   final http.Client client;
   final Duration requestInterval, requestTimeout;
+  late final _artworkFallback = DeezerArtworkRepository(
+    cache: cache,
+    client: client,
+    timeout: requestTimeout,
+  );
   final Map<String, Future<Map<String, dynamic>>> _pending = {};
   final Map<String, Future<String?>> _covers = {};
   final List<_MetadataRequest> _requests = [];
   bool _requesting = false;
   DateTime? _lastRequest;
   bool _disposed = false;
-  static const _agent = 'Mumpa/1.2.1 (https://github.com/d0rj/mumpa)';
+  static const _agent = 'Mumpa/1.2.2 (https://github.com/d0rj/mumpa)';
 
   void _checkGeneration(int generation) {
     if (_disposed || generation != cache.generation) {
@@ -170,6 +176,32 @@ class MusicMetadataRepository {
         'Музыкальная база недоступна. Локальная медиатека продолжает работать.',
       );
     }
+  }
+
+  /// Bounded spelling hints, never an automatic artist identity match. The
+  /// caller must still compare edit distance and expose any changed query.
+  Future<List<String>> suggestArtistNames(
+    String query, {
+    SourceOperation? operation,
+  }) async {
+    operation?.check();
+    final word = normalizeMusicName(query);
+    if (!RegExp(r'^[\p{L}\p{N}]{5,64}$', unicode: true).hasMatch(word)) {
+      return const [];
+    }
+    final result = await _api('artist', {
+      'query': 'artist:$word~1',
+      'limit': '8',
+    }, operation: operation);
+    operation?.check();
+    return List<String>.unmodifiable(
+      (result['artists'] as List? ?? [])
+          .whereType<Map>()
+          .map((artist) => artist['name'])
+          .whereType<String>()
+          .where((name) => name.trim().isNotEmpty)
+          .toSet(),
+    );
   }
 
   Future<MusicArtist?> artist(String name, {SourceOperation? operation}) async {
@@ -356,6 +388,56 @@ class MusicMetadataRepository {
     return coverForAlbum(identity.artist, identity.album);
   }
 
+  /// Resolve only persisted artwork. This never schedules HTTP or promotes
+  /// FIFO entries, so a ready cover can be shown before optional torrent work.
+  Future<String?> cachedCoverForAlbum(
+    String artistName,
+    String albumTitle,
+  ) async {
+    final generation = cache.generation;
+    try {
+      _checkGeneration(generation);
+      if (artistName.trim().isEmpty || albumTitle.trim().isEmpty) return null;
+      final fallback = await _artworkFallback.cachedCover(
+        artistName,
+        albumTitle,
+      );
+      _checkGeneration(generation);
+      if (fallback != null) return fallback;
+      final artist = musicSearchPhrase(artistName);
+      final album = musicSearchPhrase(albumTitle);
+      final uri = Uri.https('musicbrainz.org', '/ws/2/release-group', {
+        'fmt': 'json',
+        'query': 'artist:"$artist" AND releasegroup:"$album"',
+        'limit': '5',
+      });
+      final saved = await cache.read('mb:$uri');
+      _checkGeneration(generation);
+      if (saved == null) return null;
+      final data = jsonDecode(utf8.decode(saved)) as Map;
+      final id = (data['release-groups'] as List? ?? [])
+          .whereType<Map>()
+          .where(
+            (item) =>
+                normalizeMusicName(item['title'] as String? ?? '') ==
+                    normalizeMusicName(albumTitle) &&
+                normalizeMusicName(_credit(item)) ==
+                    normalizeMusicName(artistName),
+          )
+          .map((item) => item['id'])
+          .whereType<String>()
+          .firstOrNull;
+      if (id == null) return null;
+      final cover = await cache.pathFor('cover:$id');
+      _checkGeneration(generation);
+      return cover;
+    } catch (_) {
+      // Optional artwork must not turn a missing or corrupt cache into an
+      // error, and invalidated work must not trigger a replacement request.
+      return null;
+    }
+  }
+
   /// Album tags and torrent folders already provide separate identity fields.
   /// Do not strip meaningful parentheses or dashes as a release-title parser
   /// would; exact normalized artist/title matching remains required.
@@ -366,26 +448,41 @@ class MusicMetadataRepository {
     'album:${normalizeMusicName(artistName)}:${normalizeMusicName(albumTitle)}',
     (generation) async {
       if (artistName.trim().isEmpty || albumTitle.trim().isEmpty) return null;
-      final artist = musicSearchPhrase(artistName),
-          album = musicSearchPhrase(albumTitle);
-      final data = await _api(
-        'release-group',
-        {'query': 'artist:"$artist" AND releasegroup:"$album"', 'limit': '5'},
-        lowPriority: true,
-        expectedGeneration: generation,
-      );
+      final savedFallback = await cachedCoverForAlbum(artistName, albumTitle);
       _checkGeneration(generation);
-      final match = (data['release-groups'] as List? ?? [])
-          .whereType<Map>()
-          .where(
-            (j) =>
-                normalizeMusicName(j['title'] as String? ?? '') ==
-                    normalizeMusicName(albumTitle) &&
-                normalizeMusicName(_credit(j)) ==
-                    normalizeMusicName(artistName),
-          )
-          .firstOrNull;
-      return match == null ? null : coverForGroup(match['id'] as String);
+      if (savedFallback != null) return savedFallback;
+      // A missing MB release, missing CAA image, or unavailable metadata service
+      // must not prevent another public catalogue from providing the cover.
+      try {
+        final artist = musicSearchPhrase(artistName),
+            album = musicSearchPhrase(albumTitle);
+        final data = await _api(
+          'release-group',
+          {'query': 'artist:"$artist" AND releasegroup:"$album"', 'limit': '5'},
+          lowPriority: true,
+          expectedGeneration: generation,
+        );
+        _checkGeneration(generation);
+        final match = (data['release-groups'] as List? ?? [])
+            .whereType<Map>()
+            .where(
+              (j) =>
+                  normalizeMusicName(j['title'] as String? ?? '') ==
+                      normalizeMusicName(albumTitle) &&
+                  normalizeMusicName(_credit(j)) ==
+                      normalizeMusicName(artistName),
+            )
+            .firstOrNull;
+        if (match != null) {
+          final cover = await coverForGroup(match['id'] as String);
+          if (cover != null) return cover;
+        }
+      } on SourceCancelled {
+        rethrow;
+      } catch (_) {
+        _checkGeneration(generation);
+      }
+      return _artworkFallback.cover(artistName, albumTitle, generation);
     },
   );
 
@@ -492,6 +589,7 @@ class MusicMetadataRepository {
 
   void dispose() {
     _disposed = true;
+    _artworkFallback.dispose();
     client.close();
     for (final request in _requests) {
       request.result.completeError(StateError('Музыкальный каталог закрыт.'));

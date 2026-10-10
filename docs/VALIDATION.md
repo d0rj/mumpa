@@ -1,5 +1,97 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.2 real artwork, Back, spelling correction and startup
+
+- **216 unit/widget tests pass**, one opt-in Jackett test is skipped, and
+  `flutter analyze --no-pub` reports no issues. New checks cover exact torrent
+  cover paths and native file IDs, bounded/cancellable transfers, offline cache
+  reuse, Deezer matching and transport failures, cache-generation races, decoded
+  image revisions, navigation history, conservative query correction and native
+  recording-variant import. Playing/enqueuing a file removed from a saved source
+  playlist preserves that edit and its favorite. A 10,000-track restoration test
+  requires one directory scan, two actual partial-file size reads and no engine
+  calls; Windows path matching remains case insensitive. Evidence:
+  `unit-final-1.2.2.log`, `analyze-final-1.2.2.log`.
+- The native Windows artwork check uses the existing **Ежемесячные** collection:
+  **72 albums / 493 tracks, 72 actual images retrieved and decoded**, no missing
+  covers. Each album also has an unambiguously resolved physical image in the
+  saved torrent. The first full public-network pass decoded 71 images; retry
+  decoded the remaining image. The repeat after cache warming decoded all 72 in
+  its first pass. Direct external fallback checks decode Deezer images for
+  **Родничок** (34,733 bytes) and **Призраки Фантьета** (34,040 bytes). This is an
+  image-transfer proof, not a full music-download proof. The test warms only the
+  user artwork cache, **7,104,278 bytes / 217 entries**, and leaves the source
+  library byte-for-byte unchanged. A restarted repository serves a cached image
+  with both engine and HTTP factories disabled. Evidence:
+  `artwork-native-1.2.2.log`, `artwork-native-startup-1.2.2.log`,
+  `artwork-navigation-1.2.2.json`, `real-discography-covers-1.2.2.png`.
+- A Win32 **XBUTTON1** down/up sent to the owned Flutter window invokes Back,
+  returning from an album to its original collection entry and playlist context.
+  UI history tests separately cover filters, results, artist state and repeated
+  album/playlist routes. The native check temporarily enables live device events
+  only for its owned window.
+- The configured RuTracker.org Jackett endpoint returns **0** releases for
+  **Ежемесечные**, then **4** for **Ежемесячные**, including the same 72-release
+  discography. The wrapper's tested rule is literal query first, then at most one
+  unambiguous corrected request. Jackett still searches release metadata;
+  correction does not create a complete per-track index. Evidence:
+  `typo-live-1.2.2.json`.
+- The read-only firewall diagnosis finds executable-specific QueryUser filters
+  for changing portable Mumpa paths. The UI-process TCP/UDP port probe now binds
+  **127.0.0.1**; actual torrent listeners remain in the native engine at its stable
+  profile path. Socket tests verify both loopback probes, conflicts and cleanup.
+  No firewall rule, VPN or system route was modified. Evidence:
+  `firewall-listener-diagnosis.json`; details in `NETWORK_DIAGNOSTICS.md`.
+- **MatriX.145.2-mumpa4** passes **28 focused Go tests**. A slow original-content
+  peer-wire fixture proves that an image beginning in block 62 is readable in
+  about 302 ms before whole-piece completion, followed by normal SHA-1 completion.
+  Restoring the upstream block order fails the same test. Only chunk order within
+  the selected current piece changes; upstream multi-piece ordering and already
+  dispatched requests remain intact. Two real public covers now transfer in
+  **12.176 / 24.190 seconds**, compared with neither completing during the older
+  60-second probe. Artwork jobs have a 45-second bound; public metadata runs in
+  parallel and may show an image first. Evidence: `engine-build-1.2.2.log`,
+  `reader-chunks-regression.log`, `reader-chunks-negative.log`,
+  `artwork-http-diagnosis.json`.
+- Windows native outgoing peer-wire verification passes with mumpa4: original
+  audio starts in **1,496 ms**, with **393,216 / 2,116,844 bytes** transferred at
+  first playback. MSE fallback, favorites, full automatic offline download with
+  expected SHA256, HTTP Range/seek, engine restart, offline playback and three
+  peerless cancellation attempts pass. Evidence: `windows-peer-1.2.2.log`.
+- The same original-content outgoing fixture passes on the own **Android API 35
+  x86_64 emulator**: sound starts in **1,636 ms**, with **360,448 / 2,116,844
+  bytes** transferred. MSE fallback, full SHA256 cache, Range/seek, restart,
+  offline playback and reader cancellation pass; the Android audio service is
+  registered. Physical Android hardware is untested. Flutter replaced the
+  emulator's older release package because its release ABI version code exceeds
+  the debug test version code. Evidence: `android-peer-1.2.2.log`.
+- The white artwork-test window was caused by waiting for its network probes
+  before `pumpWidget`; the fixture now presents the collection first. Production
+  bootstrap presents its first frame before native decoder/library initialization.
+  Another production bottleneck was checking almost 8,000 absent `.part` files
+  individually; restoration now scans the download directory once. Managed
+  search helpers remain asynchronous.
+- Windows **1.2.2+10** and all three Android release APKs build. Raw and packaged
+  stripped engine hashes match the promoted mumpa4 lock; each APK includes libmpv
+  and excludes Windows/helper assets. APK sizes are **43,784,043 / 43,921,155 /
+  45,126,941 bytes** for ARM64 / ARMv7 / x86_64. The x86_64 release installs and
+  launches as **1.2.2 / versionCode 4010** on the own API 35 emulator, with no app
+  runtime crash. Evidence: `windows-release-1.2.2.log`,
+  `android-release-1.2.2.log`, `apk-layout-1.2.2.json`,
+  `android-release-startup-1.2.2.json`.
+- The packaged Windows application starts twice against the current real profile.
+  Its first rendered dark frame appears in **439 / 262 ms**, and the full sidebar
+  interface in **566 / 396 ms**. Jackett/FlareSolverr become healthy separately in
+  **15.111 / 11.816 seconds**, without delaying that interface. Native close hides
+  to tray, restore works, orderly quit exits **0** and stops managed helpers.
+  Restart preserves the current **11 favorites**, playlist favorites, library
+  IDs, exact playlist membership/order, original queue, Jackett port/key,
+  RuTracker.org configuration, automatic caching, **256 MB** metadata cache limit
+  and the authorized **Беспроводная сеть** torrent interface. One final packaged
+  instance remains open. Evidence: `packaged-startup-1.2.2.json`. Read-only rules
+  inspection finds **no firewall rule or QueryUser filter for the new portable
+  1.2.2 executable path**: `firewall-release-1.2.2.json`.
+
 ## 1.2.1 collection search and discography albums
 
 - **152 unit/widget tests pass**, one opt-in Jackett test is skipped, and

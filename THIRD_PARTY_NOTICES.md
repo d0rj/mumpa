@@ -4,13 +4,13 @@ Mumpa application code is GPL-3.0; see `LICENSE`. Original generated demo audio,
 
 ## Torrent engine
 
-The packaged executables are TorrServer **MatriX.145.2-mumpa3**, GPL-3.0, built from upstream revision **bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9** with Mumpa's request-context cancellation, outgoing handshake fallback, tracker IP and explicit source-interface patches. Copyright belongs to the TorrServer contributors and the authors of the included changes. The upstream license is retained.
+The packaged executables are TorrServer **MatriX.145.2-mumpa4**, GPL-3.0, built from upstream revision **bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9** with Mumpa's request-context cancellation, outgoing handshake fallback, tracker IP, explicit source-interface and active-reader chunk-priority patches. Copyright belongs to the TorrServer contributors and the authors of the included changes. The upstream license is retained.
 
 - Source: https://github.com/YouROK/TorrServer/tree/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9
 - Source archive: https://github.com/YouROK/TorrServer/archive/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9.zip
 - Release/binary provenance: https://github.com/YouROK/TorrServer/releases/tag/MatriX.145.2
 - Copyright/license: https://github.com/YouROK/TorrServer/blob/bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9/LICENSE
-- Corresponding patched source archive: `artifacts/TorrServer-MatriX.145.2-mumpa3-source.zip`.
+- Corresponding patched source archive: `artifacts/TorrServer-MatriX.145.2-mumpa4-source.zip`.
 - Checked overlays, toolchain versions and executable SHA-256: `engine-patches/managed-engine.lock.json` and `engine-patches/README.md`.
 - Build and verification: `tools/build-managed-engine.ps1`, `tools/prepare-engines.ps1`.
 
@@ -36,6 +36,14 @@ MusicBrainz supplementary data has a separate [CC BY-NC-SA 3.0 license](https://
 Album images are fetched at runtime from [Cover Art Archive](https://musicbrainz.org/doc/Cover_Art_Archive), the MusicBrainz/Internet Archive project, using its [public API](https://musicbrainz.org/doc/Cover_Art_Archive/API). Public access to an image does not establish an open license for that artwork. Rights remain with its respective artists, photographers, designers, labels or other rights holders; neither MusicBrainz core-data CC0 nor Mumpa's GPL license grants rights to the images. Cached images are separate from Mumpa's original procedural placeholders and are not included in the release archives.
 
 The integration, caching behavior and search limits are described in [Music discovery](docs/MUSIC_DISCOVERY.md). MusicBrainz metadata identifies artists and recordings; it does not provide music audio or permission to redistribute recordings.
+
+From 1.2.2, optional cover fallback reads public artist/album metadata from the
+[Deezer API](https://developers.deezer.com/api) and small images from Deezer's
+image CDN. The API is used only for artwork identification, never for audio or
+previews. [Deezer's developer terms](https://cdn-content.dzcdn.net/pdf/CGU-developers.pdf)
+apply to those services; metadata/artwork are not relicensed by Mumpa. Images
+inside user-added torrent collections retain their respective holders' rights.
+No external catalogue or user cover images are bundled with application builds.
 
 ## Other dependencies
 

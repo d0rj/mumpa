@@ -507,7 +507,6 @@ class RecordingRows extends SliverContent {
         trailing: const Icon(Icons.chevron_right_rounded),
         onTap: () {
           app.setTrackSearchMode(true);
-          if (app.page != AppPage.search) app.navigate(AppPage.search);
           unawaited(app.findRecordingVersions(recording));
         },
       );

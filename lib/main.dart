@@ -137,7 +137,6 @@ Future<AppController> createApplication({
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
       'Manrope',
@@ -164,9 +163,23 @@ class _Bootstrap extends StatefulWidget {
 }
 
 class _BootstrapState extends State<_Bootstrap> {
-  late Future<AppController> future = createApplication(
-    desktopIntegration: true,
-  );
+  Future<AppController>? future;
+
+  @override
+  void initState() {
+    super.initState();
+    // Present a real first frame before native decoder loading or library work.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => future = _startApplication());
+    });
+  }
+
+  Future<AppController> _startApplication() async {
+    await Future<void>.delayed(Duration.zero);
+    MediaKit.ensureInitialized();
+    return createApplication(desktopIntegration: true);
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<AppController>(
     future: future,
@@ -200,11 +213,8 @@ class _BootstrapState extends State<_Bootstrap> {
                     ),
                     const SizedBox(height: 20),
                     FilledButton(
-                      onPressed: () => setState(
-                        () => future = createApplication(
-                          desktopIntegration: true,
-                        ),
-                      ),
+                      onPressed: () =>
+                          setState(() => future = _startApplication()),
                       child: const Text('Попробовать снова'),
                     ),
                   ] else

@@ -1,14 +1,37 @@
-# Managed TorrServer: MatriX.145.2-mumpa3
+# Managed TorrServer: MatriX.145.2-mumpa4
 
-Mumpa's managed engine revision is `MatriX.145.2-mumpa3`. It uses TorrServer
+Mumpa's managed engine revision is `MatriX.145.2-mumpa4`. It uses TorrServer
 tag `MatriX.145.2`, commit `bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9`
 (GPL-3.0), and the exact `github.com/tsynik/torrent v1.2.31` fork (MPL-2.0).
 The complete corresponding source is
-`artifacts/TorrServer-MatriX.145.2-mumpa3-source.zip`; it contains both licenses,
+`artifacts/TorrServer-MatriX.145.2-mumpa4-source.zip`; it contains both licenses,
 the patched local dependency, `managed.mod`, and build metadata. The archive's
 own SHA256 is published separately so the archived README has no circular hash.
 
 ## What changed
+
+`mumpa4` gives strategy 3's active readers priority within a piece. A small
+cover beginning near the end of a 1 MiB piece requests its intersecting 16 KiB
+chunks before unrelated prefix chunks. Remaining chunks stay eligible and
+whole-piece SHA verification is unchanged. Ordinary pieces, duplicate-request
+filtering, encryption, seeding, cancellation and source-interface binding keep
+their existing behavior. Already dispatched peer requests are not reordered.
+Different active Now-pieces retain the upstream piece order; this patch orders
+chunks within a current piece, rather than preempting other readers' queues.
+
+Four local regressions check offset/EOF, overlapping readers, dirty chunks,
+pipeline limits and cancellation. A real slow loopback peer sends only the two
+image chunks before a barrier: the image becomes available in about 302 ms,
+while PieceComplete remains false. Releasing the remaining chunks then passes
+SHA-1 and completion. The same fixture with the pinned original connection.go
+times out with zero image bytes. Logs: `test-output/reader-chunks-regression.log`
+and `reader-chunks-negative.log`. The full torrent/tracker TestMumpa suite has
+23 top-level tests. Native/public coverage is recorded in `docs/VALIDATION.md`.
+The separate real JPEG trace receives 55,933 / 143,693 bytes in 12.176 / 24.190
+seconds with mumpa4; mumpa3 received neither image within 60 seconds on that
+probe. A connected seeder can still be choked or slow, so peer counts alone do
+not establish delivery. The artwork client needs its own bounded network wait.
+
 
 `mumpa3` makes an explicitly selected torrent listener address apply to outgoing
 connections too. TCP peers and HTTP/UDP tracker requests bind to that local
@@ -119,10 +142,10 @@ No `go mod tidy`, latest generator, UPnP change, or tracker probe runs.
 
 | Target | Toolchain and environment | SHA256 |
 | --- | --- | --- |
-| Windows amd64 | Go 1.27.1; CGO_ENABLED=0; GOAMD64=v1 | `281a77382ffeb5cfd4ca8b2f5be05badc2c0633a64f70c359e0dd0037b2c9e74` |
-| Android arm64-v8a | Go 1.25.14; CGO_ENABLED=1; GOARM64=v8.0 | `870942a7f7c4e248b79560d3f4f8c94cdbd8612f395510e67ea1adf616f7627c` |
-| Android armeabi-v7a | Go 1.25.14; CGO_ENABLED=1; GOARM=7 | `ba85a14ca1493ac94e9524aa9a512da44fc65723a5ded9edff233fa6b9a1b809` |
-| Android x86_64 | Go 1.25.14; CGO_ENABLED=1; GOAMD64=v1 | `da43c8b7d1c0098b59a54956d13431ccbc388e6bdf18a7b01d410a5110848bc3` |
+| Windows amd64 | Go 1.27.1; CGO_ENABLED=0; GOAMD64=v1 | `45c1a2bb3b91d6d371ba4ac8bbaa75d55d2a39b983826c73f5a71dbae4d5e4f1` |
+| Android arm64-v8a | Go 1.25.14; CGO_ENABLED=1; GOARM64=v8.0 | `b727e93e106862b9c7a2847f136b614f1a87ea31decc734a5d0aa8e514c885a2` |
+| Android armeabi-v7a | Go 1.25.14; CGO_ENABLED=1; GOARM=7 | `94affa939790872461dbea577eca83304b62933a90ff59c6caf48274fb93465d` |
+| Android x86_64 | Go 1.25.14; CGO_ENABLED=1; GOAMD64=v1 | `f9a4b882952d1a28b9fa2f8d6c09fd8229e59a040caf6a5784b1ca5d7272ecfa` |
 
 The exact compiler versions match upstream's pinned binaries. Android uses NDK
 **28.2.13676358**, API **21**, and `clang.exe`/`clang++.exe` targets
@@ -142,7 +165,7 @@ settings above, and set Android `CC`/`CXX` to the NDK compilers with the listed
 
 ```text
 go test -modfile=managed.mod -mod=readonly -buildvcs=false -p 2 -tags nosqlite -ldflags "-checklinkname=0" -run "TestRequestReader|TestReaderContextCancellation|TestReaderOffDoesNotPark|TestMumpa" -count=1 -timeout=120s ./torr ./torr/storage/torrstor github.com/anacrolix/torrent github.com/anacrolix/torrent/tracker
-go build -modfile=managed.mod -mod=readonly -buildvcs=false -p 2 -trimpath -tags nosqlite -ldflags "-s -w -buildid= -checklinkname=0 -X server/version.Version=MatriX.145.2-mumpa3" -o <output> ./cmd
+go build -modfile=managed.mod -mod=readonly -buildvcs=false -p 2 -trimpath -tags nosqlite -ldflags "-s -w -buildid= -checklinkname=0 -X server/version.Version=MatriX.145.2-mumpa4" -o <output> ./cmd
 ```
 
 Build metadata is included under `mumpa-build/`. These raw Go commands work

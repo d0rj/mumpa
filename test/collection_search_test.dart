@@ -22,6 +22,11 @@ class _Metadata extends MusicMetadataRepository {
   _Metadata(Directory root)
     : super(cache: DiskMediaCache(Directory('${root.path}/metadata')));
   @override
+  Future<String?> cachedCoverForAlbum(
+    String artistName,
+    String albumTitle,
+  ) async => null;
+  @override
   Future<String?> coverForAlbum(String artistName, String albumTitle) async =>
       null;
 }

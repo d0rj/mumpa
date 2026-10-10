@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../logic/app_controller.dart';
 import 'components.dart';
@@ -19,144 +20,191 @@ class MumpaApp extends StatelessWidget {
   );
 }
 
-class AppScreen extends StatelessWidget {
+class AppScreen extends StatefulWidget {
   const AppScreen({super.key, required this.app});
   final AppController app;
+
   @override
-  Widget build(BuildContext context) => Focus(
-    onKeyEvent: (_, event) {
-      if (event is! KeyDownEvent) return KeyEventResult.ignored;
-      if (HardwareKeyboard.instance.isControlPressed &&
-          event.logicalKey == LogicalKeyboardKey.keyK) {
-        app.navigate(AppPage.search);
-        return KeyEventResult.handled;
-      }
-      final editing =
-          FocusManager.instance.primaryFocus?.context
-              ?.findAncestorStateOfType<EditableTextState>() !=
-          null;
-      if (!editing && event.logicalKey == LogicalKeyboardKey.space) {
-        app.playback.toggle();
-        return KeyEventResult.handled;
-      }
-      if (HardwareKeyboard.instance.isAltPressed &&
-          event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        app.playback.next();
-        return KeyEventResult.handled;
-      }
-      if (HardwareKeyboard.instance.isAltPressed &&
-          event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-        app.playback.previous();
-        return KeyEventResult.handled;
-      }
-      return KeyEventResult.ignored;
-    },
-    child: ListenableBuilder(
-      listenable: app,
-      builder: (context, _) => LayoutBuilder(
-        builder: (context, c) {
-          final desktop = c.maxWidth >= 850;
-          return Scaffold(
-            body: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        if (desktop) SizedBox(width: 236, child: _Sidebar(app)),
-                        Expanded(
-                          child: Container(
-                            margin: desktop
-                                ? const EdgeInsets.fromLTRB(0, 8, 8, 8)
-                                : EdgeInsets.zero,
-                            clipBehavior: Clip.antiAlias,
-                            decoration: BoxDecoration(
-                              color: surface,
-                              borderRadius: BorderRadius.circular(
-                                desktop ? 12 : 0,
+  State<AppScreen> createState() => _AppScreenState();
+}
+
+class _AppScreenState extends State<AppScreen> {
+  final _mouseButtons = <int, int>{};
+  final _pageStorage = <int, PageStorageBucket>{};
+  AppController get app => widget.app;
+
+  void _mouse(PointerEvent event) {
+    if (event.kind != PointerDeviceKind.mouse) return;
+    final previous = _mouseButtons[event.device] ?? 0;
+    _mouseButtons[event.device] = event.buttons;
+    if (event.buttons & kBackMouseButton != 0 &&
+        previous & kBackMouseButton == 0) {
+      app.back();
+    }
+    if (event.buttons == 0) _mouseButtons.remove(event.device);
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerDown: _mouse,
+    onPointerMove: _mouse,
+    onPointerUp: _mouse,
+    onPointerCancel: (event) => _mouseButtons.remove(event.device),
+    child: Focus(
+      autofocus: true,
+      onKeyEvent: (_, event) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.browserBack) {
+          app.back();
+          return KeyEventResult.handled;
+        }
+        if (HardwareKeyboard.instance.isControlPressed &&
+            event.logicalKey == LogicalKeyboardKey.keyK) {
+          app.navigate(AppPage.search);
+          return KeyEventResult.handled;
+        }
+        final editing =
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorStateOfType<EditableTextState>() !=
+            null;
+        if (!editing && event.logicalKey == LogicalKeyboardKey.space) {
+          app.playback.toggle();
+          return KeyEventResult.handled;
+        }
+        if (HardwareKeyboard.instance.isAltPressed &&
+            event.logicalKey == LogicalKeyboardKey.arrowRight) {
+          app.playback.next();
+          return KeyEventResult.handled;
+        }
+        if (HardwareKeyboard.instance.isAltPressed &&
+            event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+          app.playback.previous();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: ListenableBuilder(
+        listenable: app,
+        builder: (context, _) => LayoutBuilder(
+          builder: (context, c) {
+            final entries = app.navigationEntryIds.toSet();
+            _pageStorage.removeWhere((id, _) => !entries.contains(id));
+            final storage = _pageStorage.putIfAbsent(
+              app.navigationEntryId,
+              PageStorageBucket.new,
+            );
+            final desktop = c.maxWidth >= 850;
+            return Scaffold(
+              body: SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          if (desktop)
+                            SizedBox(width: 236, child: _Sidebar(app)),
+                          Expanded(
+                            child: Container(
+                              margin: desktop
+                                  ? const EdgeInsets.fromLTRB(0, 8, 8, 8)
+                                  : EdgeInsets.zero,
+                              clipBehavior: Clip.antiAlias,
+                              decoration: BoxDecoration(
+                                color: surface,
+                                borderRadius: BorderRadius.circular(
+                                  desktop ? 12 : 0,
+                                ),
                               ),
-                            ),
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: Column(
-                                children: [
-                                  _TopBar(app, desktop),
-                                  if (app.busy != null)
-                                    const LinearProgressIndicator(minHeight: 2),
-                                  if (app.busy != null ||
-                                      app.error != null ||
-                                      app.message != null ||
-                                      app.playback.connectionStatus != null ||
-                                      app.library.loadWarning != null)
-                                    _StatusBar(app),
-                                  Expanded(
-                                    child: ContentPage(
-                                      key: ValueKey(app.page),
-                                      app: app,
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: Column(
+                                  children: [
+                                    _TopBar(app, desktop),
+                                    if (app.busy != null)
+                                      const LinearProgressIndicator(
+                                        minHeight: 2,
+                                      ),
+                                    if (app.busy != null ||
+                                        app.error != null ||
+                                        app.message != null ||
+                                        app.playback.connectionStatus != null ||
+                                        app.library.loadWarning != null)
+                                      _StatusBar(app),
+                                    Expanded(
+                                      child: PageStorage(
+                                        bucket: storage,
+                                        child: ContentPage(
+                                          key: PageStorageKey(
+                                            app.navigationEntryId,
+                                          ),
+                                          app: app,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PlayerBar(app: app, compact: !desktop),
-                  if (!desktop)
-                    NavigationBar(
-                      selectedIndex: switch (app.page) {
-                        AppPage.search => 1,
-                        AppPage.library ||
-                        AppPage.album ||
-                        AppPage.playlist ||
-                        AppPage.artist => 2,
-                        AppPage.liked => 3,
-                        AppPage.downloads || AppPage.settings => 4,
-                        _ => 0,
-                      },
-                      onDestinationSelected: (index) => app.navigate(
-                        [
-                          AppPage.home,
-                          AppPage.search,
-                          AppPage.library,
-                          AppPage.liked,
-                          AppPage.downloads,
-                        ][index],
+                        ],
                       ),
-                      destinations: const [
-                        NavigationDestination(
-                          icon: Icon(Icons.home_outlined),
-                          selectedIcon: Icon(Icons.home_rounded),
-                          label: 'Главная',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.search_rounded),
-                          label: 'Поиск',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.library_music_outlined),
-                          selectedIcon: Icon(Icons.library_music_rounded),
-                          label: 'Медиатека',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.favorite_border_rounded),
-                          selectedIcon: Icon(Icons.favorite_rounded),
-                          label: 'Любимое',
-                        ),
-                        NavigationDestination(
-                          icon: Icon(Icons.download_outlined),
-                          selectedIcon: Icon(Icons.download_rounded),
-                          label: 'Офлайн',
-                        ),
-                      ],
                     ),
-                ],
+                    PlayerBar(app: app, compact: !desktop),
+                    if (!desktop)
+                      NavigationBar(
+                        selectedIndex: switch (app.page) {
+                          AppPage.search => 1,
+                          AppPage.library ||
+                          AppPage.album ||
+                          AppPage.playlist ||
+                          AppPage.artist => 2,
+                          AppPage.liked => 3,
+                          AppPage.downloads || AppPage.settings => 4,
+                          _ => 0,
+                        },
+                        onDestinationSelected: (index) => app.navigate(
+                          [
+                            AppPage.home,
+                            AppPage.search,
+                            AppPage.library,
+                            AppPage.liked,
+                            AppPage.downloads,
+                          ][index],
+                        ),
+                        destinations: const [
+                          NavigationDestination(
+                            icon: Icon(Icons.home_outlined),
+                            selectedIcon: Icon(Icons.home_rounded),
+                            label: 'Главная',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.search_rounded),
+                            label: 'Поиск',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.library_music_outlined),
+                            selectedIcon: Icon(Icons.library_music_rounded),
+                            label: 'Медиатека',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.favorite_border_rounded),
+                            selectedIcon: Icon(Icons.favorite_rounded),
+                            label: 'Любимое',
+                          ),
+                          NavigationDestination(
+                            icon: Icon(Icons.download_outlined),
+                            selectedIcon: Icon(Icons.download_rounded),
+                            label: 'Офлайн',
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     ),
   );
@@ -344,7 +392,8 @@ class _TopBar extends StatelessWidget {
     child: Row(
       children: [
         IconButton(
-          onPressed: app.back,
+          key: const ValueKey('navigation-back'),
+          onPressed: app.canGoBack ? app.back : null,
           tooltip: 'Назад',
           icon: const Icon(Icons.chevron_left_rounded, size: 26),
         ),

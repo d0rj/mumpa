@@ -26,6 +26,12 @@ class _Metadata extends MusicMetadataRepository {
   Completer<String?>? pending;
 
   @override
+  Future<String?> cachedCoverForAlbum(
+    String artistName,
+    String albumTitle,
+  ) async => null;
+
+  @override
   Future<String?> coverForAlbum(String artistName, String albumTitle) {
     requests.add((artist: artistName, album: albumTitle));
     return pending?.future ?? Future<String?>.value(null);

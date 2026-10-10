@@ -39,12 +39,22 @@ class DownloadRepository extends ChangeNotifier {
     DownloadState.downloading,
   }.contains(_jobs[id]?.state);
   Future<void> restore() async {
-    await library.downloads.create(recursive: true);
+    final directory = library.downloads;
+    await directory.create(recursive: true);
+    // A large torrent collection can contain thousands of uncached tracks.
+    // List the few existing transfers once instead of stat'ing every missing
+    // .part file during application startup. Do not follow unrelated links.
+    final partials = <String, File>{};
+    await for (final entity in directory.list(followLinks: false)) {
+      if (entity is File && p.extension(entity.path).toLowerCase() == '.part') {
+        partials[_restorePathKey(entity.path)] = entity;
+      }
+    }
     for (final track in library.tracks.where(
       (t) => t.source == TrackSource.torrent && t.cachedPath == null,
     )) {
-      final partial = File('${_path(track)}.part');
-      if (await partial.exists()) {
+      final partial = partials[_restorePathKey('${_path(track)}.part')];
+      if (partial != null) {
         final job = DownloadJob(track, state: DownloadState.paused)
           ..received = await partial.length()
           ..total = track.bytes;
@@ -52,6 +62,11 @@ class DownloadRepository extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  String _restorePathKey(String path) {
+    final normalized = p.normalize(p.absolute(path));
+    return Platform.isWindows ? normalized.toLowerCase() : normalized;
   }
 
   String _path(Track track) {

@@ -96,6 +96,169 @@ void main() {
     expect(app.searching, isFalse);
   });
 
+  testWidgets(
+    'choosing a spelling suggestion updates the visible search field',
+    (tester) async {
+      app.sourceFeed = const [
+        SearchRelease(
+          title: 'Les Cots - Album',
+          link: 'https://example.com/one',
+        ),
+        SearchRelease(
+          title: 'Les Cuts - Album',
+          link: 'https://example.com/two',
+        ),
+      ];
+      app.query = 'Les Cats';
+      app.searchCompleted = true;
+      app.searchCorrectionSuggestions = const ['Les Cots', 'Les Cuts'];
+      app.navigate(AppPage.search);
+      await tester.pumpWidget(MumpaApp(controller: app));
+      final suggestion = find.widgetWithText(ActionChip, 'Les Cots');
+      await tester.ensureVisible(suggestion);
+      final searchScroll = Scrollable.of(tester.element(suggestion));
+      await tester.tap(suggestion);
+      await tester.pump();
+      expect(app.query, 'Les Cots');
+      searchScroll.position.jumpTo(searchScroll.position.minScrollExtent);
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextFormField>(find.byKey(const ValueKey('music-search')))
+            .controller!
+            .text,
+        'Les Cots',
+      );
+      expect(queries, ['Les Cots']);
+      responses['Les Cots']!.complete(
+        http.Response('<rss><channel/></rss>', 200),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(app.searchCorrectionSuggestions, isEmpty);
+      expect(app.correctedSearchQuery, isNull);
+      expect(app.searching, isFalse);
+    },
+  );
+
+  test(
+    'corrected Jackett search preserves typed query and exposes the correction',
+    () async {
+      app.sourceFeed = const [
+        SearchRelease(
+          title: 'Ежемесячные - Дискография',
+          link: 'https://example.com/discography.torrent',
+        ),
+      ];
+      app.query = 'Ежемесечные';
+      final pending = app.searchSources();
+      await waitForQuery(responses, 'Ежемесечные');
+      responses['Ежемесечные']!.complete(
+        http.Response('<rss><channel/></rss>', 200),
+      );
+      await waitForQuery(responses, 'Ежемесячные');
+      expect(app.searchCorrectionCandidate, 'Ежемесячные');
+      responses['Ежемесячные']!.complete(
+        http.Response(
+          '<rss><channel><item><title>Ежемесячные - Альбом</title><link>https://example.com/album.torrent</link></item></channel></rss>',
+          200,
+          headers: {'content-type': 'application/xml; charset=utf-8'},
+        ),
+      );
+      await pending;
+      expect(queries, ['Ежемесечные', 'Ежемесячные']);
+      expect(app.query, 'Ежемесечные');
+      expect(app.correctedSearchQuery, 'Ежемесячные');
+      expect(app.searchCorrectionCandidate, isNull);
+      expect(app.releases.single.title, 'Ежемесячные - Альбом');
+      expect(app.searchCompleted, isTrue);
+    },
+  );
+
+  for (final clearCache in [false, true]) {
+    test(
+      clearCache
+          ? 'cache clear removes the cancelled spelling attempt indicator'
+          : 'leaving and reopening Search removes the cancelled spelling attempt indicator',
+      () async {
+        app.sourceFeed = const [
+          SearchRelease(
+            title: 'Ежемесячные - Дискография',
+            link: 'https://example.com/discography.torrent',
+          ),
+        ];
+        app.navigate(AppPage.search);
+        app.query = 'Ежемесечные';
+        final pending = app.searchSources();
+        await waitForQuery(responses, 'Ежемесечные');
+        responses['Ежемесечные']!.complete(
+          http.Response('<rss><channel/></rss>', 200),
+        );
+        await waitForQuery(responses, 'Ежемесячные');
+        expect(app.searchCorrectionCandidate, 'Ежемесячные');
+        expect(app.searching, isTrue);
+        if (clearCache) {
+          await app.clearMetadataCache();
+        } else {
+          app.navigate(AppPage.library);
+          app.navigate(AppPage.search);
+        }
+        expect(app.page, AppPage.search);
+        expect(app.searchCorrectionCandidate, isNull);
+        expect(app.searching, isFalse);
+        responses['Ежемесячные']!.complete(
+          http.Response(
+            '<rss><channel><item><title>Cancelled album</title><link>https://example.com/cancelled.torrent</link></item></channel></rss>',
+            200,
+          ),
+        );
+        await pending;
+        expect(app.searchCorrectionCandidate, isNull);
+        expect(app.releases, isEmpty);
+        expect(app.error, isNull);
+      },
+    );
+  }
+
+  test('late corrected result cannot replace a newer exact search', () async {
+    app.sourceFeed = const [
+      SearchRelease(
+        title: 'Ежемесячные - Дискография',
+        link: 'https://example.com/discography.torrent',
+      ),
+    ];
+    app.query = 'Ежемесечные';
+    final obsolete = app.searchSources();
+    await waitForQuery(responses, 'Ежемесечные');
+    responses['Ежемесечные']!.complete(
+      http.Response('<rss><channel/></rss>', 200),
+    );
+    await waitForQuery(responses, 'Ежемесячные');
+    app.setQuery('Daft Punk');
+    final current = app.searchSources();
+    await waitForQuery(responses, 'Daft Punk');
+    responses['Daft Punk']!.complete(
+      http.Response(
+        '<rss><channel><item><title>Daft Punk - Discovery</title><link>https://example.com/discovery.torrent</link></item></channel></rss>',
+        200,
+      ),
+    );
+    await current;
+    responses['Ежемесячные']!.complete(
+      http.Response(
+        '<rss><channel><item><title>Stale album</title><link>https://example.com/stale.torrent</link></item></channel></rss>',
+        200,
+      ),
+    );
+    await obsolete;
+    expect(app.releases.single.title, 'Daft Punk - Discovery');
+    expect(app.correctedSearchQuery, isNull);
+    expect(app.searchCorrectionCandidate, isNull);
+    expect(app.searchCorrectionSuggestions, isEmpty);
+    expect(app.searching, isFalse);
+    expect(app.error, isNull);
+  });
+
   test(
     'cancelling an album request clears busy and rejects late results',
     () async {
@@ -157,4 +320,17 @@ void main() {
       bounded.dispose();
     },
   );
+}
+
+Future<void> waitForQuery(
+  Map<String, Completer<http.Response>> responses,
+  String query,
+) async {
+  final timer = Stopwatch()..start();
+  while (!responses.containsKey(query)) {
+    if (timer.elapsed > const Duration(seconds: 2)) {
+      throw StateError('Search request was not issued.');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
 }
