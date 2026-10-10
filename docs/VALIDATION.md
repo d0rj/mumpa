@@ -1,5 +1,69 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.1 collection search and discography albums
+
+- **152 unit/widget tests pass**, one opt-in Jackett test is skipped, and
+  `flutter analyze --no-pub` reports no issues. New checks cover filtered views
+  retaining the original queue and playlist context, 320 / 1200 px layouts,
+  search options and format filtering, disabled empty lyrics and tab updates
+  while paused, a 152 px desktop volume slider, and invariant album-column
+  positions across download states. Artwork tests include an album subset whose
+  embedded image is on another library track, exact artist/album matching,
+  meaningful album parentheses, coalescing and offline disk-cache restart.
+  Logs: `unit-1.2.1.log`, `analyze-1.2.1.log`.
+- Fifteen discography tests cover folder dates/categories, codec/CD wrappers,
+  track/disc numbers, a genuine leaf named Album, unchanged legacy IDs/favorites/
+  cached paths/playlists, once-only cached tag migration, explicit conflicting
+  albums and flat mixed collections. Original metadata-only FLAC/ID3/MP4 fixtures
+  verify ALBUMARTIST-only propagation, separate MP3 TPE1/TPE2 and M4A ©ART/aART
+  credits, lyrics/artwork, two MP4 meta layouts, UTF-16BE credits and bounded
+  oversized-atom rejection. These are tag-parser proofs, not audio decode proofs.
+- A native Windows opt-in check loads a copy of the existing library into an
+  isolated profile. **Ежемесячные becomes 72 albums containing 493 tracks**;
+  opening an album remains inside its source collection. Local filtering selects
+  the existing fully downloaded favorite **Роженица в метро**; native libmpv
+  reports **240457 ms** duration and advances to **2950 ms**. Its queue still
+  contains all 493 tracks in order. Its tag album is **Короли Абстракта VI -
+  Мультивселенная ЕЖЕ**, and embedded artwork renders in the row/player.
+  All copied favorite IDs and track IDs survive migration. The source profile
+  is read only by this test. The real exact-album lookup for **Daft Punk /
+  Discovery** retrieves **17616 bytes** of Cover Art Archive artwork and reuses
+  the cached file. This is a cached native music proof, separate from the public
+  swarm proof recorded for 1.2.0. Evidence: `collection-1.2.1.log` / `.json`,
+  `collection-albums-1.2.1.png`, `collection-filter-1.2.1.png`.
+- Native Windows and Android API 35 x86_64 pass the outgoing peer-wire fixture:
+  original WAV audio plays in **1461 / 1611 ms**, with **376832 bytes** served
+  out of **2116844** before the full-file download is ready. Both retry rejected
+  MSE with plaintext, preserve favorites, automatically cache the complete file
+  with the expected SHA256, pass exact HTTP Range and seek, restore the torrent
+  after engine restart, play offline with engine/seeder stopped and release
+  readers across three peerless retries. Android registers its audio service.
+  These are controlled original-content fixtures; physical Android hardware
+  is untested. Logs: `windows-outgoing-1.2.1.log`, `android-outgoing-1.2.1.log`.
+- Windows **1.2.1+9** and all three Android release APKs build. Their engine
+  files match the pinned raw/stripped hashes; each APK contains its libmpv and
+  excludes Windows/helper assets. APK sizes: **43741723 / 43876399 / 45083181
+  bytes** for ARM64 / ARMv7 / x86_64. The x86_64 release installs and launches
+  as **1.2.1 / versionCode 4009** on the own API 35 emulator, without an app
+  runtime crash. Evidence: `windows-release-1.2.1.log`,
+  `android-release-1.2.1.log`, `apk-layout-1.2.1.json`,
+  `android-release-startup-1.2.1.json`.
+- The final Windows package starts against the existing production profile,
+  hides to tray, restores and exits with **code 0**, stopping its managed helpers.
+  Restart preserves all **10 favorite IDs**, playlist favorites, library IDs,
+  exact playlist membership/order, the original playback queue, Jackett port/key,
+  RuTracker.org configuration, automatic caching, the **256 MB** metadata cache
+  limit and the authorized **Беспроводная сеть** torrent interface. All applicable
+  legacy torrent layouts acquire their migration marker. One final packaged
+  instance remains open. Evidence: `packaged-startup-1.2.1.json`.
+  The initial checker copy misdecoded its Russian interface literal; the corrected
+  UTF-8 checker and its full rerun pass. The application setting was preserved
+  during both runs.
+
+Discography grouping, metadata precedence and cache behavior are described in
+[MUSIC_DISCOVERY.md](MUSIC_DISCOVERY.md). No VPN, route or firewall change is
+needed for these UI/data changes.
+
 ## 1.2.0 music discovery, persistent cache and Windows player
 
 - **117 unit/widget tests pass**, one opt-in Jackett test is skipped, and

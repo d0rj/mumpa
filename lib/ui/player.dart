@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../logic/app_controller.dart';
@@ -11,7 +12,7 @@ class PlayerBar extends StatelessWidget {
   final bool compact;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: app.playback,
+    listenable: Listenable.merge([app.playback, app.library, app]),
     builder: (context, _) {
       final p = app.playback;
       final t = p.current;
@@ -32,12 +33,7 @@ class PlayerBar extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(9, 7, 6, 5),
                   child: Row(
                     children: [
-                      CoverArt(
-                        seed: t?.album ?? 'Mumpa',
-                        path: t?.artPath,
-                        size: 42,
-                        radius: 6,
-                      ),
+                      TrackArtwork(app: app, track: t, size: 42, radius: 6),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -130,11 +126,7 @@ class PlayerBar extends StatelessWidget {
                 children: [
                   InkWell(
                     onTap: () => showNowPlaying(context, app),
-                    child: CoverArt(
-                      seed: t?.album ?? 'Mumpa',
-                      path: t?.artPath,
-                      size: 58,
-                    ),
+                    child: TrackArtwork(app: app, track: t, size: 58),
                   ),
                   const SizedBox(width: 13),
                   Expanded(
@@ -185,52 +177,72 @@ class PlayerBar extends StatelessWidget {
             Expanded(
               flex: 5,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [_Transport(p), _SeekBar(p)],
                 ),
               ),
             ),
-            Expanded(
-              flex: 3,
+            SizedBox(
+              width: 272,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  IconButton(
-                    onPressed: () => showNowPlaying(context, app, tab: 1),
-                    tooltip: 'Очередь',
-                    icon: const Icon(
-                      Icons.queue_music_rounded,
-                      size: 20,
-                      color: muted,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => showNowPlaying(context, app, tab: 2),
-                    tooltip: 'Текст песни',
-                    icon: const Icon(
-                      Icons.lyrics_outlined,
-                      size: 18,
-                      color: muted,
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => p.setVolume(p.volume == 0 ? 0.8 : 0),
-                    tooltip: 'Без звука',
-                    icon: Icon(
-                      p.volume == 0
-                          ? Icons.volume_off_rounded
-                          : Icons.volume_up_rounded,
-                      size: 20,
-                      color: muted,
+                  SizedBox(
+                    width: 40,
+                    child: IconButton(
+                      onPressed: () => showNowPlaying(context, app, tab: 1),
+                      tooltip: 'Очередь',
+                      icon: const Icon(
+                        Icons.queue_music_rounded,
+                        size: 20,
+                        color: muted,
+                      ),
                     ),
                   ),
                   SizedBox(
-                    width: 60,
-                    child: Slider(
-                      value: p.volume.clamp(0, 1),
-                      onChanged: p.setVolume,
+                    width: 40,
+                    child: IconButton(
+                      key: const ValueKey('desktop-lyrics'),
+                      onPressed: _hasLyrics(t)
+                          ? () => showNowPlaying(context, app, tab: 2)
+                          : null,
+                      tooltip: 'Текст песни',
+                      icon: Icon(
+                        Icons.lyrics_outlined,
+                        size: 18,
+                        color: _hasLyrics(t)
+                            ? muted
+                            : muted.withValues(alpha: .35),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: IconButton(
+                      onPressed: () => p.setVolume(p.volume == 0 ? 0.8 : 0),
+                      tooltip: 'Без звука',
+                      icon: Icon(
+                        p.volume == 0
+                            ? Icons.volume_off_rounded
+                            : Icons.volume_up_rounded,
+                        size: 20,
+                        color: muted,
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 152,
+                    child: Semantics(
+                      label: 'Громкость',
+                      child: Slider(
+                        key: const ValueKey('desktop-volume'),
+                        value: p.volume.clamp(0, 1),
+                        semanticFormatterCallback: (value) =>
+                            '${(value * 100).round()}%',
+                        onChanged: p.setVolume,
+                      ),
                     ),
                   ),
                 ],
@@ -242,6 +254,8 @@ class PlayerBar extends StatelessWidget {
     },
   );
 }
+
+bool _hasLyrics(Track? track) => track?.lyrics?.trim().isNotEmpty == true;
 
 class _Transport extends StatelessWidget {
   const _Transport(this.p, {this.large = false});
@@ -374,53 +388,111 @@ Future<void> showNowPlaying(
     useSafeArea: true,
     backgroundColor: surface,
     constraints: const BoxConstraints(maxWidth: 850),
-    builder: (context) => SizedBox(
-      height: MediaQuery.sizeOf(context).height * .94,
-      child: DefaultTabController(
-        length: 3,
-        initialIndex: tab,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-              child: Row(
-                children: [
-                  const Icon(Icons.graphic_eq_rounded, color: accent, size: 19),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'СЕЙЧАС ИГРАЕТ',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                  ),
-                ],
-              ),
-            ),
-            const TabBar(
-              tabs: [
-                Tab(text: 'Плеер'),
-                Tab(text: 'Очередь'),
-                Tab(text: 'Текст'),
-              ],
-            ),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: app.playback,
-                builder: (context, _) => TabBarView(
-                  children: [_NowPlaying(app), _Queue(app), _Lyrics(app)],
+    builder: (_) => _NowPlayingSheet(app: app, initialTab: tab),
+  );
+}
+
+class _NowPlayingSheet extends StatefulWidget {
+  const _NowPlayingSheet({required this.app, required this.initialTab});
+  final AppController app;
+  final int initialTab;
+
+  @override
+  State<_NowPlayingSheet> createState() => _NowPlayingSheetState();
+}
+
+class _NowPlayingSheetState extends State<_NowPlayingSheet>
+    with TickerProviderStateMixin {
+  late TabController _tabs;
+  late bool _lyrics;
+
+  @override
+  void initState() {
+    super.initState();
+    _lyrics = _hasLyrics(widget.app.playback.current);
+    final count = _lyrics ? 3 : 2;
+    _tabs = TabController(
+      length: count,
+      initialIndex: widget.initialTab.clamp(0, count - 1).toInt(),
+      vsync: this,
+    );
+    widget.app.playback.addListener(_refresh);
+    widget.app.library.addListener(_refresh);
+    widget.app.addListener(_refresh);
+  }
+
+  void _refresh() {
+    if (!mounted) return;
+    final lyrics = _hasLyrics(widget.app.playback.current);
+    if (lyrics != _lyrics) {
+      final index = _tabs.index;
+      _tabs.dispose();
+      _lyrics = lyrics;
+      _tabs = TabController(
+        length: lyrics ? 3 : 2,
+        initialIndex: index == 2 && !lyrics ? 0 : index,
+        vsync: this,
+      );
+    }
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    widget.app.playback.removeListener(_refresh);
+    widget.app.library.removeListener(_refresh);
+    widget.app.removeListener(_refresh);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: MediaQuery.sizeOf(context).height * .94,
+    child: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+          child: Row(
+            children: [
+              const Icon(Icons.graphic_eq_rounded, color: accent, size: 19),
+              const SizedBox(width: 8),
+              const Text(
+                'СЕЙЧАС ИГРАЕТ',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
                 ),
               ),
-            ),
+              const Spacer(),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+              ),
+            ],
+          ),
+        ),
+        TabBar(
+          controller: _tabs,
+          tabs: [
+            const Tab(text: 'Плеер'),
+            const Tab(text: 'Очередь'),
+            if (_lyrics) const Tab(text: 'Текст'),
           ],
         ),
-      ),
+        Expanded(
+          child: TabBarView(
+            key: ValueKey(_lyrics),
+            controller: _tabs,
+            children: [
+              _NowPlaying(widget.app),
+              _Queue(widget.app),
+              if (_lyrics) _Lyrics(widget.app),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -433,123 +505,158 @@ class _NowPlaying extends StatelessWidget {
     final p = app.playback;
     final t = p.current;
     return LayoutBuilder(
-      builder: (context, c) => SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: CoverArt(
-                    seed: t?.album ?? 'Mumpa',
-                    path: t?.artPath,
-                    size: (c.maxHeight * .5).clamp(150, 340),
-                    radius: 16,
+      builder: (context, c) {
+        final artworkSize = math
+            .min(
+              (c.maxHeight * .5).clamp(150, 340),
+              math.min(420, c.maxWidth - 48).clamp(0, 420),
+            )
+            .toDouble();
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: TrackArtwork(
+                      app: app,
+                      track: t,
+                      size: artworkSize,
+                      radius: 16,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 26),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            t?.title ?? 'Выбери трек',
-                            maxLines: 2,
-                            style: Theme.of(context).textTheme.titleLarge,
+                  const SizedBox(height: 26),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              t?.title ?? 'Выбери трек',
+                              maxLines: 2,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 6),
+                            ArtistLink(
+                              artist: t?.artist ?? 'Музыка всегда рядом',
+                              onOpen: t == null
+                                  ? null
+                                  : () {
+                                      Navigator.pop(context);
+                                      app.openArtist(t.artist);
+                                    },
+                              style: const TextStyle(color: muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (t != null)
+                        IconButton(
+                          onPressed: () => app.library.toggleLike(t.id),
+                          icon: Icon(
+                            app.library.liked.contains(t.id)
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: accent,
                           ),
-                          const SizedBox(height: 6),
-                          ArtistLink(
-                            artist: t?.artist ?? 'Музыка всегда рядом',
-                            onOpen: t == null
-                                ? null
-                                : () {
-                                    Navigator.pop(context);
-                                    app.openArtist(t.artist);
-                                  },
-                            style: const TextStyle(color: muted),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _SeekBar(p),
+                  const SizedBox(height: 12),
+                  _Transport(p, large: true),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => p.setVolume(p.volume == 0 ? .8 : 0),
+                        tooltip: 'Без звука',
+                        icon: Icon(
+                          p.volume == 0
+                              ? Icons.volume_off_rounded
+                              : Icons.volume_up_rounded,
+                          color: muted,
+                        ),
+                      ),
+                      Expanded(
+                        child: Semantics(
+                          label: 'Громкость',
+                          child: Slider(
+                            key: const ValueKey('now-playing-volume'),
+                            value: p.volume.clamp(0, 1),
+                            semanticFormatterCallback: (value) =>
+                                '${(value * 100).round()}%',
+                            onChanged: p.setVolume,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      BadgePill(
+                        icon: t?.offline == true
+                            ? Icons.offline_bolt_rounded
+                            : Icons.wifi_rounded,
+                        label: t?.offline == true
+                            ? 'ЛОКАЛЬНЫЙ ФАЙЛ'
+                            : 'ТОРРЕНТ-ПОТОК',
+                      ),
+                      PopupMenuButton<int>(
+                        tooltip: 'Таймер сна',
+                        icon: Icon(
+                          Icons.bedtime_outlined,
+                          color: p.sleepUntil != null ? accent : muted,
+                          size: 22,
+                        ),
+                        onSelected: (minutes) => p.setSleep(
+                          minutes == 0 ? null : Duration(minutes: minutes),
+                        ),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 15,
+                            child: Text('Выключить через 15 мин'),
+                          ),
+                          PopupMenuItem(
+                            value: 30,
+                            child: Text('Выключить через 30 мин'),
+                          ),
+                          PopupMenuItem(
+                            value: 60,
+                            child: Text('Выключить через час'),
+                          ),
+                          PopupMenuItem(
+                            value: 0,
+                            child: Text('Отключить таймер'),
                           ),
                         ],
                       ),
-                    ),
-                    if (t != null)
-                      IconButton(
-                        onPressed: () => app.library.toggleLike(t.id),
-                        icon: Icon(
-                          app.library.liked.contains(t.id)
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: accent,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                _SeekBar(p),
-                const SizedBox(height: 12),
-                _Transport(p, large: true),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    BadgePill(
-                      icon: t?.offline == true
-                          ? Icons.offline_bolt_rounded
-                          : Icons.wifi_rounded,
-                      label: t?.offline == true
-                          ? 'ЛОКАЛЬНЫЙ ФАЙЛ'
-                          : 'ТОРРЕНТ-ПОТОК',
-                    ),
-                    PopupMenuButton<int>(
-                      tooltip: 'Таймер сна',
-                      icon: Icon(
-                        Icons.bedtime_outlined,
-                        color: p.sleepUntil != null ? accent : muted,
-                        size: 22,
-                      ),
-                      onSelected: (minutes) => p.setSleep(
-                        minutes == 0 ? null : Duration(minutes: minutes),
-                      ),
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: 15,
-                          child: Text('Выключить через 15 мин'),
-                        ),
-                        PopupMenuItem(
-                          value: 30,
-                          child: Text('Выключить через 30 мин'),
-                        ),
-                        PopupMenuItem(
-                          value: 60,
-                          child: Text('Выключить через час'),
-                        ),
-                        PopupMenuItem(
-                          value: 0,
-                          child: Text('Отключить таймер'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                if (p.error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text(
-                      p.error!,
-                      style: const TextStyle(
-                        color: Color(0xFFFF9292),
-                        fontSize: 12,
-                      ),
-                    ),
+                    ],
                   ),
-              ],
+                  if (p.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Text(
+                        p.error!,
+                        style: const TextStyle(
+                          color: Color(0xFFFF9292),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -574,7 +681,7 @@ class _Queue extends StatelessWidget {
               final t = queue[i];
               return ListTile(
                 onTap: () => p.jump(i),
-                leading: CoverArt(seed: t.album, path: t.artPath, size: 44),
+                leading: TrackArtwork(app: app, track: t, size: 44),
                 title: Text(
                   t.title,
                   maxLines: 1,
@@ -609,7 +716,7 @@ class _Lyrics extends StatelessWidget {
   final AppController app;
   @override
   Widget build(BuildContext context) {
-    final text = app.playback.current?.lyrics;
+    final text = app.playback.current?.lyrics?.trim();
     return text == null || text.isEmpty
         ? const EmptyState(
             icon: Icons.lyrics_outlined,

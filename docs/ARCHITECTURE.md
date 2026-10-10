@@ -1,5 +1,25 @@
 # Mumpa architecture
 
+## Collection identity and discographies — 1.2.1
+
+Torrent track IDs and collection IDs still identify their source files. Optional
+`torrentAlbumPath`, `albumSource` and `albumArtistFromTags` record the logical
+album directory and metadata provenance. Directory parsing strips the common
+root, disc/codec wrappers and category folders above a real album. A null logical
+folder marks an ambiguous flat mixed collection and prevents sibling propagation;
+an empty folder is a trusted flat single album. Explicit audio tags take priority,
+and known album/album-artist tags can update untagged siblings in the same folder.
+The persisted marker makes cached legacy tag inspection happen once. Migration
+retains IDs, cached paths, favorites, recent items and playlist membership.
+
+Collection search filters presentation without editing stored lists. TrackList
+receives both visible tracks and the original queue; tapping resolves the selected
+ID in that queue. An opened album keeps its source subset and an anchor track,
+so later tag enrichment updates its title without losing the page or including
+duplicate copies from another torrent. Artwork resolves embedded images by album
+identity before exact MusicBrainz album matching, using the existing shared FIFO
+cache. All decoding and torrent-network paths are unchanged.
+
 ## Explicit network selection — 1.1.5
 
 Windows stores an optional interface name in `torrentInterface`. The data layer

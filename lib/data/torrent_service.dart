@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart';
 
 import '../domain/models.dart';
+import '../domain/torrent_album_layout.dart';
 import 'source_operation.dart';
 import 'torrent_network.dart';
 
@@ -667,29 +668,31 @@ class TorrentService {
     String? album,
     String? artist,
   }) {
+    final layout = TorrentAlbumLayout(
+      info,
+      releaseTitle: album,
+      artist: artist,
+    );
     return info.files.where((f) => isAudioPath(f.path)).map((f) {
-      final filename = p.posix.basenameWithoutExtension(
-        f.path.replaceAll('\\', '/'),
-      );
-      final number =
-          int.tryParse(
-            RegExp(r'^(\d{1,3})[ ._\-]').firstMatch(filename)?.group(1) ?? '',
-          ) ??
-          0;
+      final name = parseTorrentTrackName(f.path);
+      final identity = layout.forPath(f.path);
       return Track(
         id: stableId('${info.hash}:${f.index}'),
-        title: filename.replaceFirst(RegExp(r'^\d{1,3}[ ._\-]+'), ''),
-        artist: artist?.trim().isNotEmpty == true
-            ? artist!.trim()
-            : 'Неизвестный исполнитель',
-        album: album?.trim().isNotEmpty == true ? album!.trim() : info.title,
+        title: name.title,
+        artist: identity.artist,
+        albumArtist: identity.artist,
+        album: identity.album,
         source: TrackSource.torrent,
         torrentHash: info.hash,
         torrentLink: link,
         torrentIndex: f.index,
         torrentPath: f.path,
         bytes: f.bytes,
-        number: number,
+        number: name.number,
+        disc: identity.disc,
+        year: identity.year,
+        torrentAlbumPath: identity.folder,
+        albumSource: identity.source,
       );
     }).toList();
   }

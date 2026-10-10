@@ -132,6 +132,20 @@ class AppController extends ChangeNotifier {
   List<MusicRecording> recordingResults = [];
   MusicRecording? selectedRecording;
   List<TrackVariant> trackVariants = [];
+  String? versionFormat;
+  List<String> get versionFormats =>
+      trackVariants.map((variant) => variant.format).toSet().toList()..sort();
+  List<TrackVariant> get visibleTrackVariants => trackVariants
+      .where(
+        (variant) => versionFormat == null || variant.format == versionFormat,
+      )
+      .toList();
+  void setVersionFormat(String? format) {
+    if (format != null && !versionFormats.contains(format)) return;
+    versionFormat = format;
+    notifyListeners();
+  }
+
   int _artistRequest = 0, _versionRequest = 0;
   SourceOperation? _versionOperation;
   SourceOperation? _artistOperation;
@@ -186,6 +200,7 @@ class AppController extends ChangeNotifier {
     try {
       await metadata.cache.clear();
       trackVariants = [];
+      versionFormat = null;
       await refreshMetadataCache();
       reportMessage('Кеш обложек и метаданных очищен.');
     } catch (_) {
@@ -222,6 +237,9 @@ class AppController extends ChangeNotifier {
   LibrarySort sort = LibrarySort.added;
   String query = '';
   String? selectedAlbum, selectedPlaylist, selectedArtist;
+  String? _selectedAlbumAnchor;
+  Set<String>? _selectedAlbumTrackIds;
+  String? albumPlaylistId;
   String? busy, message, error, engineVersion;
   List<TorrentNetwork> torrentNetworks = const [];
   String get torrentInterface =>
@@ -255,7 +273,21 @@ class AppController extends ChangeNotifier {
   bool get canCancelOpening => _opening != null;
   void cancelOpening() => _opening?.cancel();
   final List<AppPage> _history = [];
-  void _changed() => notifyListeners();
+  Map<String, String>? _artworkByAlbum;
+  String? artworkForTrack(Track track) {
+    if (track.artPath != null) return track.artPath;
+    _artworkByAlbum ??= {
+      for (final item in library.tracks)
+        if (item.artPath != null) item.albumKey: item.artPath!,
+    };
+    return _artworkByAlbum![track.albumKey];
+  }
+
+  void _changed() {
+    _artworkByAlbum = null;
+    notifyListeners();
+  }
+
   String? _autoCachedId;
   String? _playbackError;
   String? _playbackStatus;
@@ -325,9 +357,17 @@ class AppController extends ChangeNotifier {
               ),
             )
             .toList();
-  Album? get album => groupAlbums(
-    library.tracks,
-  ).where((a) => a.id == selectedAlbum).firstOrNull;
+  Album? get album {
+    final currentKey = library.byId(_selectedAlbumAnchor ?? '')?.albumKey;
+    final key = currentKey ?? selectedAlbum;
+    final tracks = _selectedAlbumTrackIds == null
+        ? library.tracks
+        : library.tracks.where(
+            (track) => _selectedAlbumTrackIds!.contains(track.id),
+          );
+    return groupAlbums(tracks).where((a) => a.id == key).firstOrNull;
+  }
+
   MusicPlaylist? get playlist =>
       library.playlists.where((l) => l.id == selectedPlaylist).firstOrNull;
   MusicPlaylist? get currentPlaylist => library.playlists
@@ -365,8 +405,11 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  void openAlbum(Album value) {
+  void openAlbum(Album value, {String? playlistId}) {
     selectedAlbum = value.id;
+    _selectedAlbumAnchor = value.tracks.first.id;
+    _selectedAlbumTrackIds = value.tracks.map((track) => track.id).toSet();
+    albumPlaylistId = playlistId;
     navigate(AppPage.album);
   }
 
@@ -487,6 +530,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> findRecordingVersions(MusicRecording recording) async {
+    versionFormat = null;
     cancelVersionSearch();
     _searchDebounce?.cancel();
     _searchOperation?.cancel();
@@ -500,7 +544,7 @@ class AppController extends ChangeNotifier {
     navigate(AppPage.search);
     if (!usesIndexer || !indexerConnected) {
       versionError =
-          'Для поиска файлов треков подключи Jackett. Релизы напрямую можно открыть в режиме «Релизы».';
+          'Для поиска файлов треков подключи Jackett. Раздачи напрямую можно открыть в режиме «Альбомы и коллекции».';
       notifyListeners();
       return;
     }
@@ -646,6 +690,7 @@ class AppController extends ChangeNotifier {
     cancelVersionSearch();
     selectedRecording = null;
     trackVariants = [];
+    versionFormat = null;
     recordingResults = [];
     metadataError = null;
     releases = [];

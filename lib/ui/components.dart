@@ -103,6 +103,69 @@ class AsyncCoverArt extends StatefulWidget {
   State<AsyncCoverArt> createState() => _AsyncCoverArtState();
 }
 
+class TrackArtwork extends StatelessWidget {
+  const TrackArtwork({
+    super.key,
+    required this.app,
+    this.track,
+    this.size = 64,
+    this.radius = 8,
+  });
+
+  final AppController app;
+  final Track? track;
+  final double size, radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = track;
+    if (value == null) {
+      return CoverArt(seed: 'Mumpa', size: size, radius: radius);
+    }
+    final artist = value.albumArtist?.trim().isNotEmpty == true
+        ? value.albumArtist!
+        : value.artist;
+    return AsyncCoverArt(
+      requestKey:
+          '${app.metadata.cache.generation}:album:$artist:${value.album}',
+      load: () => hasArtistPage(artist) && value.album.trim().isNotEmpty
+          ? app.metadata.coverForAlbum(artist, value.album)
+          : Future.value(null),
+      seed: value.album,
+      path: app.artworkForTrack(value),
+      size: size,
+      radius: radius,
+    );
+  }
+}
+
+class AlbumArtwork extends StatelessWidget {
+  const AlbumArtwork({
+    super.key,
+    required this.app,
+    required this.album,
+    this.size = 64,
+    this.radius = 8,
+  });
+
+  final AppController app;
+  final Album album;
+  final double size, radius;
+
+  @override
+  Widget build(BuildContext context) => AsyncCoverArt(
+    requestKey:
+        '${app.metadata.cache.generation}:album:${album.artist}:${album.title}',
+    load: () => hasArtistPage(album.artist) && album.title.trim().isNotEmpty
+        ? app.metadata.coverForAlbum(album.artist, album.title)
+        : Future.value(null),
+    seed: album.title,
+    path: album.artPath ?? app.artworkForTrack(album.tracks.first),
+    size: size,
+    radius: radius,
+  );
+}
+
 class _AsyncCoverArtState extends State<AsyncCoverArt> {
   late Future<String?> _cover;
 
@@ -329,10 +392,12 @@ class AlbumCard extends StatefulWidget {
     required this.onOpen,
     required this.onPlay,
     this.onArtist,
+    this.app,
   });
   final Album album;
   final VoidCallback onOpen, onPlay;
   final VoidCallback? onArtist;
+  final AppController? app;
   @override
   State<AlbumCard> createState() => _AlbumCardState();
 }
@@ -361,12 +426,19 @@ class _AlbumCardState extends State<AlbumCard> {
                 builder: (_, c) => Stack(
                   children: [
                     Positioned.fill(
-                      child: CoverArt(
-                        seed: widget.album.title,
-                        path: widget.album.artPath,
-                        size: c.maxWidth,
-                        radius: 10,
-                      ),
+                      child: widget.app == null
+                          ? CoverArt(
+                              seed: widget.album.title,
+                              path: widget.album.artPath,
+                              size: c.maxWidth,
+                              radius: 10,
+                            )
+                          : AlbumArtwork(
+                              app: widget.app!,
+                              album: widget.album,
+                              size: c.maxWidth,
+                              radius: 10,
+                            ),
                     ),
                     if (widget.album.offline)
                       const Positioned(
@@ -577,17 +649,24 @@ class TrackList extends SliverContent {
     required this.app,
     required this.tracks,
     this.playlistId,
+    this.queueTracks,
   });
   final AppController app;
   final List<Track> tracks;
+  final List<Track>? queueTracks;
   final String? playlistId;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: app.playback,
+    listenable: Listenable.merge([
+      app.playback,
+      app.library,
+      app.downloads,
+      app,
+    ]),
     builder: (_, _) => SliverList.builder(
       itemCount: tracks.length,
       itemBuilder: (context, i) {
-        final t = tracks[i];
+        final t = app.library.byId(tracks[i].id) ?? tracks[i];
         final active = app.playback.current?.id == t.id;
         final downloading = app.downloads.jobs
             .where(
@@ -597,8 +676,12 @@ class TrackList extends SliverContent {
         return LayoutBuilder(
           builder: (context, c) => InkWell(
             key: ValueKey('track-row-${t.id}'),
-            onTap: () =>
-                app.playCollection(tracks, index: i, playlistId: playlistId),
+            onTap: () {
+              final queue = queueTracks ?? tracks;
+              final index = queue.indexWhere((item) => item.id == t.id);
+              if (index < 0) return;
+              app.playCollection(queue, index: index, playlistId: playlistId);
+            },
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
@@ -634,7 +717,7 @@ class TrackList extends SliverContent {
                             style: const TextStyle(color: muted),
                           ),
                   ),
-                  CoverArt(seed: t.album, path: t.artPath, size: 42, radius: 5),
+                  TrackArtwork(app: app, track: t, size: 42, radius: 5),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 4,
@@ -643,6 +726,7 @@ class TrackList extends SliverContent {
                       children: [
                         Text(
                           t.title,
+                          key: ValueKey('track-title-${t.id}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -664,43 +748,51 @@ class TrackList extends SliverContent {
                       flex: 3,
                       child: Text(
                         t.album,
+                        key: ValueKey('track-album-${t.id}'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 12, color: muted),
                       ),
                     ),
                   if (c.maxWidth > 500)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    SizedBox(
+                      width: 64,
                       child: Text(
                         t.format,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 10, color: muted),
                       ),
                     ),
-                  if (t.offline)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 6),
-                      child: Icon(
-                        Icons.download_done_rounded,
-                        size: 14,
-                        color: accent,
-                      ),
+                  SizedBox(
+                    key: ValueKey('track-status-${t.id}'),
+                    width: 28,
+                    height: 22,
+                    child: Center(
+                      child: t.offline
+                          ? const Tooltip(
+                              message: 'Доступен офлайн',
+                              child: Icon(
+                                Icons.download_done_rounded,
+                                size: 14,
+                                color: accent,
+                              ),
+                            )
+                          : downloading != null
+                          ? Tooltip(
+                              message: 'Сохраняется для офлайн',
+                              child: SizedBox.square(
+                                dimension: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: downloading.progress,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
-                  if (downloading != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Tooltip(
-                        message: 'Сохраняется для офлайн',
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            value: downloading.progress,
-                          ),
-                        ),
-                      ),
-                    ),
+                  ),
                   IconButton(
                     onPressed: () => app.library.toggleLike(t.id),
                     tooltip: app.library.liked.contains(t.id)

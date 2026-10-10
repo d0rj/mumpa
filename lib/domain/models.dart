@@ -35,6 +35,8 @@ String formatBytes(int bytes) {
 
 enum TrackSource { local, torrent, demo }
 
+enum TrackAlbumSource { release, directory, tags, sibling }
+
 enum PlayerRepeatMode { off, all, one }
 
 class Track {
@@ -58,6 +60,9 @@ class Track {
     this.disc = 1,
     this.year,
     this.lyrics,
+    this.torrentAlbumPath,
+    this.albumSource,
+    this.albumArtistFromTags = false,
   });
   final String id, title, artist, album;
   final TrackSource source;
@@ -68,7 +73,10 @@ class Track {
       torrentLink,
       torrentPath,
       cachedPath,
-      lyrics;
+      lyrics,
+      torrentAlbumPath;
+  final TrackAlbumSource? albumSource;
+  final bool albumArtistFromTags;
   final int? torrentIndex, year;
   final int bytes, durationMs, number, disc;
   Duration get duration => Duration(milliseconds: durationMs);
@@ -91,6 +99,9 @@ class Track {
     int? disc,
     int? year,
     String? lyrics,
+    String? torrentAlbumPath,
+    TrackAlbumSource? albumSource,
+    bool? albumArtistFromTags,
   }) => Track(
     id: id,
     title: title ?? this.title,
@@ -111,6 +122,9 @@ class Track {
     disc: disc ?? this.disc,
     year: year ?? this.year,
     lyrics: lyrics ?? this.lyrics,
+    torrentAlbumPath: torrentAlbumPath ?? this.torrentAlbumPath,
+    albumSource: albumSource ?? this.albumSource,
+    albumArtistFromTags: albumArtistFromTags ?? this.albumArtistFromTags,
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -132,6 +146,9 @@ class Track {
     'disc': disc,
     'year': year,
     'lyrics': lyrics,
+    if (torrentAlbumPath != null) 'torrentAlbumPath': torrentAlbumPath,
+    if (albumSource != null) 'albumSource': albumSource!.name,
+    if (albumArtistFromTags) 'albumArtistFromTags': true,
   };
   factory Track.fromJson(Map<String, dynamic> j) => Track(
     id: j['id'] as String,
@@ -153,6 +170,11 @@ class Track {
     disc: j['disc'] as int? ?? 1,
     year: j['year'] as int?,
     lyrics: j['lyrics'] as String?,
+    torrentAlbumPath: j['torrentAlbumPath'] as String?,
+    albumSource: TrackAlbumSource.values
+        .where((source) => source.name == j['albumSource'])
+        .firstOrNull,
+    albumArtistFromTags: j['albumArtistFromTags'] == true,
   );
 }
 

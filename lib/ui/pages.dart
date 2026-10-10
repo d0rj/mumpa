@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
 import '../domain/models.dart';
 import '../domain/music_metadata.dart';
+import '../domain/collection_filter.dart';
 import '../data/rutracker_service.dart';
 import 'catalog_widgets.dart';
 import 'jackett_setup.dart';
@@ -76,9 +77,10 @@ Widget albumGrid(AppController app, List<Album> albums, {int? limit}) =>
     _AlbumGrid(app, limit == null ? albums : albums.take(limit).toList());
 
 class _AlbumGrid extends SliverContent {
-  const _AlbumGrid(this.app, this.items);
+  const _AlbumGrid(this.app, this.items, {this.playlistId});
   final AppController app;
   final List<Album> items;
+  final String? playlistId;
   @override
   Widget build(BuildContext context) => SliverLayoutBuilder(
     builder: (_, c) => SliverGrid.builder(
@@ -90,9 +92,11 @@ class _AlbumGrid extends SliverContent {
       ),
       itemCount: items.length,
       itemBuilder: (_, i) => AlbumCard(
+        app: app,
         album: items[i],
-        onOpen: () => app.openAlbum(items[i]),
-        onPlay: () => app.playback.playTracks(items[i].tracks),
+        onOpen: () => app.openAlbum(items[i], playlistId: playlistId),
+        onPlay: () =>
+            app.playCollection(items[i].tracks, playlistId: playlistId),
         onArtist: () => app.openArtist(items[i].artist),
       ),
     ),
@@ -158,7 +162,7 @@ class _HomePage extends StatelessWidget {
           ),
         ],
       ),
-      SearchProviderPicker(app: app),
+      SearchOptionsPanel(app: app),
       if (app.usesIndexer)
         ...sourceContent(context, app)
       else
@@ -717,9 +721,9 @@ class _AlbumPage extends StatelessWidget {
               ),
             ],
           );
-          final art = CoverArt(
-            seed: album.title,
-            path: album.artPath,
+          final art = AlbumArtwork(
+            app: app,
+            album: album,
             size: wide ? 220 : 160,
             radius: 12,
           );
@@ -750,7 +754,10 @@ class _AlbumPage extends StatelessWidget {
         children: [
           FilledButton.icon(
             key: const Key('play-album'),
-            onPressed: () => app.playback.playTracks(album.tracks),
+            onPressed: () => app.playCollection(
+              album.tracks,
+              playlistId: app.albumPlaylistId,
+            ),
             icon: const Icon(Icons.play_arrow_rounded),
             label: const Text('Слушать'),
           ),
@@ -810,7 +817,12 @@ class _AlbumPage extends StatelessWidget {
       const SizedBox(height: 28),
       const Divider(),
       const SizedBox(height: 8),
-      TrackList(app: app, tracks: album.tracks),
+      _CollectionTracks(
+        app: app,
+        tracks: album.tracks,
+        scope: 'album:${app.selectedAlbum}',
+        playlistId: app.albumPlaylistId,
+      ),
     ],
   );
 }
@@ -925,9 +937,156 @@ class _TrackCollection extends StatelessWidget {
           description: 'Нажми на сердечко или добавь музыку через меню трека.',
         )
       else
-        TrackList(app: app, tracks: tracks, playlistId: playlistId),
+        _CollectionTracks(
+          app: app,
+          tracks: tracks,
+          scope: 'playlist:$playlistId',
+          playlistId: playlistId,
+          groupByAlbum: app.playlist?.sourceHash != null,
+        ),
     ],
   );
+}
+
+class _CollectionTracks extends SliverContent {
+  const _CollectionTracks({
+    required this.app,
+    required this.tracks,
+    required this.scope,
+    this.playlistId,
+    this.groupByAlbum = false,
+  });
+  final AppController app;
+  final List<Track> tracks;
+  final String scope;
+  final String? playlistId;
+  final bool groupByAlbum;
+
+  @override
+  Widget build(BuildContext context) =>
+      _CollectionTracksBody(key: ValueKey(scope), section: this);
+}
+
+class _CollectionTracksBody extends StatefulWidget {
+  const _CollectionTracksBody({super.key, required this.section});
+  final _CollectionTracks section;
+  @override
+  State<_CollectionTracksBody> createState() => _CollectionTracksBodyState();
+}
+
+class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
+  final _search = TextEditingController();
+  late bool _albums = widget.section.groupByAlbum;
+
+  void _clear() {
+    _search.clear();
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final section = widget.section;
+    final tracks = section.tracks;
+    final filtered = filterCollectionTracks(tracks, _search.text);
+    final searching = _search.text.trim().isNotEmpty;
+    final groups = section.groupByAlbum ? groupAlbums(tracks) : const <Album>[];
+    final showAlbums = _albums && !searching && groups.length > 1;
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  key: const ValueKey('collection-search'),
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: section.groupByAlbum
+                        ? 'Поиск в коллекции'
+                        : section.playlistId == null
+                        ? 'Поиск в альбоме'
+                        : 'Поиск в плейлисте',
+                    suffixIcon: searching
+                        ? IconButton(
+                            key: const ValueKey('collection-search-clear'),
+                            tooltip: 'Очистить поиск',
+                            onPressed: _clear,
+                            icon: const Icon(Icons.close_rounded),
+                          )
+                        : null,
+                  ),
+                ),
+                if (groups.length > 1) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        key: const ValueKey('collection-albums-view'),
+                        avatar: const Icon(Icons.album_outlined, size: 18),
+                        label: Text('Альбомы · ${groups.length}'),
+                        selected: showAlbums,
+                        onSelected: searching
+                            ? null
+                            : (_) => setState(() => _albums = true),
+                      ),
+                      ChoiceChip(
+                        key: const ValueKey('collection-tracks-view'),
+                        avatar: const Icon(Icons.queue_music_rounded, size: 18),
+                        label: const Text('Все треки'),
+                        selected: !showAlbums,
+                        onSelected: (_) => setState(() => _albums = false),
+                      ),
+                    ],
+                  ),
+                ],
+                if (searching) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Найдено: ${filtered.length} из ${tracks.length}',
+                    style: const TextStyle(color: muted, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        if (showAlbums)
+          _AlbumGrid(section.app, groups, playlistId: section.playlistId)
+        else if (filtered.isEmpty)
+          SliverToBoxAdapter(
+            child: EmptyState(
+              icon: Icons.search_off_rounded,
+              title: 'Ничего не найдено',
+              description:
+                  'Попробуй другое название трека, альбома или исполнителя.',
+              action: TextButton(
+                onPressed: _clear,
+                child: const Text('Сбросить поиск'),
+              ),
+            ),
+          )
+        else
+          TrackList(
+            app: section.app,
+            tracks: filtered,
+            queueTracks: tracks,
+            playlistId: section.playlistId,
+          ),
+      ],
+    );
+  }
 }
 
 class _SearchPage extends StatelessWidget {
@@ -954,34 +1113,7 @@ class _SearchPage extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 16),
-      SearchProviderPicker(app: app),
-      const SizedBox(height: 12),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          ChoiceChip(
-            key: const ValueKey('search-releases-mode'),
-            label: const Text('Альбомы и коллекции'),
-            selected: !app.trackSearchMode,
-            onSelected: (_) => app.setTrackSearchMode(false),
-          ),
-          ChoiceChip(
-            key: const ValueKey('search-tracks-mode'),
-            label: const Text('Треки'),
-            selected: app.trackSearchMode,
-            onSelected: (_) => app.setTrackSearchMode(true),
-          ),
-        ],
-      ),
-      if (app.trackSearchMode)
-        const Padding(
-          padding: EdgeInsets.only(top: 12),
-          child: Text(
-            'MusicBrainz помогает найти трек и его альбомы. Доступные версии ищем в твоих источниках и проверяем по именам аудиофайлов.',
-            style: TextStyle(color: muted, fontSize: 12),
-          ),
-        ),
+      SearchOptionsPanel(app: app),
       const SizedBox(height: 12),
       Wrap(
         spacing: 8,
@@ -1673,7 +1805,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => showLicensePage(
                 context: context,
                 applicationName: 'Mumpa',
-                applicationVersion: '1.2.0',
+                applicationVersion: '1.2.1',
                 applicationLegalese:
                     'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
               ),

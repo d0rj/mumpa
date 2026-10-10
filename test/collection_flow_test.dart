@@ -173,8 +173,15 @@ void main() {
       expect(find.byType(CheckboxListTile), findsNothing);
       expect(app.playlistTracks.length, 3);
       final second = app.playlistTracks[1];
-      await tester.ensureVisible(
+      await tester.scrollUntilVisible(
         find.byKey(ValueKey('track-row-${second.id}')),
+        160,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
       );
       await tester.runAsync(() async {
         await tester.tap(find.byKey(ValueKey('track-row-${second.id}')));

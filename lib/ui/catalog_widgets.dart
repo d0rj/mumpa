@@ -9,6 +9,107 @@ import 'components.dart';
 import 'jackett_setup.dart';
 import 'theme.dart';
 
+class SearchOptionsPanel extends StatelessWidget {
+  const SearchOptionsPanel({super.key, required this.app});
+  final AppController app;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: app,
+    builder: (context, _) => Material(
+      color: const Color(0xFF1C251D),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        key: const ValueKey('search-options'),
+        leading: const Icon(Icons.tune_rounded, color: muted),
+        title: const Text(
+          'Настройки поиска',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          '${app.usesIndexer ? 'Jackett' : 'RuTracker'} · ${app.trackSearchMode ? 'Треки' : 'Альбомы и коллекции'}${app.versionFormat == null ? '' : ' · ${app.versionFormat}'}',
+          style: const TextStyle(fontSize: 11, color: muted),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Где искать',
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+              const SizedBox(height: 8),
+              SearchProviderPicker(app: app),
+              const SizedBox(height: 16),
+              const Text(
+                'Что искать',
+                style: TextStyle(fontSize: 12, color: muted),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    key: const ValueKey('search-releases-mode'),
+                    label: const Text('Альбомы и коллекции'),
+                    selected: !app.trackSearchMode,
+                    onSelected: (_) => app.setTrackSearchMode(false),
+                  ),
+                  ChoiceChip(
+                    key: const ValueKey('search-tracks-mode'),
+                    label: const Text('Треки'),
+                    selected: app.trackSearchMode,
+                    onSelected: (_) => app.setTrackSearchMode(true),
+                  ),
+                ],
+              ),
+              if (app.trackSearchMode) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Ищем запись в MusicBrainz, затем проверяем файлы в раздачах твоего источника.',
+                  style: TextStyle(fontSize: 12, color: muted),
+                ),
+                if (app.versionFormats.length > 1) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Формат найденных версий',
+                    style: TextStyle(fontSize: 12, color: muted),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ChoiceChip(
+                        key: const ValueKey('search-format-all'),
+                        label: const Text('Все форматы'),
+                        selected: app.versionFormat == null,
+                        onSelected: (_) => app.setVersionFormat(null),
+                      ),
+                      for (final format in app.versionFormats)
+                        ChoiceChip(
+                          key: ValueKey('search-format-$format'),
+                          label: Text(format),
+                          selected: app.versionFormat == format,
+                          onSelected: (_) => app.setVersionFormat(format),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class SearchProviderPicker extends StatelessWidget {
   const SearchProviderPicker({super.key, required this.app});
   final AppController app;
@@ -432,39 +533,19 @@ class _TrackVariantContent extends StatefulWidget {
 }
 
 class _TrackVariantContentState extends State<_TrackVariantContent> {
-  String? _format;
-
   @override
   Widget build(BuildContext context) {
     final app = widget.app;
-    final formats = app.trackVariants.map((v) => v.format).toSet().toList()
-      ..sort();
-    final selected = formats.contains(_format) ? _format : null;
-    final variants = app.trackVariants
-        .where((variant) => selected == null || variant.format == selected)
-        .toList();
+    final variants = app.visibleTrackVariants;
     return SliverMainAxisGroup(
       slivers: [
-        if (formats.length > 1)
-          SliverToBoxAdapter(
+        if (variants.isEmpty)
+          const SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Все форматы'),
-                    selected: selected == null,
-                    onSelected: (_) => setState(() => _format = null),
-                  ),
-                  for (final format in formats)
-                    ChoiceChip(
-                      label: Text(format),
-                      selected: selected == format,
-                      onSelected: (_) => setState(() => _format = format),
-                    ),
-                ],
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'Нет версий выбранного формата. Измени фильтр в настройках поиска.',
+                style: TextStyle(color: muted),
               ),
             ),
           ),
@@ -489,16 +570,7 @@ class _TrackVariantContentState extends State<_TrackVariantContent> {
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
-                        AsyncCoverArt(
-                          requestKey:
-                              '${app.metadata.cache.generation}:${variant.release.title}',
-                          load: () => app.metadata.coverForReleaseTitle(
-                            variant.release.title,
-                          ),
-                          seed: variant.track.album,
-                          path: variant.track.artPath,
-                          size: 48,
-                        ),
+                        TrackArtwork(app: app, track: variant.track, size: 48),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

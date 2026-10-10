@@ -27,7 +27,7 @@ class MusicMetadataRepository {
   bool _requesting = false;
   DateTime? _lastRequest;
   bool _disposed = false;
-  static const _agent = 'Mumpa/1.2.0 (https://github.com/d0rj/mumpa)';
+  static const _agent = 'Mumpa/1.2.1 (https://github.com/d0rj/mumpa)';
 
   void _checkGeneration(int generation) {
     if (_disposed || generation != cache.generation) {
@@ -350,31 +350,44 @@ class MusicMetadataRepository {
     );
   }
 
-  Future<String?> coverForReleaseTitle(String title) =>
-      _coverJob('title:$title', (generation) async {
-        final identity = parseReleaseIdentity(title);
-        if (identity == null) return null;
-        final artist = musicSearchPhrase(identity.artist),
-            album = musicSearchPhrase(identity.album);
-        final data = await _api(
-          'release-group',
-          {'query': 'artist:"$artist" AND releasegroup:"$album"', 'limit': '5'},
-          lowPriority: true,
-          expectedGeneration: generation,
-        );
-        _checkGeneration(generation);
-        final match = (data['release-groups'] as List? ?? [])
-            .whereType<Map>()
-            .where(
-              (j) =>
-                  normalizeMusicName(j['title'] as String? ?? '') ==
-                      normalizeMusicName(identity.album) &&
-                  normalizeMusicName(_credit(j)) ==
-                      normalizeMusicName(identity.artist),
-            )
-            .firstOrNull;
-        return match == null ? null : coverForGroup(match['id'] as String);
-      });
+  Future<String?> coverForReleaseTitle(String title) {
+    final identity = parseReleaseIdentity(title);
+    if (identity == null) return Future.value(null);
+    return coverForAlbum(identity.artist, identity.album);
+  }
+
+  /// Album tags and torrent folders already provide separate identity fields.
+  /// Do not strip meaningful parentheses or dashes as a release-title parser
+  /// would; exact normalized artist/title matching remains required.
+  Future<String?> coverForAlbum(
+    String artistName,
+    String albumTitle,
+  ) => _coverJob(
+    'album:${normalizeMusicName(artistName)}:${normalizeMusicName(albumTitle)}',
+    (generation) async {
+      if (artistName.trim().isEmpty || albumTitle.trim().isEmpty) return null;
+      final artist = musicSearchPhrase(artistName),
+          album = musicSearchPhrase(albumTitle);
+      final data = await _api(
+        'release-group',
+        {'query': 'artist:"$artist" AND releasegroup:"$album"', 'limit': '5'},
+        lowPriority: true,
+        expectedGeneration: generation,
+      );
+      _checkGeneration(generation);
+      final match = (data['release-groups'] as List? ?? [])
+          .whereType<Map>()
+          .where(
+            (j) =>
+                normalizeMusicName(j['title'] as String? ?? '') ==
+                    normalizeMusicName(albumTitle) &&
+                normalizeMusicName(_credit(j)) ==
+                    normalizeMusicName(artistName),
+          )
+          .firstOrNull;
+      return match == null ? null : coverForGroup(match['id'] as String);
+    },
+  );
 
   Future<String?> coverForGroup(String id) =>
       _coverJob('group:$id', (generation) => _cover(id, generation));
