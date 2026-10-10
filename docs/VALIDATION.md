@@ -1,5 +1,30 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.7 newest favorite additions first
+
+- **289 unit/widget tests pass**, one opt-in Jackett check is skipped,
+  `flutter analyze --no-pub lib test integration_test` reports no issues,
+  and formatting passes for `lib`/`test`. Evidence:
+  `test-output/unit-1.2.7.log`, `analyze-1.2.7.log`.
+- Four repository regressions verify addition order independently of import,
+  album titles and playlist creation; unlike/re-like, metadata/playlist edits,
+  deletions, restart and legacy JSON with missing references retain the correct
+  order. Existing album-selection and playlist-favorite tests pass alongside
+  them. Evidence: `test-output/favorites-order-targeted-1.2.7.log`.
+- Two UI scenarios at **320/1200 px** verify the actual reading order of album
+  cards, playlist/source-collection cards and track rows. Local favorite search
+  retains category order; clearing it and clicking **Listen** builds the same
+  newest-first track queue. Temporary local files and FakeAudioBackend are used,
+  with assertions for **0 HTTP / 0 engine requests**. Evidence:
+  `test-output/favorites-order-ui-1.2.7.log`. This change concerns saved ordering;
+  native audio/public-torrent tests and physical Android runtime checks were
+  not repeated.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.7+15**. Windows executable product/file versions match; all four engine
+  inputs match the existing pinned SHA-256 lock. APKs use the existing local
+  development signing key. Build logs: `test-output/windows-build-1.2.7.log`,
+  `android-build-1.2.7.log`.
+
 ## 1.2.6 editable playback queue
 
 - **283 unit/widget tests pass**, one opt-in Jackett check is skipped, and

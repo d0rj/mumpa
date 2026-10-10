@@ -16,6 +16,8 @@ class LibraryRepository extends ChangeNotifier {
   final Directory root;
   List<Track> _tracks = [];
   List<MusicPlaylist> _playlists = [];
+  // Insertion order is the order of favorite additions. Persist these oldest
+  // first and expose views newest first, independently of library/tag order.
   Set<String> _liked = {};
   Set<String> _likedPlaylists = {};
   List<Set<String>> _likedAlbums = [];
@@ -27,9 +29,24 @@ class LibraryRepository extends ChangeNotifier {
   List<MusicPlaylist> get playlists => List.unmodifiable(_playlists);
   Set<String> get liked => Set.unmodifiable(_liked);
   Set<String> get likedPlaylists => Set.unmodifiable(_likedPlaylists);
-  List<MusicPlaylist> get favoritePlaylists => List.unmodifiable(
-    _playlists.where((playlist) => _likedPlaylists.contains(playlist.id)),
-  );
+  List<Track> get favoriteTracks {
+    final indexed = {for (final track in _tracks) track.id: track};
+    return List.unmodifiable(
+      _liked.toList().reversed.map((id) => indexed[id]).whereType<Track>(),
+    );
+  }
+
+  List<MusicPlaylist> get favoritePlaylists {
+    final indexed = {for (final playlist in _playlists) playlist.id: playlist};
+    return List.unmodifiable(
+      _likedPlaylists
+          .toList()
+          .reversed
+          .map((id) => indexed[id])
+          .whereType<MusicPlaylist>(),
+    );
+  }
+
   bool isPlaylistLiked(String id) => _likedPlaylists.contains(id);
 
   /// Keep the chosen files, rather than a metadata key that can change when
@@ -38,7 +55,7 @@ class LibraryRepository extends ChangeNotifier {
     if (_likedAlbums.isEmpty) return const [];
     final indexed = {for (final track in _tracks) track.id: track};
     return List.unmodifiable(
-      _likedAlbums.expand(
+      _likedAlbums.reversed.expand(
         (ids) => groupAlbums(ids.map((id) => indexed[id]).whereType<Track>()),
       ),
     );

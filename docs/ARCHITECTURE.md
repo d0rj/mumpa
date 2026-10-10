@@ -1,5 +1,20 @@
 # Mumpa architecture
 
+## Favorite addition order — 1.2.7
+
+LibraryRepository owns newest-first favorite views. The existing insertion-ordered
+track/playlist ID sets and album-selection list record additions oldest first
+in JSON, including legacy profiles. Lookup maps resolve reversed favorite IDs
+against current library items; reversing library order would incorrectly sort
+by import/creation time. Albums reverse saved file selections before grouping,
+preserving their disc/track order and membership through tag enrichment.
+
+Unlike removes an entry; liking again appends a new addition. No calendar clock
+or new schema is needed to retain chronology. Metadata updates, playback and
+playlist edits leave addition order unchanged. AppController consumes the same
+ordered tracks for the favorite list, filters and Play collection; album and
+playlist filters likewise preserve their respective category order.
+
 ## Editable playback queue — 1.2.6
 
 PlaybackController.moveQueue accepts a source and final destination index. It
