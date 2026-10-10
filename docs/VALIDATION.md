@@ -1,5 +1,31 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.3 favorites for individual discography albums
+
+- **222 unit/widget tests pass**, one opt-in Jackett check is skipped, and
+  `flutter analyze --no-pub lib test integration_test` reports no issues.
+  New persistence checks cover independent album/track/collection favorites,
+  multiple discs, changed tags, another torrent edition, deleted files and
+  backward-compatible profiles. Widget checks at 320/1200 px save an album
+  directly from its card without opening it or playing audio, then open it
+  from Favorites, play only its tracks and remove its favorite.
+- The opt-in Windows native test reads the existing **Ежемесячные** discography
+  into an isolated library without indexer credentials or network calls.
+  It saves **Лимбо: 6 tracks out of 72 albums / 493 tracks**, reloads the library,
+  opens the favorite and verifies native libmpv playback of the existing
+  cached **твои уши** file with 1970 ms advancing position. The queue contains
+  exactly the six album tracks. The source collection and individual tracks
+  are not implicitly liked; removing the album favorite keeps all library
+  tracks. This check establishes cached playback, not fresh swarm availability.
+  The production library is read only. Evidence:
+  `test-output/unit-1.2.3.log`, `analyze-1.2.3.log`,
+  `native-album-favorites-1.2.3.log`, `real-favorite-album-1.2.3.png`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.3+11** using the existing pinned engine. APKs use the local development
+  signing key. No Android device runtime check was repeated for this UI/library
+  change; the narrow-layout widget scenario passes. Build logs:
+  `test-output/windows-build-1.2.3.log`, `android-build-1.2.3.log`.
+
 ## 1.2.2 real artwork, Back, spelling correction and startup
 
 - **216 unit/widget tests pass**, one opt-in Jackett test is skipped, and

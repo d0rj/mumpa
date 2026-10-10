@@ -375,42 +375,49 @@ class _LikedPage extends StatelessWidget {
   final AppController app;
 
   @override
-  Widget build(BuildContext context) => _PageBody(
-    children: [
-      const SectionTitle(
-        'Любимое',
-        subtitle:
-            'Треки, плейлисты и коллекции, к которым хочется возвращаться',
-      ),
-      if (app.library.favoritePlaylists.isNotEmpty) ...[
-        const SectionTitle('Плейлисты и коллекции'),
-        _PlaylistGrid(app, playlists: app.library.favoritePlaylists),
-      ],
-      SectionTitle(
-        'Любимые треки',
-        subtitle: '${app.likedTracks.length} треков',
-        action: app.likedTracks.isEmpty
-            ? null
-            : FilledButton.icon(
-                onPressed: () => app.playCollection(app.likedTracks),
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text('Слушать'),
-              ),
-      ),
-      if (app.likedTracks.isNotEmpty)
-        TrackList(app: app, tracks: app.likedTracks)
-      else
-        EmptyState(
-          icon: Icons.favorite_border_rounded,
-          title: app.library.favoritePlaylists.isEmpty
-              ? 'Сохрани музыку в любимое'
-              : 'Любимых треков пока нет',
-          description: app.library.favoritePlaylists.isEmpty
-              ? 'Сердечко у трека, плейлиста или коллекции добавит их сюда.'
-              : 'Нажми сердечко у трека, чтобы сохранить его здесь.',
+  Widget build(BuildContext context) {
+    final albums = app.library.favoriteAlbums;
+    return _PageBody(
+      children: [
+        const SectionTitle(
+          'Любимое',
+          subtitle:
+              'Треки, альбомы, плейлисты и коллекции, к которым хочется возвращаться',
         ),
-    ],
-  );
+        if (albums.isNotEmpty) ...[
+          const SectionTitle('Любимые альбомы'),
+          albumGrid(app, albums),
+        ],
+        if (app.library.favoritePlaylists.isNotEmpty) ...[
+          const SectionTitle('Плейлисты и коллекции'),
+          _PlaylistGrid(app, playlists: app.library.favoritePlaylists),
+        ],
+        SectionTitle(
+          'Любимые треки',
+          subtitle: '${app.likedTracks.length} треков',
+          action: app.likedTracks.isEmpty
+              ? null
+              : FilledButton.icon(
+                  onPressed: () => app.playCollection(app.likedTracks),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Слушать'),
+                ),
+        ),
+        if (app.likedTracks.isNotEmpty)
+          TrackList(app: app, tracks: app.likedTracks)
+        else
+          EmptyState(
+            icon: Icons.favorite_border_rounded,
+            title: app.library.favoritePlaylists.isEmpty && albums.isEmpty
+                ? 'Сохрани музыку в любимое'
+                : 'Любимых треков пока нет',
+            description: app.library.favoritePlaylists.isEmpty && albums.isEmpty
+                ? 'Сердечко у трека, альбома, плейлиста или коллекции добавит их сюда.'
+                : 'Нажми сердечко у трека, чтобы сохранить его здесь.',
+          ),
+      ],
+    );
+  }
 }
 
 class _ArtistPage extends StatelessWidget {
@@ -761,6 +768,7 @@ class _AlbumPage extends StatelessWidget {
             icon: const Icon(Icons.play_arrow_rounded),
             label: const Text('Слушать'),
           ),
+          AlbumFavoriteButton(app: app, album: album, label: true),
           if (album.torrent && !album.offline)
             OutlinedButton.icon(
               onPressed: () => app.downloads.enqueue(album.tracks),

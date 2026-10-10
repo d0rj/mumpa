@@ -492,12 +492,23 @@ class _AlbumCardState extends State<AlbumCard> {
                             ),
                     ),
                     if (widget.album.offline)
-                      const Positioned(
+                      Positioned(
                         left: 9,
+                        right: widget.app == null ? null : 54,
                         top: 9,
-                        child: BadgePill(
+                        child: const BadgePill(
                           icon: Icons.download_done_rounded,
                           label: 'Офлайн',
+                        ),
+                      ),
+                    if (widget.app != null)
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: AlbumFavoriteButton(
+                          app: widget.app!,
+                          album: widget.album,
+                          overlay: true,
                         ),
                       ),
                     Positioned(
@@ -572,6 +583,56 @@ class BadgePill extends StatelessWidget {
       ],
     ),
   );
+}
+
+class AlbumFavoriteButton extends StatelessWidget {
+  const AlbumFavoriteButton({
+    super.key,
+    required this.app,
+    required this.album,
+    this.label = false,
+    this.overlay = false,
+  });
+
+  final AppController app;
+  final Album album;
+  final bool label, overlay;
+
+  @override
+  Widget build(BuildContext context) {
+    final liked = app.library.isAlbumLiked(album);
+    final icon = Icon(
+      liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      color: liked
+          ? accent
+          : overlay
+          ? Colors.white
+          : muted,
+      size: 20,
+    );
+    final key = ValueKey('favorite-album-${album.id}');
+    final description = liked
+        ? 'Убрать альбом из любимого'
+        : 'Добавить альбом в любимое';
+    return label
+        ? OutlinedButton.icon(
+            key: key,
+            onPressed: () => app.library.toggleAlbumLike(album),
+            icon: icon,
+            label: Text(liked ? 'В любимом' : 'В любимое'),
+          )
+        : IconButton(
+            key: key,
+            onPressed: () => app.library.toggleAlbumLike(album),
+            tooltip: description,
+            icon: icon,
+            style: overlay
+                ? IconButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: .65),
+                  )
+                : null,
+          );
+  }
 }
 
 class PlaylistFavoriteButton extends StatelessWidget {

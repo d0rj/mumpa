@@ -18,6 +18,7 @@ class LibraryRepository extends ChangeNotifier {
   List<MusicPlaylist> _playlists = [];
   Set<String> _liked = {};
   Set<String> _likedPlaylists = {};
+  List<Set<String>> _likedAlbums = [];
   List<String> _recent = [];
   Map<String, dynamic> _settings = {};
   Future<void> _writeTail = Future.value();
@@ -30,6 +31,24 @@ class LibraryRepository extends ChangeNotifier {
     _playlists.where((playlist) => _likedPlaylists.contains(playlist.id)),
   );
   bool isPlaylistLiked(String id) => _likedPlaylists.contains(id);
+
+  /// Keep the chosen files, rather than a metadata key that can change when
+  /// tags arrive or combine the same album from multiple torrent releases.
+  List<Album> get favoriteAlbums {
+    if (_likedAlbums.isEmpty) return const [];
+    final indexed = {for (final track in _tracks) track.id: track};
+    return List.unmodifiable(
+      _likedAlbums.expand(
+        (ids) => groupAlbums(ids.map((id) => indexed[id]).whereType<Track>()),
+      ),
+    );
+  }
+
+  bool isAlbumLiked(Album album) {
+    final ids = album.tracks.map((track) => track.id);
+    return _likedAlbums.any((saved) => saved.containsAll(ids));
+  }
+
   List<String> get recent => List.unmodifiable(_recent);
   Map<String, dynamic> get settings => Map.unmodifiable(_settings);
   Directory get downloads => Directory(p.join(root.path, 'downloads'));
@@ -55,6 +74,15 @@ class LibraryRepository extends ChangeNotifier {
         final playlistIds = _playlists.map((playlist) => playlist.id).toSet();
         _likedPlaylists = Set<String>.from((j['likedPlaylists'] as List?) ?? [])
           ..removeWhere((id) => !playlistIds.contains(id));
+        final trackIds = _tracks.map((track) => track.id).toSet();
+        _likedAlbums = ((j['likedAlbums'] as List?) ?? [])
+            .map(
+              (ids) =>
+                  Set<String>.from(ids as List)
+                    ..removeWhere((id) => !trackIds.contains(id)),
+            )
+            .where((ids) => ids.isNotEmpty)
+            .toList();
         _recent = List<String>.from((j['recent'] as List?) ?? []);
         _settings = Map<String, dynamic>.from((j['settings'] as Map?) ?? {});
         if (name.endsWith('.bak')) {
@@ -168,6 +196,7 @@ class LibraryRepository extends ChangeNotifier {
       'playlists': _playlists.map((t) => t.toJson()).toList(),
       'liked': _liked.toList(),
       'likedPlaylists': _likedPlaylists.toList(),
+      'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
       'recent': _recent,
       'settings': _settings,
     });
@@ -214,6 +243,10 @@ class LibraryRepository extends ChangeNotifier {
     final removed = ids.toSet();
     _tracks.removeWhere((t) => removed.contains(t.id));
     _liked.removeAll(removed);
+    for (final ids in _likedAlbums) {
+      ids.removeAll(removed);
+    }
+    _likedAlbums.removeWhere((ids) => ids.isEmpty);
     _recent.removeWhere(removed.contains);
     _playlists = _playlists
         .map(
@@ -235,6 +268,28 @@ class LibraryRepository extends ChangeNotifier {
   Future<void> togglePlaylistLike(String id) async {
     if (!_playlists.any((playlist) => playlist.id == id)) return;
     if (!_likedPlaylists.add(id)) _likedPlaylists.remove(id);
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> toggleAlbumLike(Album album) async {
+    final existing = _tracks.map((track) => track.id).toSet();
+    final ids = album.tracks
+        .map((track) => track.id)
+        .where(existing.contains)
+        .toSet();
+    if (ids.isEmpty) return;
+    if (_likedAlbums.any((saved) => saved.containsAll(ids))) {
+      for (final saved in _likedAlbums) {
+        saved.removeAll(ids);
+      }
+      _likedAlbums.removeWhere((saved) => saved.isEmpty);
+    } else {
+      // Replace an earlier, smaller selection of this album without creating
+      // duplicate favorites when additional files are imported later.
+      _likedAlbums.removeWhere((saved) => ids.containsAll(saved));
+      _likedAlbums.add(ids);
+    }
     notifyListeners();
     await _save();
   }
