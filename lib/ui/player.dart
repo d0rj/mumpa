@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
@@ -668,42 +669,134 @@ class _Queue extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = app.playback;
     final queue = p.queue;
+    final entryKeys = p.queueEntryKeys;
     return queue.isEmpty
         ? const EmptyState(
             icon: Icons.queue_music_rounded,
             title: 'Очередь пуста',
             description: 'Включи альбом или добавь треки через меню.',
           )
-        : ListView.builder(
+        : ReorderableListView.builder(
+            key: const Key('playback-queue'),
             padding: const EdgeInsets.all(18),
+            buildDefaultDragHandles: false,
+            onReorderItem: (from, to) => unawaited(p.moveQueue(from, to)),
             itemCount: queue.length,
             itemBuilder: (context, i) {
               final t = queue[i];
-              return ListTile(
-                onTap: () => p.jump(i),
-                leading: TrackArtwork(app: app, track: t, size: 44),
-                title: Text(
-                  t.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: i == p.index ? accent : Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                subtitle: ArtistLink(
-                  artist: t.artist,
-                  onOpen: () {
-                    Navigator.pop(context);
-                    app.openArtist(t.artist);
-                  },
-                  style: const TextStyle(color: muted, fontSize: 11),
-                ),
-                trailing: IconButton(
-                  onPressed: () => p.removeQueue(i),
-                  tooltip: 'Убрать из очереди',
-                  icon: const Icon(Icons.close_rounded, size: 18, color: muted),
+              final entry = entryKeys[i];
+              return Material(
+                key: ValueKey('queue-entry-$entry'),
+                color: surface,
+                borderRadius: BorderRadius.circular(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => p.jump(i),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              TrackArtwork(app: app, track: t, size: 44),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      t.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: i == p.index
+                                            ? accent
+                                            : Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    ArtistLink(
+                                      artist: t.artist,
+                                      onOpen: () {
+                                        Navigator.pop(context);
+                                        app.openArtist(t.artist);
+                                      },
+                                      style: const TextStyle(
+                                        color: muted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      key: ValueKey('queue-actions-$entry'),
+                      tooltip: 'Порядок трека',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      icon: const Icon(Icons.more_vert_rounded, color: muted),
+                      onSelected: (action) => unawaited(
+                        p.moveQueue(i, action == 'up' ? i - 1 : i + 1),
+                      ),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'up',
+                          enabled: i > 0,
+                          child: const Text('Выше в очереди'),
+                        ),
+                        PopupMenuItem(
+                          value: 'down',
+                          enabled: i < queue.length - 1,
+                          child: const Text('Ниже в очереди'),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      onPressed: () => p.removeQueue(i),
+                      tooltip: 'Убрать из очереди',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: muted,
+                      ),
+                    ),
+                    ReorderableDragStartListener(
+                      key: ValueKey('queue-drag-$entry'),
+                      index: i,
+                      child: Tooltip(
+                        message: 'Переместить трек',
+                        child: Semantics(
+                          label: 'Переместить трек',
+                          child: const MouseRegion(
+                            cursor: SystemMouseCursors.grab,
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: Icon(
+                                Icons.drag_handle_rounded,
+                                color: muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             },

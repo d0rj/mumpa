@@ -138,6 +138,7 @@ class PlaybackController extends ChangeNotifier {
   SystemAudioHandler? system;
   List<Track> _original = [];
   List<int> _order = [];
+  List<int> _unshuffledOrder = [];
   int _cursor = -1;
   int _request = 0;
   bool loading = false, shuffle = false;
@@ -154,6 +155,8 @@ class PlaybackController extends ChangeNotifier {
   List<Track> get queue => List.unmodifiable(
     _order.map((i) => library.byId(_original[i].id) ?? _original[i]),
   );
+  // A track can occur several times. Its original slot identifies the entry.
+  List<int> get queueEntryKeys => List.unmodifiable(_order);
   int get index => _cursor;
   Track? get current => _cursor >= 0 && _cursor < _order.length
       ? library.byId(_original[_order[_cursor]].id) ??
@@ -230,11 +233,12 @@ class PlaybackController extends ChangeNotifier {
         (order.length - 1).clamp(0, 1000000),
       );
       _order = [];
+      final restoredEntries = <int>{};
       _cursor = -1;
       var beforeSelected = 0;
       for (var i = 0; i < order.length; i++) {
         final mapped = remapped[order[i]];
-        if (mapped == null || _order.contains(mapped)) continue;
+        if (mapped == null || !restoredEntries.add(mapped)) continue;
         if (i < savedIndex) beforeSelected++;
         if (i == savedIndex) _cursor = _order.length;
         _order.add(mapped);
@@ -249,6 +253,22 @@ class PlaybackController extends ChangeNotifier {
               .firstOrNull ??
           PlayerRepeatMode.off;
       shuffle = session['shuffle'] == true;
+      final base = session['unshuffledOrder'] is List
+          ? (session['unshuffledOrder'] as List).whereType<int>().toList()
+          : shuffle
+          ? (List<int>.of(order)..sort())
+          : order;
+      _unshuffledOrder = [];
+      final baseEntries = <int>{};
+      for (final entry in base) {
+        final mapped = remapped[entry];
+        if (mapped != null &&
+            restoredEntries.contains(mapped) &&
+            baseEntries.add(mapped)) {
+          _unshuffledOrder.add(mapped);
+        }
+      }
+      _unshuffledOrder.addAll(_order.where(baseEntries.add));
       _contextPlaylistId = session['contextPlaylistId'] as String?;
       // Restore UI and queue, but do not start a network transfer until play.
       _restorePosition = restoredSelection
@@ -289,6 +309,7 @@ class PlaybackController extends ChangeNotifier {
     'ids': queue.map((t) => t.id).toList(),
     'originalIds': _original.map((t) => t.id).toList(),
     'order': List<int>.of(_order),
+    'unshuffledOrder': List<int>.of(_unshuffledOrder),
     'index': _cursor,
     'position': position.inMilliseconds,
     'repeat': repeat.name,
@@ -307,6 +328,7 @@ class PlaybackController extends ChangeNotifier {
     _contextPlaylistId = contextPlaylistId;
     _original = List.of(tracks);
     _order = List.generate(tracks.length, (i) => i);
+    _unshuffledOrder = List.of(_order);
     _cursor = index.clamp(0, tracks.length - 1);
     if (shuffle) _shuffleKeepingCurrent();
     _publishQueue();
@@ -574,6 +596,11 @@ class PlaybackController extends ChangeNotifier {
       _order.add(_original.length - 1);
     }
     if (_cursor < 0) _cursor = 0;
+    if (shuffle) {
+      _unshuffledOrder.add(_original.length - 1);
+    } else {
+      _unshuffledOrder = List.of(_order);
+    }
     _publishQueue();
     notifyListeners();
     unawaited(saveSession());
@@ -586,7 +613,7 @@ class PlaybackController extends ChangeNotifier {
       _restorePosition = null;
       _openedId = null;
     }
-    _order.removeAt(index);
+    _unshuffledOrder.remove(_order.removeAt(index));
     if (index < _cursor || _cursor == _order.length) _cursor--;
     _publishQueue();
     notifyListeners();
@@ -597,6 +624,25 @@ class PlaybackController extends ChangeNotifier {
         await stop();
       }
     }
+    await saveSession();
+  }
+
+  /// Move one occurrence to its final position without reopening the decoder.
+  Future<void> moveQueue(int from, int to) async {
+    if (_closed ||
+        from < 0 ||
+        from >= _order.length ||
+        to < 0 ||
+        to >= _order.length ||
+        from == to) {
+      return;
+    }
+    final selected = _cursor >= 0 ? _order[_cursor] : null;
+    _order.insert(to, _order.removeAt(from));
+    _cursor = selected == null ? -1 : _order.indexOf(selected);
+    if (!shuffle) _unshuffledOrder = List.of(_order);
+    _publishQueue();
+    notifyListeners();
     await saveSession();
   }
 
@@ -617,7 +663,7 @@ class PlaybackController extends ChangeNotifier {
       _shuffleKeepingCurrent();
     } else {
       final current = _cursor >= 0 ? _order[_cursor] : null;
-      _order.sort();
+      _order = List.of(_unshuffledOrder);
       _cursor = current != null ? _order.indexOf(current) : -1;
     }
     _publishQueue();

@@ -1,5 +1,26 @@
 # Mumpa architecture
 
+## Editable playback queue — 1.2.6
+
+PlaybackController.moveQueue accepts a source and final destination index. It
+reorders occurrence indices in `_order` and locates the current occurrence by
+its original slot, preserving duplicate tracks without changing decoder state,
+position or connection requests. Queue keys use the same stable slots instead
+of track IDs. System audio receives the updated queue/index and session storage
+persists it, along with its source-playlist context.
+
+`_unshuffledOrder` stores the non-shuffled queue after manual edits. Enqueue and
+remove keep it aligned with active occurrences; disabling shuffle restores this
+order without resurrecting deleted entries. Legacy sessions derive their base
+from saved order or original slot order when shuffle was enabled. Restoration
+remaps both orders against surviving library tracks and repairs missing/invalid
+base entries. Reordering the playback queue never changes the saved playlist.
+
+The queue uses ReorderableListView.builder and onReorderItem (final-index
+callback), an explicit 48 px mouse/touch drag handle, and enabled/disabled
+up/down menu actions for keyboard access. Track selection, artist links and
+removal remain separate controls.
+
 ## Parallel offline downloads — 1.2.5
 
 DownloadRepository owns a bounded worker queue, defaulting to three concurrent

@@ -1,5 +1,36 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.6 editable playback queue
+
+- **283 unit/widget tests pass**, one opt-in Jackett check is skipped, and
+  `flutter analyze --no-pub lib test integration_test` reports no issues.
+  Formatting passes for `lib`, `test` and the new native test. Evidence:
+  `test-output/unit-1.2.6.log`, `analyze-1.2.6.log`.
+- Ten new controller tests cover moving the current occurrence, crossings in
+  both directions, duplicate tracks, next/previous, paused/pending playback,
+  invalid moves, disk persistence, playlist origin, shuffle and legacy sessions
+  without the new base-order field. Eight UI tests perform touch/mouse drags
+  at **320/1200 px**, up/down menu actions with disabled bounds, and removal of
+  one duplicate while the other remains movable. They verify the same selected
+  occurrence and position with no additional open/stop/seek calls. Evidence:
+  `test-output/queue-targeted-1.2.6.log`, `queue-ui-1.2.6.log`.
+- The opt-in Windows native test uses **real libmpv** and five original local
+  WAVs in a temporary library. Two Flutter mouse gestures on the real drag
+  handles change occurrence order **[0,1,2,3,4] → [4,0,1,2,3] → [4,0,2,1,3]**.
+  The selected occurrence stays the same at index 3. Its paused position is
+  **2000 ms before / 1999 ms after**; decoder counters remain
+  **open=1, stop=1, seek=1**. Real playback resumes to **2440 ms**, then Next
+  opens the new successor and advances to **500 ms**. The test verifies
+  **0 HTTP requests / 0 engine requests**. Evidence:
+  `test-output/native-queue-reorder-1.2.6.log`, `queue-reorder-1.2.6.png`,
+  `queue-reorder-1.2.6.json`. The production profile and public torrents are
+  not accessed. Android touch behavior is checked at 320 px in widget tests;
+  no physical Android runtime check was repeated.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.6+14**. All four engine inputs match the existing pinned SHA-256 lock.
+  Android uses the existing local development signing key. Build logs:
+  `test-output/windows-build-1.2.6.log`, `android-build-1.2.6.log`.
+
 ## 1.2.5 parallel album downloads
 
 - **265 unit/widget tests pass**, one opt-in Jackett check is skipped, and
