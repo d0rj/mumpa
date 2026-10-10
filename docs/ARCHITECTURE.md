@@ -1,5 +1,32 @@
 # Mumpa architecture
 
+## Parallel offline downloads — 1.2.5
+
+DownloadRepository owns a bounded worker queue, defaulting to three concurrent
+tracks. The persisted `downloadConcurrency` setting accepts 1–6; increasing it
+fills available slots immediately, while decreasing it yields background
+attempts after closing their writers. Finishing/playing jobs may temporarily
+exceed a reduced limit until they finish. A playback-priority track is promoted
+to the next slot; a background attempt yields only when no slot is available.
+The engine's peers and bandwidth remain shared, so admission priority does not
+guarantee network throughput for any reader.
+
+Each attempt owns its cancellation and completion barrier. Pausing propagates
+to torrent metadata resolution and its HTTP client; the same ID cannot start a
+new writer until the previous writer closes. Source restoration also respects
+this cancellation. The scheduler keeps filling slots independently after
+success, failure or pause. Shutdown waits for all writers and removals.
+
+A shared serialized quota reservation charges known files at full size before
+writing. Unknown chunked bodies grow their reservation before each write;
+paused/failed partials and completed files count toward the same limit. Active
+files are excluded from physical scanning only while their reservation accounts
+for them. Rename and reservation publication share the quota lock. HTTP206
+requires a valid start/end/total and matching declared body length; incomplete
+bodies stay resumable partials instead of being published as offline files.
+Removal blocks retry/enqueue for its ID, waits for finalization, preserves the
+latest tags and favorites, and deletes only app-owned files.
+
 ## Global and section searches — 1.2.4
 
 AppScreen owns the global query controller and focus node outside the routed
@@ -298,7 +325,7 @@ On Windows, `FlareSolverrService` optionally installs pinned FlareSolverr 3.5.2 
 
 Catalog and manual torrent actions use `AppController.openRelease` / `openTorrentCollection`, then `LibraryRepository.openSourceCollection`. One persisted `MusicPlaylist.sourceHash` identifies the collection. Metadata opening inserts supported tracks and creates the playlist atomically, without requesting audio. Reopening reuses its ID, preserves playlist edits and keeps cached/tag-enriched tracks. Playback starts on a track tap, with the entire visible collection as its queue and `contextPlaylistId` identifying the source playlist.
 
-The decoder starts independently of complete-file downloads. Missing `autoCache` settings migrate to true; explicit false remains false. After the decoder opens and playback becomes active, only the current torrent track is queued with `priority: true`. A prioritized download interrupts a lower-priority HTTP or metadata wait, closes its partial writer, downloads the playing track, then resumes the previous partial through Range. Attempt-local cancellation prevents an old failure from corrupting a restarted job. Already active priority jobs are not restarted.
+The decoder starts independently of complete-file downloads. Missing `autoCache` settings migrate to true; explicit false remains false. After the decoder opens and playback becomes active, only the current torrent track is queued with `priority: true`. A prioritized download takes a free slot or interrupts one lower-priority HTTP or metadata wait when the queue is full. Its partial writer closes before the next attempt starts; background partials resume through Range. Attempt-local cancellation prevents an old failure from corrupting a restarted job. Already active priority jobs are not restarted.
 
 Adding to the active playlist appends membership and queue without replacing the current decoder/position. Ordinary add-to-playlist, play-next and enqueue actions remain available. Session persistence records original track order, shuffled order, cursor, playlist origin and position; selecting a new collection resets a previously restored position. Stream URLs use `play` without `preload`: the pinned server only invokes its blocking preload path when that flag is present. No engine cache configuration change is needed for early playback.
 

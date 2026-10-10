@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/data/library_repository.dart';
+import 'package:mumpa/data/source_operation.dart';
 import 'package:mumpa/data/torrent_service.dart';
 import 'package:mumpa/domain/models.dart';
 
@@ -20,7 +21,8 @@ class PendingDownloadSource extends TorrentService {
   final String base;
   final pending = Completer<Uri>();
   @override
-  Future<Uri> resolve(Track track) => track.id == 'torrent1'
+  Future<Uri> resolve(Track track, {SourceOperation? operation}) =>
+      track.id == 'torrent1'
       ? pending.future
       : Future.value(Uri.parse('$base/stream?index=${track.torrentIndex}'));
 }
@@ -107,11 +109,15 @@ void main() {
     torrents = TorrentService(
       endpoint: () async => 'http://127.0.0.1:${server.port}',
     );
-    downloads = DownloadRepository(library, torrents);
+    downloads = DownloadRepository(
+      library,
+      torrents,
+      maxConcurrentDownloads: 1,
+    );
     await downloads.restore();
   });
   tearDown(() async {
-    downloads.dispose();
+    await downloads.close();
     torrents.dispose();
     await server.close(force: true);
     await library.flush();
@@ -249,7 +255,11 @@ void main() {
     'priority bypasses a background metadata wait and explicit pause prevents resume',
     () async {
       final pending = PendingDownloadSource('http://127.0.0.1:${server.port}');
-      final controlled = DownloadRepository(library, pending);
+      final controlled = DownloadRepository(
+        library,
+        pending,
+        maxConcurrentDownloads: 1,
+      );
       final priority = Track(
         id: 'priority',
         title: 'Playing',

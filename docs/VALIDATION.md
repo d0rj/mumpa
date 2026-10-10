@@ -1,5 +1,38 @@
 # Mumpa verification — 2026-10-10
 
+## 1.2.5 parallel album downloads
+
+- **265 unit/widget tests pass**, one opt-in Jackett check is skipped, and
+  `flutter analyze --no-pub lib test integration_test` reports no issues.
+  Formatting passes for `lib`, `test` and the new native test. Existing settings
+  layouts remain covered at 320–1380 px. Evidence:
+  `test-output/unit-1.2.5.log`, `analyze-1.2.5.log`.
+- The shared scheduler defaults to **3 concurrent tracks**, with a persisted
+  **1–6** setting under Offline and cache. Tests hold three real HTTP response
+  bodies simultaneously while a fourth waits, then refill one slot without
+  stopping neighboring transfers. Coverage includes deduplication, failures,
+  immediate pause/retry with exact Range bytes, shutdown, priority with free/full
+  slots, the sequential setting, and live concurrency changes **1→3→1** with
+  persisted limits and byte-identical resumed files. Safety regressions verify
+  shared 1 MiB quota reservations for known/unknown sizes, rejected overrun, finalization
+  versus removal, preserved tags/favorites, app-owned deletion, and incomplete
+  HTTP206 remaining a resumable partial.
+- The opt-in Windows native test uses an isolated library and loopback HTTP
+  server. Clicking **Download album** verifies three nonzero progress bars,
+  fourth-track queueing,
+  pause/resume through actual UI buttons while two neighbors remain active,
+  **Range offset 49152**, and **4/4 exact 262144-byte original WAV files** by
+  byte comparison and SHA-256. There are no external HTTP or engine requests;
+  audio uses FakeAudioBackend. This proves download scheduling, HTTP transport
+  and UI behavior, without claiming public-swarm throughput. Evidence:
+  `test-output/native-parallel-downloads-1.2.5.log`,
+  `parallel-downloads-1.2.5.png`, `parallel-downloads-1.2.5.json`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.5+13** with the same pinned engine inputs (all four SHA-256 values match
+  the lock). APKs use the existing local development signing key. No physical
+  Android runtime check was repeated for this scheduler change. Build logs:
+  `test-output/windows-build-1.2.5.log`, `android-build-1.2.5.log`.
+
 ## 1.2.4 global and section search
 
 - **251 unit/widget tests pass**, one opt-in Jackett check is skipped, and

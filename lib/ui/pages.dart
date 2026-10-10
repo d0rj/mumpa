@@ -1476,6 +1476,7 @@ class _DownloadsPage extends StatelessWidget {
                             LinearProgressIndicator(
                               value: job.progress,
                               minHeight: 3,
+                              backgroundColor: const Color(0xFF303831),
                             ),
                           const SizedBox(height: 5),
                           Text(
@@ -1538,7 +1539,7 @@ class _DownloadsPage extends StatelessWidget {
             title: 'Ничего не найдено в этом разделе',
             description: 'Попробуй другой запрос или очисти поиск.',
           )
-        else if (!searching)
+        else if (!searching && jobs.isEmpty)
           const EmptyState(
             icon: Icons.offline_bolt_rounded,
             title: 'Сохрани музыку для дороги',
@@ -1886,6 +1887,40 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               value: widget.app.library.settings['autoCache'] == true,
               onChanged: (v) => widget.app.library.setSetting('autoCache', v),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: ValueKey(
+                'download-concurrency-${widget.app.downloads.maxConcurrentDownloads}',
+              ),
+              initialValue: widget.app.downloads.maxConcurrentDownloads,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Одновременные загрузки треков',
+              ),
+              items: [
+                for (final count in [1, 2, 3, 4, 5, 6])
+                  DropdownMenuItem(
+                    value: count,
+                    child: Text(
+                      count == 1 ? '1 · по очереди' : '$count · параллельно',
+                    ),
+                  ),
+              ],
+              onChanged: widget.app.busy != null
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        unawaited(widget.app.setDownloadConcurrency(value));
+                      }
+                    },
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'По умолчанию 3. Прослушиваемый трек получает место в очереди первым. Пауза сохраняет загруженную часть файла.',
+                style: TextStyle(color: muted, fontSize: 11),
+              ),
             ),
             TextField(
               controller: limit,

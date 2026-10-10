@@ -362,6 +362,12 @@ class AppController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  Future<void> setDownloadConcurrency(int value) async {
+    await run('Сохраняем настройки загрузок', () async {
+      await downloads.setMaxConcurrentDownloads(value);
+    });
+  }
+
   Future<void> setMetadataCacheLimit(int megabytes) async {
     if (megabytes < 16 || megabytes > 4096 || cacheBusy) return;
     cacheBusy = true;

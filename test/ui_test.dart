@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/data/torrent_service.dart';
+import 'package:mumpa/data/source_operation.dart';
 import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/logic/playback_controller.dart';
@@ -27,7 +28,8 @@ class WaitingTorrentService extends TorrentService {
   WaitingTorrentService() : super(endpoint: () async => 'http://localhost');
   final ready = Completer<Uri>();
   @override
-  Future<Uri> resolve(Track track) => ready.future;
+  Future<Uri> resolve(Track track, {SourceOperation? operation}) =>
+      ready.future;
 }
 
 void main() {

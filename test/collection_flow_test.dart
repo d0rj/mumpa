@@ -44,7 +44,7 @@ class FixtureTorrentService extends TorrentService {
     void Function(String)? onProgress,
   }) async => info;
   @override
-  Future<Uri> resolve(Track track) =>
+  Future<Uri> resolve(Track track, {SourceOperation? operation}) =>
       stream(track.torrentHash!, track.torrentIndex!);
   @override
   Future<void> waitForAudio(

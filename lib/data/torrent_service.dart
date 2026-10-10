@@ -663,9 +663,10 @@ class TorrentService {
     }
   }
 
-  Future<Uri> resolve(Track track) async {
+  Future<Uri> resolve(Track track, {SourceOperation? operation}) async {
+    operation?.check();
     try {
-      await _waitFiles(track.torrentHash!);
+      await _waitFiles(track.torrentHash!, operation: operation);
     } on HttpException {
       final metainfo = sources == null
           ? null
@@ -673,14 +674,16 @@ class TorrentService {
               p.join(sources!.path, '${stableId(track.torrentHash!)}.torrent'),
             );
       if (metainfo != null && await metainfo.exists()) {
-        await upload(metainfo.path);
+        await upload(metainfo.path, operation: operation);
       } else if (track.torrentLink != null) {
-        await add(track.torrentLink!);
+        await add(track.torrentLink!, operation: operation);
       } else {
         rethrow;
       }
     }
-    return stream(track.torrentHash!, track.torrentIndex!);
+    operation?.check();
+    final pending = stream(track.torrentHash!, track.torrentIndex!);
+    return operation?.wait(pending) ?? pending;
   }
 
   List<Track> tracks(

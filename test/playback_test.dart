@@ -5,6 +5,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/data/torrent_service.dart';
+import 'package:mumpa/data/source_operation.dart';
 import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/logic/playback_controller.dart';
 import 'support.dart';
@@ -13,7 +14,8 @@ class PendingTorrentService extends TorrentService {
   PendingTorrentService() : super(endpoint: () async => 'http://localhost');
   final ready = Completer<Uri>();
   @override
-  Future<Uri> resolve(Track track) => ready.future;
+  Future<Uri> resolve(Track track, {SourceOperation? operation}) =>
+      ready.future;
 }
 
 class HangingAudioBackend extends FakeAudioBackend {
