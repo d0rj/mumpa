@@ -24,9 +24,12 @@ $mumpaLock = Get-Content -LiteralPath 'engine-patches/managed-engine.lock.json' 
 & ./tools/prepare-jackett.ps1
 & ./tools/prepare-flaresolverr.ps1
 Invoke-CiCommand 'flutter' @('pub', 'get', '--enforce-lockfile')
-Invoke-CiCommand 'flutter' @('build', 'windows', '--release', '--no-pub')
-# A fresh release pub get excludes integration_test from native registration.
-Invoke-CiCommand 'flutter' @('build', 'apk', '--release', '--split-per-abi', '--no-pub')
+# Each build must refresh native plugin registration for its own release mode.
+# --no-pub can retain integration_test in GeneratedPluginRegistrant.java even
+# after an ordinary pub get, while Gradle excludes that plugin from release.
+Invoke-CiCommand 'flutter' @('build', 'windows', '--release')
+Invoke-CiCommand 'flutter' @('build', 'apk', '--release', '--split-per-abi')
+Invoke-CiCommand 'git' @('diff', '--exit-code', '--', 'pubspec.lock')
 
 $mumpaOutput = Join-Path $mumpaRoot 'artifacts/ci-release'
 $mumpaSourceOutput = Join-Path $mumpaOutput 'sources'
