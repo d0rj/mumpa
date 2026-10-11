@@ -129,6 +129,7 @@ Future<void> _mount(WidgetTester tester, _SettingsApp app, Size size) async {
 }
 
 const _sectionIds = [
+  'playback',
   'sources',
   'torrent',
   'downloads',
@@ -138,6 +139,30 @@ const _sectionIds = [
 ];
 
 void main() {
+  for (final size in [const Size(320, 568), const Size(1200, 850)]) {
+    testWidgets(
+      'radio opt-in persists and fits $size without background work',
+      (tester) async {
+        final fixture = await _fixture(tester);
+        addTearDown(() => fixture.close(tester));
+        await _mount(tester, fixture.app, size);
+        fixture.app.setSettingsSection('playback');
+        await tester.pumpAndSettle();
+        final toggle = find.byKey(const ValueKey('radio-autoplay'));
+        expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+        await tester.runAsync(() async {
+          await tester.tap(toggle);
+          await fixture.app.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(fixture.app.library.settings['autoplayRadio'], isTrue);
+        expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+        expect(fixture.httpRequests, 0);
+        expect(fixture.engineStarts, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets('overview builds no settings forms and does not scan anything', (
     tester,
   ) async {

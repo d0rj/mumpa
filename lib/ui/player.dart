@@ -676,6 +676,20 @@ class _Queue extends StatelessWidget {
           )
         : ReorderableListView.builder(
             key: const Key('playback-queue'),
+            header: SwitchListTile.adaptive(
+              key: const ValueKey('queue-radio-autoplay'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Радио после плейлиста',
+                style: TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                p.radioStatus,
+                style: const TextStyle(color: muted, fontSize: 11),
+              ),
+              value: p.radioEnabled,
+              onChanged: (value) => unawaited(p.setRadioEnabled(value)),
+            ),
             padding: const EdgeInsets.all(18),
             buildDefaultDragHandles: false,
             onReorderItem: (from, to) => unawaited(p.moveQueue(from, to)),
@@ -726,6 +740,14 @@ class _Queue extends StatelessWidget {
                                         fontSize: 11,
                                       ),
                                     ),
+                                    if (p.isRadioEntry(i))
+                                      const Text(
+                                        'Радио после плейлиста',
+                                        style: TextStyle(
+                                          color: accent,
+                                          fontSize: 10,
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),

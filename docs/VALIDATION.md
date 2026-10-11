@@ -1,5 +1,47 @@
 # Mumpa verification — 2026-10-11
 
+## 1.2.9 playlist radio
+
+- **348 unit/widget tests pass**, two opt-in live checks remain skipped.
+  `flutter analyze --no-pub lib test integration_test` reports no issues.
+  Radio tests cover early preparation, immediate playback of the first ready
+  candidate during a slow refill, failed swarm/decoder skipping, normalized
+  duplicates/recent plays, source cooldown, cache reuse, native file IDs,
+  recoverable direct-catalogue magnets, paused restoration and saved opt-in.
+  Cancellation includes pause/Stop/sleep/Repeat/disable/queue replacement both
+  during preparation and a pending decoder open. The settings and queue layouts
+  pass at 320 and 1200 px. Evidence: `test-output/flutter-tests-1.2.9.log`,
+  `analyze-1.2.9.log`.
+- An isolated **native Windows/libmpv** integration fixture naturally finishes
+  its original three-second WAV and starts a preflighted radio track. The
+  playlist remains unchanged, pause remains paused for four seconds, and no
+  external HTTP/torrent-engine request occurs. Evidence:
+  `test-output/windows-radio-1.2.9.log`, `native-radio-1.2.9.json`;
+  fixture: `integration_test/playlist_radio_test.dart`, opt-in define
+  `PLAYLIST_RADIO_TEST=true`. This verifies native local continuation; it does
+  not establish live discovery coverage, public peer reachability or audible
+  similarity. Network failures and Torznab/direct-catalogue discovery use
+  deterministic mocked tests. A physical Android device was not tested.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds target **1.2.9+17**.
+  Engine source/binaries are unchanged (`MatriX.145.2-mumpa4`); Android uses the
+  existing local development signing key. Release logs:
+  `test-output/windows-build-1.2.9.log`, `android-build-1.2.9.log`.
+  Windows versions and APK signatures/ABI version codes (2017/1017/4017),
+  ZIP/APK CRCs and manifest sizes/SHA-256 pass. Pinned engine inputs match the
+  lock; packaged Android engines match Gradle's stripped outputs and 1.2.8.
+  Package verification is recorded in `test-output/package-verification-1.2.9.json`.
+  Radio defaults off; existing library, queue, favorites and source settings
+  use their prior persistence formats plus optional radio fields.
+- The previous Windows app completed its normal save/service shutdown; the
+  packaged **1.2.9+17** app opened a responding Mumpa window. The real profile
+  retains **9,397 tracks / 11 playlists / 34 likes**. Track IDs, playlist and
+  favorite contents, queue order/selection and non-playback settings match
+  their prior hashes; autoplay remains off. Evidence: `test-output/launch-1.2.9.json`,
+  `profile-preservation-1.2.9.json`. Credentials were neither printed nor stored
+  in these evidence files. This is persistence/startup evidence, not a live
+  recommendation or public-swarm listening test.
+- Full behaviour and bounds: [PLAYLIST_RADIO.md](PLAYLIST_RADIO.md).
+
 ## 1.2.8 search performance, artist pages and settings
 
 - **321 unit/widget tests pass**, two opt-in network checks are skipped.

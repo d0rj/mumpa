@@ -1,5 +1,22 @@
 # Mumpa architecture
 
+## Playlist radio — 1.2.9
+
+`RadioRepository` combines existing library metadata, MusicBrainz/ListenBrainz,
+and the configured Torznab or direct RuTracker source. Discovery is bounded to
+three artist searches/two releases each, uses the shared metainfo cache, and
+retains actual engine file IDs and recoverable source links. Cached normalized
+titles/artists are prepared alongside local search metadata in its isolate.
+
+`PlaylistRadio` owns six preflighted candidates, a cancellation token for each
+fill/probe, duplicate exclusions and unavailable-swarm cooldowns. It does not
+open an audio decoder. `PlaybackController` starts preparation near queue end,
+appends a chosen radio occurrence without modifying the playlist, retries failed
+radio playback, and invalidates pending continuation on transport changes.
+Outstanding decoder opens finish before a replacement queue opens its decoder;
+cancelled loads cannot play. Queue radio markers and the opt-in setting persist,
+while restoration stays paused. Details: `docs/PLAYLIST_RADIO.md`.
+
 ## Favorite addition order — 1.2.7
 
 LibraryRepository owns newest-first favorite views. The existing insertion-ordered

@@ -14,6 +14,7 @@ import '../data/source_operation.dart';
 import '../data/media_cache.dart';
 import '../data/music_metadata_repository.dart';
 import '../data/similar_artists_repository.dart';
+import '../data/radio_repository.dart';
 import '../domain/similar_artist.dart';
 import '../data/torrent_artwork_repository.dart';
 import '../data/track_search_service.dart';
@@ -165,6 +166,7 @@ class AppController extends ChangeNotifier {
     FlareSolverrService? flaresolverr,
     MusicMetadataRepository? metadata,
     SimilarArtistsRepository? similarArtists,
+    RadioSource? radioSource,
   }) : indexer = indexer ?? IndexerService(),
        catalog = catalog ?? RuTrackerService(),
        jackett = jackett ?? JackettService(library.root),
@@ -187,6 +189,17 @@ class AppController extends ChangeNotifier {
           cache: this.metadata.cache,
           client: this.metadata.client,
         );
+    playback.setRadioSource(
+      radioSource ??
+          RadioRepository(
+            library: library,
+            torrents: torrents,
+            metadata: this.metadata,
+            similar: this.similarArtists,
+            indexer: this.indexer,
+            catalog: this.catalog,
+          ),
+    );
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
@@ -1893,6 +1906,7 @@ class AppController extends ChangeNotifier {
     library.removeListener(_changed);
     downloads.removeListener(_changed);
     playback.removeListener(_onPlayback);
+    playback.setRadioSource(null);
     _disposeStep('indexer client', indexer.dispose);
     _disposeStep('torrent artwork', torrentArtwork.dispose);
     _disposeStep('artist recommendations', similarArtists.dispose);

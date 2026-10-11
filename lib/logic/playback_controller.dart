@@ -10,7 +10,9 @@ import 'package:media_kit/media_kit.dart' hide Track;
 import '../data/library_repository.dart';
 import '../data/torrent_service.dart';
 import '../data/source_operation.dart';
+import '../data/radio_repository.dart';
 import '../domain/models.dart';
+import 'playlist_radio.dart';
 
 abstract class AudioBackend extends ChangeNotifier {
   bool get playing;
@@ -122,7 +124,11 @@ class PlaybackController extends ChangeNotifier {
     this.audioStartupTimeout = const Duration(seconds: 45),
     this.decoderStartupTimeout = const Duration(seconds: 15),
     this.torrentStatusInterval = const Duration(seconds: 3),
-  }) {
+    RadioSource? radioSource,
+  }) : radio = PlaylistRadio(source: radioSource) {
+    radio.addListener(_onRadioChanged);
+    _lastRadioEnabled = radioEnabled;
+    library.addListener(_onRadioSetting);
     backend.addListener(_onBackend);
     _completeSubscription = backend.completed.listen((_) {
       if (loading || _openedId == null || _openedId != current?.id) return;
@@ -138,7 +144,12 @@ class PlaybackController extends ChangeNotifier {
           : message;
       loading = false;
       _openedId = null;
-      unawaited(backend.stop());
+      final intent = _radioIntent;
+      unawaited(
+        backend.stop().then((_) {
+          if (intent == _radioIntent) _skipFailedRadio();
+        }),
+      );
       system?.publish();
       notifyListeners();
     });
@@ -146,6 +157,166 @@ class PlaybackController extends ChangeNotifier {
   final LibraryRepository library;
   final TorrentService torrents;
   final AudioBackend backend;
+  final PlaylistRadio radio;
+  final Set<int> _radioEntries = {};
+  int _radioIntent = 0;
+  bool _radioAllowed = false, _radioAdvancing = false;
+  Completer<void>? _radioSettled;
+  late bool _lastRadioEnabled;
+  bool get radioEnabled => library.settings['autoplayRadio'] == true;
+  bool isRadioEntry(int index) =>
+      index >= 0 &&
+      index < _order.length &&
+      _radioEntries.contains(_order[index]);
+  bool get currentIsRadio => isRadioEntry(_cursor);
+  String get radioStatus => radio.preparing
+      ? 'Готовим продолжение · готово: ${radio.readyCount}'
+      : radio.readyCount > 0
+      ? 'Продолжение готово · треков: ${radio.readyCount}'
+      : radio.message ?? 'Похожие исполнители после окончания очереди';
+
+  Future<void> setRadioEnabled(bool enabled) =>
+      library.setSetting('autoplayRadio', enabled);
+
+  void setRadioSource(RadioSource? source) {
+    _cancelRadio();
+    radio.source = source;
+    radio.reset(_radioSeedTracks());
+    _radioAllowed = playing;
+    _prepareRadio();
+  }
+
+  void _onRadioChanged() {
+    if (!_closed) notifyListeners();
+  }
+
+  void _onRadioSetting() {
+    if (_closed || radioEnabled == _lastRadioEnabled) return;
+    _lastRadioEnabled = radioEnabled;
+    _cancelRadio();
+    radio.reset(_radioSeedTracks());
+    _radioAllowed = radioEnabled && playing;
+    _prepareRadio();
+    notifyListeners();
+  }
+
+  List<Track> _radioSeedTracks() {
+    final seeds = <Track>[];
+    for (var index = _cursor; index >= 0 && seeds.length < 5; index--) {
+      final slot = _order[index];
+      if (!_radioEntries.contains(slot)) seeds.add(_original[slot]);
+    }
+    return seeds.reversed.toList();
+  }
+
+  Set<String> _radioExcluded() => {
+    ...queue.map(radioSongKey),
+    ...library.recent
+        .take(30)
+        .map(library.byId)
+        .whereType<Track>()
+        .map(radioSongKey),
+  };
+
+  void _prepareRadio() {
+    if (_closed ||
+        !radioEnabled ||
+        !_radioAllowed ||
+        repeat != PlayerRepeatMode.off ||
+        !playing ||
+        loading ||
+        _order.length - _cursor - 1 > 2) {
+      return;
+    }
+    if (radio.preparing ||
+        radio.readyCount >= radio.capacity ||
+        radio.exhausted) {
+      return;
+    }
+    if (!currentIsRadio) radio.updateSeeds(_radioSeedTracks());
+    unawaited(radio.fill(_radioExcluded()));
+  }
+
+  void _cancelRadio({bool preservePlayback = false}) {
+    ++_radioIntent;
+    if (!preservePlayback) _radioAllowed = false;
+    if (_radioAdvancing && currentIsRadio && loading) {
+      ++_request;
+      _cancelConnection();
+      loading = false;
+      _openedId = null;
+      unawaited(backend.stop().catchError((Object _) {}));
+    }
+    radio.cancel();
+  }
+
+  void _skipFailedRadio() {
+    if (_closed ||
+        _radioAdvancing ||
+        !currentIsRadio ||
+        !radioEnabled ||
+        !_radioAllowed ||
+        repeat != PlayerRepeatMode.off) {
+      return;
+    }
+    radio.reject(current!);
+    unawaited(next(automatic: true));
+  }
+
+  Future<void> _continueRadio() async {
+    if (_radioAdvancing || !radioEnabled || !_radioAllowed || _closed) return;
+    _radioAdvancing = true;
+    final settled = _radioSettled = Completer<void>();
+    final intent = _radioIntent;
+    bool valid() =>
+        !_closed &&
+        intent == _radioIntent &&
+        _radioAllowed &&
+        radioEnabled &&
+        repeat == PlayerRepeatMode.off;
+    try {
+      for (var attempt = 0; attempt < 3 && valid(); attempt++) {
+        var prepared = radio.take(
+          current == null ? null : radioArtist(current!),
+        );
+        if (prepared == null) {
+          notifyListeners();
+          await radio.waitForReady(_radioExcluded());
+          if (!valid()) return;
+          prepared = radio.take(current == null ? null : radioArtist(current!));
+        }
+        if (prepared == null) break;
+        // Persist just the chosen file, without creating/editing a playlist.
+        if (library.byId(prepared.track.id) == null) {
+          await library.upsert([prepared.track]);
+        }
+        if (!valid()) return;
+        final slot = _original.length;
+        _original.add(prepared.track);
+        _radioEntries.add(slot);
+        _order.add(slot);
+        _unshuffledOrder.add(slot);
+        _cursor = _order.length - 1;
+        _restorePosition = null;
+        _publishQueue();
+        await _open(preparedUri: prepared.uri);
+        if (!valid()) return;
+        if (_openedId == current?.id && error == null) return;
+        radio.reject(prepared.track);
+      }
+      if (valid()) {
+        await backend.pause();
+        await saveSession();
+        notifyListeners();
+      }
+    } finally {
+      _radioAdvancing = false;
+      _radioSettled = null;
+      settled.complete();
+      if (valid()) _prepareRadio();
+    }
+  }
+
   final Duration audioStartupTimeout,
       decoderStartupTimeout,
       torrentStatusInterval;
@@ -292,6 +463,12 @@ class PlaybackController extends ChangeNotifier {
         }
       }
       _unshuffledOrder.addAll(_order.where(baseEntries.add));
+      for (final slot
+          in (session['radioEntries'] as List? ?? []).whereType<int>()) {
+        final mapped = remapped[slot];
+        if (mapped != null) _radioEntries.add(mapped);
+      }
+      radio.reset(_radioSeedTracks());
       _contextPlaylistId = session['contextPlaylistId'] as String?;
       // Restore UI and queue, but do not start a network transfer until play.
       _restorePosition = restoredSelection
@@ -310,6 +487,7 @@ class PlaybackController extends ChangeNotifier {
 
   Duration? _restorePosition;
   String? _openedId;
+  Future<void> _decoderOpening = Future.value();
   void _onBackend() {
     if (_openedId == current?.id &&
         current != null &&
@@ -321,6 +499,7 @@ class PlaybackController extends ChangeNotifier {
     }
     system?.publish();
     notifyListeners();
+    _prepareRadio();
     if (DateTime.now().difference(_lastSave).inSeconds >= 5 &&
         current != null) {
       _lastSave = DateTime.now();
@@ -338,6 +517,7 @@ class PlaybackController extends ChangeNotifier {
     'repeat': repeat.name,
     'shuffle': shuffle,
     'contextPlaylistId': _contextPlaylistId,
+    'radioEntries': _radioEntries.toList(),
   });
 
   Future<void> playTracks(
@@ -346,6 +526,8 @@ class PlaybackController extends ChangeNotifier {
     String? contextPlaylistId,
   }) async {
     if (tracks.isEmpty || _closed) return;
+    _cancelRadio();
+    _radioEntries.clear();
     _restorePosition = null;
     _openedId = null;
     _contextPlaylistId = contextPlaylistId;
@@ -354,6 +536,8 @@ class PlaybackController extends ChangeNotifier {
     _unshuffledOrder = List.of(_order);
     _cursor = index.clamp(0, tracks.length - 1);
     if (shuffle) _shuffleKeepingCurrent();
+    radio.reset(_radioSeedTracks());
+    _radioAllowed = true;
     _publishQueue();
     await _open();
   }
@@ -373,7 +557,7 @@ class PlaybackController extends ChangeNotifier {
     );
   }
 
-  Future<void> _open({bool play = true}) async {
+  Future<void> _open({bool play = true, Uri? preparedUri}) async {
     if (_closed) return;
     final track = current;
     if (track == null) return;
@@ -391,10 +575,16 @@ class PlaybackController extends ChangeNotifier {
     notifyListeners();
     system?.publish();
     try {
+      // Cancellation releases the caller, but an old native open can still be
+      // finishing. Do not let it overwrite a replacement queue's decoder.
+      await connection.wait(_decoderOpening).timeout(decoderStartupTimeout);
+      if (request != _request) return;
       // Stop the previous decoder before a potentially long metadata/network wait.
       await connection.wait(backend.stop()).timeout(decoderStartupTimeout);
       if (request != _request) return;
-      final uri = await connection.wait(resolve(track));
+      final String uri = preparedUri == null
+          ? await connection.wait(resolve(track))
+          : preparedUri.toString();
       if (request != _request) return;
       if (track.source == TrackSource.torrent &&
           {'http', 'https'}.contains(Uri.parse(uri).scheme)) {
@@ -425,7 +615,9 @@ class PlaybackController extends ChangeNotifier {
         await torrents.waitForAudio(
           Uri.parse(uri),
           operation: connection,
-          timeout: audioStartupTimeout,
+          timeout: currentIsRadio
+              ? const Duration(seconds: 8)
+              : audioStartupTimeout,
         );
         if (request != _request) return;
         _statisticsTimer?.cancel();
@@ -437,9 +629,9 @@ class PlaybackController extends ChangeNotifier {
       }
       _initialPlaybackPosition = _restorePosition ?? Duration.zero;
       awaitingAudio = false;
-      await connection
-          .wait(backend.open(uri, play: false))
-          .timeout(decoderStartupTimeout);
+      final opening = backend.open(uri, play: false);
+      _decoderOpening = opening.catchError((Object _) {});
+      await connection.wait(opening).timeout(decoderStartupTimeout);
       if (request != _request) return;
       _openedId = track.id;
       if (_restorePosition != null) {
@@ -465,7 +657,12 @@ class PlaybackController extends ChangeNotifier {
           error =
               'Аудиоданные получены, но воспроизведение не началось. '
               'Повтори попытку или выбери другой источник.';
-          unawaited(stop());
+          if (currentIsRadio && _radioAllowed && radioEnabled) {
+            _failOpening(error!);
+            _skipFailedRadio();
+          } else {
+            unawaited(stop());
+          }
         });
       }
     } on SourceCancelled {
@@ -495,6 +692,7 @@ class PlaybackController extends ChangeNotifier {
         _publishQueue();
         notifyListeners();
         system?.publish();
+        _prepareRadio();
       }
     }
   }
@@ -525,15 +723,18 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> play() async {
     if (current == null) return;
+    _radioAllowed = true;
     if (_openedId != current!.id) {
       await _open();
       return;
     }
     if (_session != null && !await _session!.setActive(true)) return;
     await backend.play();
+    _prepareRadio();
   }
 
   Future<void> pause() async {
+    _cancelRadio();
     if (buffering) {
       await stop();
     } else {
@@ -546,6 +747,7 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> toggle() => playing || buffering ? pause() : play();
   Future<void> stop() async {
+    _cancelRadio();
     _restorePosition = position;
     ++_request;
     _cancelConnection();
@@ -571,6 +773,19 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> next({bool automatic = false}) async {
     if (_closed) return;
+    if (!automatic) {
+      if (_radioAdvancing) {
+        final settled = _radioSettled?.future;
+        _cancelRadio();
+        _radioAllowed = true;
+        final intent = _radioIntent;
+        await settled;
+        if (_closed || intent != _radioIntent) return;
+      } else {
+        ++_radioIntent;
+      }
+      _radioAllowed = true;
+    }
     if (automatic && repeat == PlayerRepeatMode.one) {
       _restorePosition = null;
       await _open();
@@ -581,15 +796,22 @@ class PlaybackController extends ChangeNotifier {
     } else if (repeat == PlayerRepeatMode.all && _order.isNotEmpty) {
       _cursor = 0;
     } else {
+      if (repeat == PlayerRepeatMode.off && radioEnabled && _radioAllowed) {
+        await _continueRadio();
+        return;
+      }
       await backend.pause();
       await saveSession();
       return;
     }
     _restorePosition = null;
     await _open();
+    if (currentIsRadio && error != null) _skipFailedRadio();
   }
 
   Future<void> previous() async {
+    _cancelRadio();
+    _radioAllowed = true;
     if (position.inSeconds > 3) {
       await seek(Duration.zero);
       return;
@@ -605,6 +827,8 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> jump(int index) async {
     if (index < 0 || index >= _order.length) return;
+    _cancelRadio();
+    _radioAllowed = true;
     _cursor = index;
     _restorePosition = null;
     await _open();
@@ -612,6 +836,7 @@ class PlaybackController extends ChangeNotifier {
 
   void enqueue(Track track, {bool next = false}) {
     if (_closed) return;
+    _cancelRadio(preservePlayback: true);
     _original.add(track);
     if (next && _cursor >= 0) {
       _order.insert(_cursor + 1, _original.length - 1);
@@ -627,10 +852,12 @@ class PlaybackController extends ChangeNotifier {
     _publishQueue();
     notifyListeners();
     unawaited(saveSession());
+    _prepareRadio();
   }
 
   Future<void> removeQueue(int index) async {
     if (index < 0 || index >= _order.length) return;
+    _cancelRadio(preservePlayback: true);
     final active = index == _cursor;
     if (active) {
       _restorePosition = null;
@@ -661,12 +888,14 @@ class PlaybackController extends ChangeNotifier {
       return;
     }
     final selected = _cursor >= 0 ? _order[_cursor] : null;
+    _cancelRadio(preservePlayback: true);
     _order.insert(to, _order.removeAt(from));
     _cursor = selected == null ? -1 : _order.indexOf(selected);
     if (!shuffle) _unshuffledOrder = List.of(_order);
     _publishQueue();
     notifyListeners();
     await saveSession();
+    _prepareRadio();
   }
 
   void _shuffleKeepingCurrent() {
@@ -681,6 +910,7 @@ class PlaybackController extends ChangeNotifier {
   }
 
   void toggleShuffle() {
+    _cancelRadio(preservePlayback: true);
     shuffle = !shuffle;
     if (shuffle) {
       _shuffleKeepingCurrent();
@@ -692,6 +922,7 @@ class PlaybackController extends ChangeNotifier {
     _publishQueue();
     notifyListeners();
     unawaited(saveSession());
+    _prepareRadio();
   }
 
   void cycleRepeat() {
@@ -699,10 +930,13 @@ class PlaybackController extends ChangeNotifier {
   }
 
   void setRepeat(PlayerRepeatMode value) {
+    _cancelRadio();
     repeat = value;
+    _radioAllowed = playing;
     notifyListeners();
     system?.publish();
     unawaited(saveSession());
+    _prepareRadio();
   }
 
   Future<void> setVolume(double value) async {
@@ -746,6 +980,7 @@ class PlaybackController extends ChangeNotifier {
   Future<void> _close() async {
     if (_closed) return;
     _closed = true;
+    _cancelRadio();
     ++_request;
     _cancelConnection();
     _sleep?.cancel();
@@ -760,7 +995,14 @@ class PlaybackController extends ChangeNotifier {
       }
     }
 
+    await cleanup(
+      'radio continuation',
+      () async => await _radioSettled?.future,
+    );
     await cleanup('save session', saveSession);
+    radio.removeListener(_onRadioChanged);
+    library.removeListener(_onRadioSetting);
+    await cleanup('radio', radio.close);
     await cleanup('completion subscription', _completeSubscription.cancel);
     await cleanup('error subscription', _errorSubscription.cancel);
     for (final subscription in _sessionSubscriptions) {

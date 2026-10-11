@@ -7,6 +7,7 @@ import 'music_metadata.dart';
 // while unchanged tracks reuse their normalized search text across keystrokes.
 final _trackText = Expando<String>('track-search-text');
 final _artistNames = Expando<List<String>>('track-search-artists');
+final _trackTitles = Expando<String>('track-normalized-title');
 String _normalizedTrackText(Track track) =>
     _trackText[track] ??= normalizeMusicName(_trackSearchText(track));
 
@@ -23,15 +24,24 @@ Future<void> prepareCollectionSearch(List<Track> tracks) async {
   if (missing.isEmpty) return;
   final values = await _prepareText([
     for (final track in missing)
-      [_trackSearchText(track), track.artist, track.albumArtist ?? ''],
+      [
+        _trackSearchText(track),
+        track.artist,
+        track.albumArtist ?? '',
+        track.title,
+      ],
   ]);
   for (var i = 0; i < missing.length; i++) {
     _trackText[missing[i]] = values[i][0];
-    _artistNames[missing[i]] = values[i].sublist(1);
+    _artistNames[missing[i]] = values[i].sublist(1, 3);
+    _trackTitles[missing[i]] = values[i][3];
   }
 }
 
 final _albumText = Expando<String>('album-search-text');
+
+String normalizedTrackTitle(Track track) =>
+    _trackTitles[track] ??= normalizeMusicName(track.title);
 
 List<String> normalizedTrackArtistNames(Track track) =>
     _artistNames[track] ??= [

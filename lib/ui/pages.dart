@@ -1613,6 +1613,11 @@ class _DownloadsPage extends StatelessWidget {
 }
 
 enum _SettingsSection {
+  playback(
+    'Воспроизведение',
+    'Радио после окончания очереди',
+    Icons.radio_rounded,
+  ),
   sources(
     'Источники музыки',
     'Jackett, RuTracker и подключение к каталогу',
@@ -1840,6 +1845,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       SectionTitle(section.title, subtitle: section.description),
       _panel(switch (section) {
+        _SettingsSection.playback => _playbackControls(),
         _SettingsSection.sources => _sourceControls(),
         _SettingsSection.torrent => _engineControls(),
         _SettingsSection.downloads => _downloadControls(),
@@ -1849,6 +1855,24 @@ class _SettingsPageState extends State<SettingsPage> {
       }),
     ],
   );
+
+  List<Widget> _playbackControls() => [
+    SwitchListTile.adaptive(
+      key: const ValueKey('radio-autoplay'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Продолжать музыку после очереди'),
+      subtitle: const Text('Подбирать треки тех же и похожих исполнителей'),
+      value: widget.app.playback.radioEnabled,
+      onChanged: (value) =>
+          unawaited(widget.app.playback.setRadioEnabled(value)),
+    ),
+    const SizedBox(height: 12),
+    const Text(
+      'Следующие треки готовятся заранее. Недоступные раздачи пропускаются. '
+      'Исходный плейлист сохраняется; повтор и таймер сна имеют приоритет.',
+      style: TextStyle(color: muted, fontSize: 12),
+    ),
+  ];
 
   Widget _panel(List<Widget> children) => Align(
     alignment: Alignment.topLeft,
