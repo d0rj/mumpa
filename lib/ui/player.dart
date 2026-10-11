@@ -13,7 +13,11 @@ class PlayerBar extends StatelessWidget {
   final bool compact;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([app.playback, app.library, app]),
+    listenable: Listenable.merge([
+      app.playback.controlsState,
+      app.library,
+      app,
+    ]),
     builder: (context, _) {
       final p = app.playback;
       final t = p.current;
@@ -86,7 +90,7 @@ class PlayerBar extends StatelessWidget {
                               ),
                       ),
                       IconButton(
-                        onPressed: p.queue.isEmpty ? null : p.next,
+                        onPressed: p.hasQueue ? p.next : null,
                         tooltip: 'Следующий трек',
                         icon: const Icon(Icons.skip_next_rounded, size: 24),
                       ),
@@ -98,14 +102,18 @@ class PlayerBar extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(10),
                 ),
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  value: p.duration.inMilliseconds > 0
-                      ? (p.position.inMilliseconds / p.duration.inMilliseconds)
-                            .clamp(0, 1)
-                      : 0,
-                  backgroundColor: Colors.white.withValues(alpha: .07),
-                  color: accent,
+                child: ListenableBuilder(
+                  listenable: p,
+                  builder: (_, _) => LinearProgressIndicator(
+                    minHeight: 2,
+                    value: p.duration.inMilliseconds > 0
+                        ? (p.position.inMilliseconds /
+                                  p.duration.inMilliseconds)
+                              .clamp(0, 1)
+                        : 0,
+                    backgroundColor: Colors.white.withValues(alpha: .07),
+                    color: accent,
+                  ),
                 ),
               ),
             ],
@@ -163,13 +171,11 @@ class PlayerBar extends StatelessWidget {
                       onPressed: () => app.library.toggleLike(t.id),
                       tooltip: 'Любимый трек',
                       icon: Icon(
-                        app.library.liked.contains(t.id)
+                        app.library.isTrackLiked(t.id)
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
                         size: 18,
-                        color: app.library.liked.contains(t.id)
-                            ? accent
-                            : muted,
+                        color: app.library.isTrackLiked(t.id) ? accent : muted,
                       ),
                     ),
                 ],
@@ -276,7 +282,7 @@ class _Transport extends StatelessWidget {
         ),
       ),
       IconButton(
-        onPressed: p.queue.isEmpty ? null : p.previous,
+        onPressed: p.hasQueue ? p.previous : null,
         tooltip: 'Предыдущий трек',
         icon: Icon(Icons.skip_previous_rounded, size: large ? 32 : 25),
       ),
@@ -315,7 +321,7 @@ class _Transport extends StatelessWidget {
       ),
       const SizedBox(width: 8),
       IconButton(
-        onPressed: p.queue.isEmpty ? null : p.next,
+        onPressed: p.hasQueue ? p.next : null,
         tooltip: 'Следующий трек',
         icon: Icon(Icons.skip_next_rounded, size: large ? 32 : 25),
       ),
@@ -348,7 +354,12 @@ class _SeekBar extends StatefulWidget {
 class _SeekBarState extends State<_SeekBar> {
   double? drag;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.player,
+    builder: (context, _) => _timeline(context),
+  );
+
+  Widget _timeline(BuildContext context) {
     final p = widget.player;
     final max = p.duration.inMilliseconds.toDouble();
     final value = drag ?? p.position.inMilliseconds.toDouble().clamp(0, max);
@@ -417,7 +428,7 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
       initialIndex: widget.initialTab.clamp(0, count - 1).toInt(),
       vsync: this,
     );
-    widget.app.playback.addListener(_refresh);
+    widget.app.playback.controlsState.addListener(_refresh);
     widget.app.library.addListener(_refresh);
     widget.app.addListener(_refresh);
   }
@@ -440,7 +451,7 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
 
   @override
   void dispose() {
-    widget.app.playback.removeListener(_refresh);
+    widget.app.playback.controlsState.removeListener(_refresh);
     widget.app.library.removeListener(_refresh);
     widget.app.removeListener(_refresh);
     _tabs.dispose();
@@ -559,7 +570,7 @@ class _NowPlaying extends StatelessWidget {
                         IconButton(
                           onPressed: () => app.library.toggleLike(t.id),
                           icon: Icon(
-                            app.library.liked.contains(t.id)
+                            app.library.isTrackLiked(t.id)
                                 ? Icons.favorite_rounded
                                 : Icons.favorite_border_rounded,
                             color: accent,
@@ -678,6 +689,20 @@ class _Queue extends StatelessWidget {
           )
         : ReorderableListView.builder(
             key: const Key('playback-queue'),
+            header: SwitchListTile.adaptive(
+              key: const ValueKey('queue-radio-autoplay'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Радио после плейлиста',
+                style: TextStyle(fontSize: 13),
+              ),
+              subtitle: Text(
+                p.radioStatus,
+                style: const TextStyle(color: muted, fontSize: 11),
+              ),
+              value: p.radioEnabled,
+              onChanged: (value) => unawaited(p.setRadioEnabled(value)),
+            ),
             padding: const EdgeInsets.all(18),
             buildDefaultDragHandles: false,
             onReorderItem: (from, to) => unawaited(p.moveQueue(from, to)),
@@ -728,6 +753,14 @@ class _Queue extends StatelessWidget {
                                         fontSize: 11,
                                       ),
                                     ),
+                                    if (p.isRadioEntry(i))
+                                      const Text(
+                                        'Радио после плейлиста',
+                                        style: TextStyle(
+                                          color: accent,
+                                          fontSize: 10,
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),

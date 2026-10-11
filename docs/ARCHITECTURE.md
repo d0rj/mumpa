@@ -1,5 +1,56 @@
 # Mumpa architecture
 
+## Unchanged behavior optimizations — 1.2.10
+
+LibraryRepository publishes immutable revision views through `LibraryViews`.
+Favorites, playlists, settings and recent IDs reuse snapshots between mutations;
+track replacement invalidates the shared album groups and ID map. The selected
+album caches its source snapshot, exact selected file set and resolved metadata
+key. Recent albums resolve through the same album index. Local library/favorite
+search keeps only the latest result per section, keyed by all input snapshots,
+query and filter. Library mutations invalidate these views before publication
+or queued persistence. Saved schemas, favorite order and queue context stay the
+same; no new persistence delay or search debounce is introduced.
+
+PlaybackController publishes `controlsState` separately from timeline updates.
+Backend position/duration ticks still notify timeline and existing subscribers.
+PlayerBar and the now-playing sheet rebuild controls/queue only for an actual
+control change or controller action; seek bars and compact progress subscribe
+directly to the timeline. Queue enablement uses a constant-time `hasQueue`
+instead of materializing the entire queue. Volume, pause, buffering, queue edits,
+lyrics, metadata and radio status still refresh their existing controls.
+
+UI pages are separated by screen; artwork and track-list widgets, navigation
+snapshots, audio backend/system controls and audio metadata readers have focused
+files. Dart `part` preserves existing public imports and private implementation
+boundaries. File splitting has no extra runtime service, asynchronous hop or
+deferred initialization. The stateful application coordinator remains together
+where operations share cancellation and navigation state.
+
+The Windows FlareSolverr runtime omits only Chromium's standalone
+`interactive_ui_tests.exe` test executable. The preparation script verifies the
+pinned upstream ZIP and copies all other local compressed records verbatim,
+updating only central directory offsets/counts. Installation pins the derived
+runtime SHA-256. Browser, libraries, licenses and matching source packages remain
+included; no first-use runtime download is substituted for the bundled helper.
+
+## Playlist radio — 1.2.9
+
+`RadioRepository` combines existing library metadata, MusicBrainz/ListenBrainz,
+and the configured Torznab or direct RuTracker source. Discovery is bounded to
+three artist searches/two releases each, uses the shared metainfo cache, and
+retains actual engine file IDs and recoverable source links. Cached normalized
+titles/artists are prepared alongside local search metadata in its isolate.
+
+`PlaylistRadio` owns six preflighted candidates, a cancellation token for each
+fill/probe, duplicate exclusions and unavailable-swarm cooldowns. It does not
+open an audio decoder. `PlaybackController` starts preparation near queue end,
+appends a chosen radio occurrence without modifying the playlist, retries failed
+radio playback, and invalidates pending continuation on transport changes.
+Outstanding decoder opens finish before a replacement queue opens its decoder;
+cancelled loads cannot play. Queue radio markers and the opt-in setting persist,
+while restoration stays paused. Details: `docs/PLAYLIST_RADIO.md`.
+
 ## Favorite addition order — 1.2.7
 
 LibraryRepository owns newest-first favorite views. The existing insertion-ordered

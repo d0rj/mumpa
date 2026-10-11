@@ -1,9 +1,11 @@
 import 'models.dart';
 
+final _musicNameSeparators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
+
 String normalizeMusicName(String value) => value
     .toLowerCase()
     .replaceAll('ё', 'е')
-    .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
+    .replaceAll(_musicNameSeparators, ' ')
     .trim();
 
 String musicSearchPhrase(String value) => value

@@ -33,7 +33,7 @@ class MusicMetadataRepository {
   bool _requesting = false;
   DateTime? _lastRequest;
   bool _disposed = false;
-  static const _agent = 'Mumpa/1.2.2 (https://github.com/d0rj/mumpa)';
+  static const _agent = 'Mumpa/1.2.8 (https://github.com/d0rj/mumpa)';
 
   void _checkGeneration(int generation) {
     if (_disposed || generation != cache.generation) {
@@ -233,6 +233,14 @@ class MusicMetadataRepository {
     // Do not silently attach a different similarly named band.
     if (candidate == null) return null;
     final id = candidate['id'] as String;
+    return artistById(id, operation: operation);
+  }
+
+  Future<MusicArtist> artistById(
+    String id, {
+    SourceOperation? operation,
+  }) async {
+    final generation = cache.generation;
     final details = await _api(
       'artist/$id',
       {'inc': 'aliases'},

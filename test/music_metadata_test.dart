@@ -140,7 +140,14 @@ void main() {
       var requests = 0;
       final client = MockClient((request) async {
         requests++;
-        expect(request.headers['user-agent'], contains('Mumpa/1.2.2'));
+        expect(
+          request.headers['user-agent'],
+          matches(r'^Mumpa/\d+\.\d+\.\d+ '),
+        );
+        expect(
+          request.headers['user-agent'],
+          contains('https://github.com/d0rj/mumpa'),
+        );
         final path = request.url.path;
         final Map<String, Object> data;
         if (path.endsWith('/artist')) {

@@ -1,4 +1,156 @@
-# Mumpa verification — 2026-10-10
+# Mumpa verification — 2026-10-11
+
+## 1.2.10 performance, file organization and Windows package size
+
+- **351 unit/widget tests pass**, two opt-in live checks remain skipped.
+  Analyzer and Dart formatting pass. New checks preserve timeline updates while
+  retaining the existing player artwork widget, and verify volume/pause updates
+  at phone and desktop widths. Browsing checks cover cache invalidation after
+  queries, favorites, playlist membership, metadata replacement and removal.
+  Existing navigation, favorite chronology, queue/repeat/shuffle, radio,
+  persistence, downloads and artwork regressions pass. Logs:
+  `test-output/flutter-tests-1.2.10.log`, `analyze-1.2.10.log`.
+- On the same 10,000-track synthetic fixture, 100 warmed getter reads measured:
+
+  | View | Before, ms | After, ms |
+  | --- | ---: | ---: |
+  | Selected album | 960.845 | 0.042 |
+  | Recent albums | 974.494 | 0.673 |
+  | Library section results | 97.575 | 0.090 |
+  | Favorite section results | 66.838 | 0.041 |
+
+  These are diagnostic Dart test timings for repeated unchanged views, not
+  cold startup, network latency or a promised frame rate. Evidence:
+  `test-output/browsing-before.log`, `flutter-tests-1.2.10.log`.
+- Native **Windows profile** search uses a temporary copy of the current real
+  library plus one fixture track: **9,502 tracks**. Eleven edits plus their next
+  frame measure **21.5–56.4 ms**. Ten position updates perform 60 ID lookups and
+  do not rebuild visible track rows. Native **libmpv** separately verifies natural
+  track completion, prepared radio continuation, unchanged playlist membership
+  and pause retained for four seconds, with zero external HTTP/engine calls.
+  The Flutter driver reports success; its existing integration-plugin warning
+  is retained in the logs. Evidence: `windows-search-1.2.10.log`,
+  `windows-radio-1.2.10.log`. The radio fixture still writes a legacy 1.2.9-named
+  report; the fresh 1.2.10 build/driver log identifies this run.
+- The prepared FlareSolverr ZIP is **228,891,351 bytes**, down from
+  **378,135,875 bytes**, by omitting only Chromium's standalone test executable.
+  All **410 retained entries** have identical decoded SHA-256, CRC, sizes,
+  timestamps and attributes. The raw compressed records are copied intact.
+  The reduced helper starts, returns HTTP 200 health, and its real bundled
+  Chromium returns HTTP 200 with the expected local HTML response in **17.6 s**.
+  Evidence: `flaresolverr-runtime-verification.json`,
+  `flaresolverr-runtime-smoke.json` and `.log` under `test-output`.
+  Upstream references: [FlareSolverr's pinned browser launcher](https://github.com/FlareSolverr/FlareSolverr/blob/93125d6ea6956906c8dfa29e169b2dc67d993dc3/src/utils.py#L217),
+  [Chromium test targets](https://chromium.googlesource.com/chromium/src/+/main/chrome/test/BUILD.gn).
+- The final local **Windows release 1.2.10+18** builds. Its ZIP is
+  **338,849,067 bytes**, compared with **487,979,054 bytes** for local 1.2.9:
+  **149,129,987 bytes / 30.56% smaller**. ZIP CRCs, executable version and bundled
+  runtime SHA-256 pass; the original large helper archive is absent. Evidence:
+  `windows-build-1.2.10.log`, `package-verification-1.2.10.json`.
+- Page/metadata file extraction preserves the original non-whitespace content;
+  public imports and private Dart library boundaries are preserved by `part`.
+  Architecture/source notices document the runtime transformation. **27 release
+  publisher tests**, Actionlint 1.7.12, Node syntax, PowerShell parsing and
+  `git diff --check` pass. This change makes no Android size-reduction claim:
+  the Windows helper was already platform-filtered out of APKs. Hosted Windows
+  and Android release checks/build/publication are started separately and are
+  deliberately not monitored to completion. Physical Android and public torrent
+  networks are not retested for this optimization increment.
+
+## 1.2.9 playlist radio
+
+- **348 unit/widget tests pass**, two opt-in live checks remain skipped.
+  `flutter analyze --no-pub lib test integration_test` reports no issues.
+  Radio tests cover early preparation, immediate playback of the first ready
+  candidate during a slow refill, failed swarm/decoder skipping, normalized
+  duplicates/recent plays, source cooldown, cache reuse, native file IDs,
+  recoverable direct-catalogue magnets, paused restoration and saved opt-in.
+  Cancellation includes pause/Stop/sleep/Repeat/disable/queue replacement both
+  during preparation and a pending decoder open. The settings and queue layouts
+  pass at 320 and 1200 px. Evidence: `test-output/flutter-tests-1.2.9.log`,
+  `analyze-1.2.9.log`.
+- An isolated **native Windows/libmpv** integration fixture naturally finishes
+  its original three-second WAV and starts a preflighted radio track. The
+  playlist remains unchanged, pause remains paused for four seconds, and no
+  external HTTP/torrent-engine request occurs. Evidence:
+  `test-output/windows-radio-1.2.9.log`, `native-radio-1.2.9.json`;
+  fixture: `integration_test/playlist_radio_test.dart`, opt-in define
+  `PLAYLIST_RADIO_TEST=true`. This verifies native local continuation; it does
+  not establish live discovery coverage, public peer reachability or audible
+  similarity. Network failures and Torznab/direct-catalogue discovery use
+  deterministic mocked tests. A physical Android device was not tested.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds target **1.2.9+17**.
+  Engine source/binaries are unchanged (`MatriX.145.2-mumpa4`); Android uses the
+  existing local development signing key. Release logs:
+  `test-output/windows-build-1.2.9.log`, `android-build-1.2.9.log`.
+  Windows versions and APK signatures/ABI version codes (2017/1017/4017),
+  ZIP/APK CRCs and manifest sizes/SHA-256 pass. Pinned engine inputs match the
+  lock; packaged Android engines match Gradle's stripped outputs and 1.2.8.
+  Package verification is recorded in `test-output/package-verification-1.2.9.json`.
+  Radio defaults off; existing library, queue, favorites and source settings
+  use their prior persistence formats plus optional radio fields.
+- The previous Windows app completed its normal save/service shutdown; the
+  packaged **1.2.9+17** app opened a responding Mumpa window. The real profile
+  retains **9,397 tracks / 11 playlists / 34 likes**. Track IDs, playlist and
+  favorite contents, queue order/selection and non-playback settings match
+  their prior hashes; autoplay remains off. Evidence: `test-output/launch-1.2.9.json`,
+  `profile-preservation-1.2.9.json`. Credentials were neither printed nor stored
+  in these evidence files. This is persistence/startup evidence, not a live
+  recommendation or public-swarm listening test.
+- Full behaviour and bounds: [PLAYLIST_RADIO.md](PLAYLIST_RADIO.md).
+
+## 1.2.8 search performance, artist pages and settings
+
+- **321 unit/widget tests pass**, two opt-in network checks are skipped.
+  `flutter analyze --no-pub lib test integration_test` reports no issues;
+  `lib`/`test` and the new native test/driver pass Dart formatting.
+  Coverage includes immutable search snapshots and ID indexes, concurrent
+  collection removal during index preparation, liked artist tracks first,
+  queue order, settings subpages/navigation/drafts, recommendation cancellation,
+  authoritative artist IDs, disk cache restart/expiry/clear and response limits.
+  Evidence: `test-output/flutter-tests-1.2.8.log`, `analyze-1.2.8.log`,
+  `format-1.2.8.log`.
+- A read-only benchmark of the existing **9,397-track** profile measured
+  three local-search scans at **1.36–1.42 seconds before / 7–19 ms after**
+  indexing. Ten thousand last-track ID lookups dropped from **1.17 seconds
+  to 6.7 ms**. Search normalization runs in an isolate before publication;
+  immutable metadata reuses weak indexes. Large profile JSON encoding also runs
+  outside the UI isolate, while atomic writes retain their serialized order.
+  Evidence: `test-output/search-performance-before.log`,
+  `live-metadata-performance-1.2.8.log`. These are operation timings, not frames.
+- A **native Windows profile-mode** integration check types each character of
+  `Ежемесячные` into the actual global field with the real metadata in an isolated
+  temporary library. Editing plus the next frame takes **21–39 ms**, including
+  the first character. The full list remains lazy; ten playback-position ticks
+  produce **zero row transport notifications** and no per-row ID resolution.
+  Evidence: `test-output/windows-search-responsiveness-1.2.8.log`.
+  Audio is FakeAudioBackend, external HTTP/engine calls are disabled. This does
+  not measure Jackett response time, torrent throughput or physical Android UI.
+- Artist and settings layouts are checked at **320/1200 px**. An artist page
+  starts with that artist's newest liked tracks, then albums/discography/tracks.
+  Opening, searching and playing the liked subset preserve the full subset queue.
+  Settings build only the selected category: sources, torrent engine, downloads,
+  metadata/cache, Windows player or about; Back and field drafts are preserved.
+- The no-key **ListenBrainz Labs** query for `Ежемесячные` returns HTTP 200 and
+  seven similar artists. A fresh repository reads the same result with HTTP
+  disabled. Recommendations load separately after MusicBrainz identification,
+  use the shared size-limited FIFO metadata cache (7 days; empty results 1 day)
+  and remain optional on error. Mocked tests verify stale-page rejection,
+  independent cancellation, request deduplication, size/schema limits and cache
+  clearing. Source comparison and API limitations:
+  `docs/SIMILAR_ARTISTS_RESEARCH.md`. Evidence:
+  `test-output/live-metadata-performance-1.2.8.log`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.8+16**. Windows ProductVersion/FileVersion match; all four unchanged
+  engine inputs match the pinned `MatriX.145.2-mumpa4` SHA-256 lock. Android
+  uses the existing local development key. Evidence:
+  `test-output/windows-build-1.2.8.log`, `android-build-1.2.8.log`.
+  All three APK signatures/ABI version codes are verified; packaged ZIP/APKs
+  pass CRC and manifest SHA-256/size checks. The prior 1.2.7 process exits via
+  the normal save/shutdown handshake; packaged 1.2.8 opens a responding window.
+  Evidence: `test-output/package-verification-1.2.8.json`, `launch-1.2.8.json`.
+  A physical Android device, native audio decoding and public torrents were
+  not retested for these UI/metadata changes.
 
 ## Automatic GitHub Release publication
 

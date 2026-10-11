@@ -1,12 +1,60 @@
+import 'dart:isolate';
+
 import 'models.dart';
 import 'music_metadata.dart';
+
+// Tracks are immutable. Weak keys let removed/replaced metadata leave memory
+// while unchanged tracks reuse their normalized search text across keystrokes.
+final _trackText = Expando<String>('track-search-text');
+final _artistNames = Expando<List<String>>('track-search-artists');
+final _trackTitles = Expando<String>('track-normalized-title');
+String _normalizedTrackText(Track track) =>
+    _trackText[track] ??= normalizeMusicName(_trackSearchText(track));
+
+Future<List<List<String>>> _prepareText(List<List<String>> values) =>
+    Isolate.run(
+      () => values
+          .map((row) => row.map(normalizeMusicName).toList())
+          .toList(growable: false),
+    );
+
+/// Prepare new metadata before publishing it without blocking text input.
+Future<void> prepareCollectionSearch(List<Track> tracks) async {
+  final missing = tracks.where((track) => _trackText[track] == null).toList();
+  if (missing.isEmpty) return;
+  final values = await _prepareText([
+    for (final track in missing)
+      [
+        _trackSearchText(track),
+        track.artist,
+        track.albumArtist ?? '',
+        track.title,
+      ],
+  ]);
+  for (var i = 0; i < missing.length; i++) {
+    _trackText[missing[i]] = values[i][0];
+    _artistNames[missing[i]] = values[i].sublist(1, 3);
+    _trackTitles[missing[i]] = values[i][3];
+  }
+}
+
+final _albumText = Expando<String>('album-search-text');
+
+String normalizedTrackTitle(Track track) =>
+    _trackTitles[track] ??= normalizeMusicName(track.title);
+
+List<String> normalizedTrackArtistNames(Track track) =>
+    _artistNames[track] ??= [
+      normalizeMusicName(track.artist),
+      normalizeMusicName(track.albumArtist ?? ''),
+    ];
 
 /// A local view filter. It does not change collection order or player context.
 List<Track> filterCollectionTracks(List<Track> tracks, String query) {
   final terms = _searchTerms(query);
   if (terms.isEmpty) return tracks;
   return tracks
-      .where((track) => _matchesTerms(_trackSearchText(track), terms))
+      .where((track) => terms.every(_normalizedTrackText(track).contains))
       .toList(growable: false);
 }
 
@@ -17,10 +65,10 @@ List<Album> filterAlbums(List<Album> albums, String query) {
   if (terms.isEmpty) return albums;
   return albums
       .where((album) {
-        final text =
-            '${album.title} ${album.artist} ${album.year ?? ''} '
-            '${album.tracks.map((track) => '${track.artist} ${track.albumArtist ?? ''} ${track.year ?? ''}').join(' ')}';
-        return _matchesTerms(text, terms);
+        final text = _albumText[album] ??=
+            '${normalizeMusicName('${album.title} ${album.artist} ${album.year ?? ''}')} '
+            '${album.tracks.map((track) => '${normalizedTrackArtistNames(track).join(' ')} ${track.year ?? ''}').join(' ')}';
+        return terms.every(text.contains);
       })
       .toList(growable: false);
 }
@@ -67,8 +115,7 @@ List<MusicPlaylist> filterPlaylists(
   final terms = _searchTerms(query);
   if (terms.isEmpty) return playlists;
   final indexed = {
-    for (final track in tracks)
-      track.id: normalizeMusicName(_trackSearchText(track)),
+    for (final track in tracks) track.id: _normalizedTrackText(track),
   };
   return playlists
       .where((playlist) {
@@ -87,9 +134,12 @@ List<String> filterArtistNames(List<Track> tracks, String query) {
   final terms = _searchTerms(query);
   final names = <String, String>{};
   for (final track in tracks) {
-    for (final name in [track.artist, track.albumArtist]) {
+    final normalizedNames = normalizedTrackArtistNames(track);
+    final displayNames = [track.artist, track.albumArtist];
+    for (var i = 0; i < displayNames.length; i++) {
+      final name = displayNames[i];
       if (name == null) continue;
-      final normalized = normalizeMusicName(name);
+      final normalized = normalizedNames[i];
       if (normalized.isEmpty || _unknownArtistNames.contains(normalized)) {
         continue;
       }

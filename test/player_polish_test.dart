@@ -160,6 +160,60 @@ void _viewport(WidgetTester tester, double width) {
 }
 
 void main() {
+  for (final compact in [false, true]) {
+    testWidgets(
+      'position updates timeline without rebuilding player artwork ($compact)',
+      (tester) async {
+        final f = await _fixture(tester);
+        _viewport(tester, compact ? 400 : 1200);
+        try {
+          final track = f.track('timeline', offline: true);
+          await tester.runAsync(() => f.library.upsert([track]));
+          await tester.runAsync(() => f.playback.playTracks([track]));
+          await tester.pumpWidget(
+            _host(PlayerBar(app: f.app, compact: compact)),
+          );
+          await tester.pump();
+          final artwork = tester.widget<TrackArtwork>(
+            find.byType(TrackArtwork),
+          );
+          var controlUpdates = 0;
+          void changed() => controlUpdates++;
+          f.playback.controlsState.addListener(changed);
+          await f.playback.backend.seek(const Duration(seconds: 12));
+          await tester.pump();
+          expect(
+            tester.widget<TrackArtwork>(find.byType(TrackArtwork)),
+            same(artwork),
+          );
+          expect(controlUpdates, 0);
+          if (compact) {
+            expect(
+              tester
+                  .widget<LinearProgressIndicator>(
+                    find.byType(LinearProgressIndicator),
+                  )
+                  .value,
+              .5,
+            );
+          } else {
+            expect(find.text('0:12'), findsOneWidget);
+          }
+          await f.playback.backend.setVolume(.3);
+          await tester.pump();
+          expect(controlUpdates, 1);
+          await f.playback.backend.pause();
+          await tester.pump();
+          expect(controlUpdates, 2);
+          expect(find.byTooltip('Слушать'), findsOneWidget);
+          f.playback.controlsState.removeListener(changed);
+        } finally {
+          await f.close(tester);
+        }
+      },
+    );
+  }
+
   for (final lyrics in <String?>[null, '', ' \n\t ', 'Real song words']) {
     testWidgets('desktop lyrics availability follows $lyrics', (tester) async {
       final f = await _fixture(tester);

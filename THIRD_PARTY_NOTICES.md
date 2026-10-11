@@ -64,7 +64,7 @@ Flutter (BSD-3-Clause): https://github.com/flutter/flutter. `audio_service`, `au
 
 ## Optional Windows challenge helper
 
-Windows bundles unmodified **FlareSolverr v3.5.2**, MIT License, Copyright (c) 2026 Diego Heras and contributors. Its complete license is retained in `assets/flaresolverr/LICENSE.txt`. Matching source revision: `93125d6ea6956906c8dfa29e169b2dc67d993dc3`; source archive is included in `artifacts/sources/FlareSolverr-v3.5.2-source.zip` for redistribution.
+Windows bundles **FlareSolverr v3.5.2**, MIT License, Copyright (c) 2026 Diego Heras and contributors. Its complete license is retained in `assets/flaresolverr/LICENSE.txt`. Matching source revision: `93125d6ea6956906c8dfa29e169b2dc67d993dc3`; source archive is included in `artifacts/sources/FlareSolverr-v3.5.2-source.zip` for redistribution. The runtime archive omits only Chromium's standalone `interactive_ui_tests.exe` test runner; all other ZIP entries retain their original compressed bytes and metadata. FlareSolverr and its browser/runtime files are unchanged. `tools/prune-flaresolverr.mjs` documents the transformation and verifies the upstream SHA-256; installation verifies the derived runtime SHA-256.
 
 - Source: https://github.com/FlareSolverr/FlareSolverr/tree/93125d6ea6956906c8dfa29e169b2dc67d993dc3
 - Release: https://github.com/FlareSolverr/FlareSolverr/releases/tag/v3.5.2

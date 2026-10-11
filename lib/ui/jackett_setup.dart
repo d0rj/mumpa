@@ -28,7 +28,7 @@ Future<void> setupJackett(
       apiKey: app.library.settings['indexerKey'] as String? ?? '',
     );
   } else if (!Platform.isWindows) {
-    app.navigate(AppPage.settings);
+    app.setSettingsSection('sources');
     app.reportMessage(
       'Укажи URL Torznab и API key Jackett на ПК или сервере. Для телефона нужен доступный сетевой адрес.',
     );
