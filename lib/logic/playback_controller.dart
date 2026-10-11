@@ -92,6 +92,29 @@ class NativeAudioBackend extends AudioBackend {
 }
 
 class PlaybackController extends ChangeNotifier {
+  /// Track rows need transport changes, not every position/volume tick.
+  final trackState =
+      ValueNotifier<({String? id, bool playing, bool buffering, bool stopped})>(
+        (id: null, playing: false, buffering: false, stopped: true),
+      );
+
+  @override
+  void notifyListeners() {
+    trackState.value = (
+      id: current?.id,
+      playing: playing,
+      buffering: buffering,
+      stopped: stopped,
+    );
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    trackState.dispose();
+    super.dispose();
+  }
+
   PlaybackController({
     required this.library,
     required this.torrents,

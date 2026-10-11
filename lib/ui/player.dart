@@ -163,13 +163,11 @@ class PlayerBar extends StatelessWidget {
                       onPressed: () => app.library.toggleLike(t.id),
                       tooltip: 'Любимый трек',
                       icon: Icon(
-                        app.library.liked.contains(t.id)
+                        app.library.isTrackLiked(t.id)
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
                         size: 18,
-                        color: app.library.liked.contains(t.id)
-                            ? accent
-                            : muted,
+                        color: app.library.isTrackLiked(t.id) ? accent : muted,
                       ),
                     ),
                 ],
@@ -559,7 +557,7 @@ class _NowPlaying extends StatelessWidget {
                         IconButton(
                           onPressed: () => app.library.toggleLike(t.id),
                           icon: Icon(
-                            app.library.liked.contains(t.id)
+                            app.library.isTrackLiked(t.id)
                                 ? Icons.favorite_rounded
                                 : Icons.favorite_border_rounded,
                             color: accent,

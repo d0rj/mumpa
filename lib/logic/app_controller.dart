@@ -13,6 +13,8 @@ import '../data/torrent_network.dart';
 import '../data/source_operation.dart';
 import '../data/media_cache.dart';
 import '../data/music_metadata_repository.dart';
+import '../data/similar_artists_repository.dart';
+import '../domain/similar_artist.dart';
 import '../data/torrent_artwork_repository.dart';
 import '../data/track_search_service.dart';
 import '../data/windows_player_service.dart';
@@ -59,11 +61,15 @@ class _NavigationEntry {
         playlistId: app.albumPlaylistId,
       ),
       playlistId = app.selectedPlaylist,
+      settingsSection = app.settingsSection,
       artist = (
         name: app.selectedArtist,
+        id: app._selectedArtistId,
         profile: app.artistProfile,
         error: app.artistError,
         pending: app.artistLoading,
+        similar: app.similarArtistResults,
+        similarPending: app.similarArtistsLoading,
       ),
       search = (
         query: app.query,
@@ -101,7 +107,16 @@ class _NavigationEntry {
   final ({String? id, String? anchor, Set<String>? tracks, String? playlistId})
   album;
   final String? playlistId;
-  final ({String? name, MusicArtist? profile, String? error, bool pending})
+  final String? settingsSection;
+  final ({
+    String? name,
+    String? id,
+    MusicArtist? profile,
+    String? error,
+    bool pending,
+    List<SimilarArtist> similar,
+    bool similarPending,
+  })
   artist;
   final ({
     String query,
@@ -149,6 +164,7 @@ class AppController extends ChangeNotifier {
     JackettService? jackett,
     FlareSolverrService? flaresolverr,
     MusicMetadataRepository? metadata,
+    SimilarArtistsRepository? similarArtists,
   }) : indexer = indexer ?? IndexerService(),
        catalog = catalog ?? RuTrackerService(),
        jackett = jackett ?? JackettService(library.root),
@@ -165,6 +181,12 @@ class AppController extends ChangeNotifier {
                    1024,
              ),
            ) {
+    this.similarArtists =
+        similarArtists ??
+        SimilarArtistsRepository(
+          cache: this.metadata.cache,
+          client: this.metadata.client,
+        );
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
@@ -179,6 +201,7 @@ class AppController extends ChangeNotifier {
   final JackettService jackett;
   final FlareSolverrService flaresolverr;
   final MusicMetadataRepository metadata;
+  late final SimilarArtistsRepository similarArtists;
   late final torrentArtwork = TorrentArtworkRepository(
     torrents: torrents,
     cache: metadata.cache,
@@ -306,6 +329,9 @@ class AppController extends ChangeNotifier {
       _flaresolverrStop ??= _shutdownStep('FlareSolverr', flaresolverr.stop);
 
   MusicArtist? artistProfile;
+  String? _selectedArtistId;
+  List<SimilarArtist> similarArtistResults = const [];
+  bool similarArtistsLoading = false;
   bool artistLoading = false,
       trackSearchMode = false,
       versionLoading = false,
@@ -332,18 +358,45 @@ class AppController extends ChangeNotifier {
   int _artistRequest = 0, _versionRequest = 0;
   SourceOperation? _versionOperation;
   SourceOperation? _artistOperation;
-  List<Track> get artistTracks => library.tracks
-      .where(
-        (t) =>
-            normalizeMusicName(t.artist) ==
-                normalizeMusicName(selectedArtist ?? '') ||
-            normalizeMusicName(t.albumArtist ?? '') ==
-                normalizeMusicName(selectedArtist ?? '') ||
-            artistProfile?.matches(t.artist) == true ||
-            artistProfile?.matches(t.albumArtist ?? '') == true,
-      )
-      .toList();
-  List<Album> get artistAlbums => groupAlbums(artistTracks);
+  List<Track>? _artistTracks, _artistTrackSource;
+  String? _artistTrackName;
+  MusicArtist? _artistTrackProfile;
+  List<Track> get artistTracks {
+    final source = library.tracks;
+    if (!identical(source, _artistTrackSource) ||
+        selectedArtist != _artistTrackName ||
+        !identical(artistProfile, _artistTrackProfile)) {
+      _artistTrackSource = source;
+      _artistTrackName = selectedArtist;
+      _artistTrackProfile = artistProfile;
+      final name = normalizeMusicName(selectedArtist ?? '');
+      final names = {
+        name,
+        if (artistProfile case final MusicArtist profile) ...[
+          normalizeMusicName(profile.name),
+          ...profile.aliases.map(normalizeMusicName),
+        ],
+      }..remove('');
+      _artistTracks = source
+          .where(
+            (track) => normalizedTrackArtistNames(track).any(names.contains),
+          )
+          .toList(growable: false);
+    }
+    return _artistTracks!;
+  }
+
+  List<Track>? _artistAlbumSource;
+  List<Album>? _artistAlbums;
+  List<Album> get artistAlbums {
+    final tracks = artistTracks;
+    if (!identical(tracks, _artistAlbumSource)) {
+      _artistAlbumSource = tracks;
+      _artistAlbums = groupAlbums(tracks);
+    }
+    return _artistAlbums!;
+  }
+
   List<Track> get artistSearchTracks =>
       filterCollectionTracks(artistTracks, localQuery(artistSearchScope));
   List<Album> get artistSearchAlbums =>
@@ -393,6 +446,8 @@ class AppController extends ChangeNotifier {
     _artistOperation?.cancel();
     _artistOperation = null;
     artistLoading = false;
+    similarArtistsLoading = false;
+    similarArtistResults = const [];
     _searchDebounce?.cancel();
     ++_searchId;
     _searchOperation?.cancel();
@@ -436,6 +491,17 @@ class AppController extends ChangeNotifier {
   int _catalogId = 0;
   bool get usesIndexer => library.settings['searchProvider'] != 'rutracker';
   AppPage page = AppPage.home;
+  String? settingsSection;
+
+  void setSettingsSection(String? value) {
+    if (page == AppPage.settings && settingsSection == value) return;
+    _navigate(
+      AppPage.settings,
+      newEntry: true,
+      select: () => settingsSection = value,
+    );
+  }
+
   LibraryFilter filter = LibraryFilter.all;
   LibrarySort sort = LibrarySort.added;
   final Map<String, String> _localQueries = {};
@@ -553,6 +619,7 @@ class AppController extends ChangeNotifier {
     _navigationEntryId,
   ];
   Map<String, String>? _artworkByAlbum;
+  List<Track>? _artworkTracks;
   String? artworkForTrack(Track track) {
     if (track.artPath != null) return track.artPath;
     _artworkByAlbum ??= {
@@ -563,7 +630,10 @@ class AppController extends ChangeNotifier {
   }
 
   void _changed() {
-    _artworkByAlbum = null;
+    if (!identical(_artworkTracks, library.tracks)) {
+      _artworkByAlbum = null;
+      _artworkTracks = library.tracks;
+    }
     notifyListeners();
   }
 
@@ -605,7 +675,20 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<Track>? _albumSource;
+  LibraryFilter? _albumFilter;
+  LibrarySort? _albumSort;
+  List<Album>? _albums;
   List<Album> get albums {
+    final tracks = library.tracks;
+    if (identical(tracks, _albumSource) &&
+        filter == _albumFilter &&
+        sort == _albumSort) {
+      return _albums!;
+    }
+    _albumSource = tracks;
+    _albumFilter = filter;
+    _albumSort = sort;
     var albums = groupAlbums(library.tracks);
     if (filter == LibraryFilter.offline) {
       albums = albums.where((a) => a.offline).toList();
@@ -624,11 +707,24 @@ class AppController extends ChangeNotifier {
       );
     }
     if (sort == LibrarySort.added) albums = albums.reversed.toList();
-    return albums;
+    return _albums = albums;
   }
 
-  List<Track> get searchTracks =>
-      query.trim().isEmpty ? [] : filterCollectionTracks(library.tracks, query);
+  List<Track>? _searchTracks;
+  List<Track>? _searchTrackSource;
+  String? _searchTrackQuery;
+  List<Track> get searchTracks {
+    final tracks = library.tracks;
+    if (!identical(tracks, _searchTrackSource) || query != _searchTrackQuery) {
+      _searchTrackSource = tracks;
+      _searchTrackQuery = query;
+      _searchTracks = query.trim().isEmpty
+          ? const []
+          : filterCollectionTracks(tracks, query);
+    }
+    return _searchTracks!;
+  }
+
   Album? get album {
     final currentKey = library.byId(_selectedAlbumAnchor ?? '')?.albumKey;
     final key = currentKey ?? selectedAlbum;
@@ -677,6 +773,9 @@ class AppController extends ChangeNotifier {
   }
 
   void _navigate(AppPage value, {bool newEntry = false, VoidCallback? select}) {
+    if (value == AppPage.settings && page != AppPage.settings) {
+      settingsSection = null;
+    }
     if (page != value || newEntry) {
       _history.add(_NavigationEntry(this, _navigationEntryId));
       if (_history.length > 64) _history.removeAt(0);
@@ -688,6 +787,7 @@ class AppController extends ChangeNotifier {
         _artistOperation?.cancel();
         _artistOperation = null;
         artistLoading = false;
+        similarArtistsLoading = false;
       }
       if (page == AppPage.search) {
         _cancelNavigationSearch();
@@ -699,7 +799,6 @@ class AppController extends ChangeNotifier {
     page = value;
     error = null;
     notifyListeners();
-    if (value == AppPage.settings) unawaited(refreshMetadataCache());
   }
 
   void back() {
@@ -717,8 +816,12 @@ class AppController extends ChangeNotifier {
     _selectedAlbumTrackIds = entry.album.tracks;
     albumPlaylistId = entry.album.playlistId;
     selectedPlaylist = entry.playlistId;
+    settingsSection = entry.settingsSection;
     selectedArtist = entry.artist.name;
+    _selectedArtistId = entry.artist.id;
     artistProfile = entry.artist.profile;
+    similarArtistResults = entry.artist.similar;
+    similarArtistsLoading = false;
     artistError = entry.artist.error;
     artistLoading = page == AppPage.artist && entry.artist.pending;
     query = entry.search.query;
@@ -750,7 +853,13 @@ class AppController extends ChangeNotifier {
     error = null;
     notifyListeners();
     if (artistLoading && selectedArtist != null) {
-      unawaited(_loadArtist(selectedArtist!));
+      unawaited(_loadArtist(selectedArtist!, artistId: _selectedArtistId));
+    } else if (page == AppPage.artist &&
+        entry.artist.similarPending &&
+        artistProfile != null) {
+      final operation = SourceOperation();
+      _artistOperation = operation;
+      unawaited(_loadSimilarArtists(artistProfile!, _artistRequest, operation));
     } else if (page == AppPage.search) {
       if (entry.search.versionsPending && selectedRecording != null) {
         unawaited(findRecordingVersions(selectedRecording!));
@@ -762,7 +871,6 @@ class AppController extends ChangeNotifier {
         unawaited(browseCatalog(catalogTrail.last, back: true));
       }
     }
-    if (page == AppPage.settings) unawaited(refreshMetadataCache());
   }
 
   void _cancelNavigationSearch() {
@@ -861,31 +969,40 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  void openArtist(String value) {
+  void openArtist(String value, {String? artistId}) {
     _navigate(
       AppPage.artist,
-      newEntry: page == AppPage.artist && selectedArtist != value,
+      newEntry:
+          page == AppPage.artist &&
+          (selectedArtist != value || _selectedArtistId != artistId),
       select: () {
         _artistOperation?.cancel();
         selectedArtist = value;
+        _selectedArtistId = artistId;
         artistProfile = null;
+        similarArtistResults = const [];
+        similarArtistsLoading = false;
         artistError = null;
         artistLoading = true;
       },
     );
-    unawaited(_loadArtist(value));
+    unawaited(_loadArtist(value, artistId: artistId));
   }
 
-  Future<void> _loadArtist(String name) async {
+  Future<void> _loadArtist(String name, {String? artistId}) async {
     final id = ++_artistRequest;
     final operation = SourceOperation();
     _artistOperation = operation;
     try {
-      final profile = await metadata.artist(name, operation: operation);
+      final profile = artistId == null
+          ? await metadata.artist(name, operation: operation)
+          : await metadata.artistById(artistId, operation: operation);
       if (_disposed || id != _artistRequest) return;
       artistProfile = profile;
       if (profile == null) {
         artistError = 'Исполнитель пока не найден в MusicBrainz.';
+      } else {
+        unawaited(_loadSimilarArtists(profile, id, operation));
       }
     } catch (e) {
       if (!_disposed && id == _artistRequest) {
@@ -903,6 +1020,31 @@ class AppController extends ChangeNotifier {
 
   void searchAlbumMetadata(MusicReleaseGroup album) {
     openGlobalSearch('${album.artist} ${album.title}', tracks: false);
+  }
+
+  Future<void> _loadSimilarArtists(
+    MusicArtist artist,
+    int request,
+    SourceOperation operation,
+  ) async {
+    similarArtistsLoading = true;
+    if (!_disposed) notifyListeners();
+    try {
+      final results = await similarArtists.similarArtists(
+        artist.id,
+        operation: operation,
+      );
+      if (!_disposed && request == _artistRequest && !operation.cancelled) {
+        similarArtistResults = results;
+      }
+    } catch (_) {
+      // An optional recommendation source must never block the artist page.
+    } finally {
+      if (!_disposed && request == _artistRequest) {
+        similarArtistsLoading = false;
+        notifyListeners();
+      }
+    }
   }
 
   void setTrackSearchMode(bool enabled) {
@@ -1753,6 +1895,7 @@ class AppController extends ChangeNotifier {
     playback.removeListener(_onPlayback);
     _disposeStep('indexer client', indexer.dispose);
     _disposeStep('torrent artwork', torrentArtwork.dispose);
+    _disposeStep('artist recommendations', similarArtists.dispose);
     _disposeStep('metadata client', metadata.dispose);
     unawaited(_disposeCatalog());
     unawaited(_stopJackett());

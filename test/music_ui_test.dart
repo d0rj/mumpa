@@ -226,7 +226,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(app.artistTracks.map((t) => t.id), contains(id));
         expect(find.byKey(const ValueKey('artist-title')), findsOneWidget);
-        expect(find.text('Треки в твоей медиатеке'), findsOneWidget);
         await tester.scrollUntilVisible(
           find.byKey(const ValueKey('discography-group-id')),
           150,
@@ -237,6 +236,17 @@ void main() {
               )
               .first,
         );
+        await tester.scrollUntilVisible(
+          find.text('Треки в твоей медиатеке'),
+          150,
+          scrollable: find
+              .descendant(
+                of: find.byType(ContentPage),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        expect(find.text('Треки в твоей медиатеке'), findsOneWidget);
         expect(tester.takeException(), isNull);
         app.navigate(AppPage.liked);
         await tester.pumpAndSettle();

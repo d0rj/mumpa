@@ -10,11 +10,29 @@ import 'package:path/path.dart' as p;
 
 import '../domain/models.dart';
 import '../domain/torrent_album_layout.dart';
+import '../domain/collection_filter.dart';
+
+Future<String> _encodeLibrarySnapshot(Map<String, dynamic> snapshot) {
+  // Tiny profiles cost less to encode than starting and transferring an isolate.
+  if ((snapshot['tracks'] as List).length < 256) {
+    return Future.value(jsonEncode(snapshot));
+  }
+  return Isolate.run(() => jsonEncode(snapshot));
+}
 
 class LibraryRepository extends ChangeNotifier {
   LibraryRepository(this.root);
   final Directory root;
-  List<Track> _tracks = [];
+  List<Track> _trackItems = [];
+  List<Track>? _trackSnapshot;
+  Map<String, Track>? _trackIndex;
+  List<Track> get _tracks => _trackItems;
+  set _tracks(List<Track> value) {
+    _trackItems = value;
+    _trackSnapshot = null;
+    _trackIndex = null;
+  }
+
   List<MusicPlaylist> _playlists = [];
   // Insertion order is the order of favorite additions. Persist these oldest
   // first and expose views newest first, independently of library/tag order.
@@ -25,12 +43,13 @@ class LibraryRepository extends ChangeNotifier {
   Map<String, dynamic> _settings = {};
   Future<void> _writeTail = Future.value();
   String? loadWarning;
-  List<Track> get tracks => List.unmodifiable(_tracks);
+  List<Track> get tracks => _trackSnapshot ??= List.unmodifiable(_tracks);
   List<MusicPlaylist> get playlists => List.unmodifiable(_playlists);
   Set<String> get liked => Set.unmodifiable(_liked);
+  bool isTrackLiked(String id) => _liked.contains(id);
   Set<String> get likedPlaylists => Set.unmodifiable(_likedPlaylists);
   List<Track> get favoriteTracks {
-    final indexed = {for (final track in _tracks) track.id: track};
+    final indexed = _indexedTracks;
     return List.unmodifiable(
       _liked.toList().reversed.map((id) => indexed[id]).whereType<Track>(),
     );
@@ -53,7 +72,7 @@ class LibraryRepository extends ChangeNotifier {
   /// tags arrive or combine the same album from multiple torrent releases.
   List<Album> get favoriteAlbums {
     if (_likedAlbums.isEmpty) return const [];
-    final indexed = {for (final track in _tracks) track.id: track};
+    final indexed = _indexedTracks;
     return List.unmodifiable(
       _likedAlbums.reversed.expand(
         (ids) => groupAlbums(ids.map((id) => indexed[id]).whereType<Track>()),
@@ -69,7 +88,9 @@ class LibraryRepository extends ChangeNotifier {
   List<String> get recent => List.unmodifiable(_recent);
   Map<String, dynamic> get settings => Map.unmodifiable(_settings);
   Directory get downloads => Directory(p.join(root.path, 'downloads'));
-  Track? byId(String id) => _tracks.where((t) => t.id == id).firstOrNull;
+  Map<String, Track> get _indexedTracks =>
+      _trackIndex ??= {for (final track in _tracks) track.id: track};
+  Track? byId(String id) => _indexedTracks[id];
 
   Future<void> load() async {
     await root.create(recursive: true);
@@ -124,6 +145,7 @@ class LibraryRepository extends ChangeNotifier {
     if (await _upgradeTorrentLayouts()) {
       await _save();
     }
+    await prepareCollectionSearch(tracks);
     notifyListeners();
   }
 
@@ -207,17 +229,18 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   Future<void> _save() {
-    final contents = jsonEncode({
+    final snapshot = <String, dynamic>{
       'version': 1,
       'tracks': _tracks.map((t) => t.toJson()).toList(),
       'playlists': _playlists.map((t) => t.toJson()).toList(),
       'liked': _liked.toList(),
       'likedPlaylists': _likedPlaylists.toList(),
       'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
-      'recent': _recent,
+      'recent': List<String>.of(_recent),
       'settings': _settings,
-    });
+    };
     final next = _writeTail.catchError((Object _) {}).then((_) async {
+      final contents = await _encodeLibrarySnapshot(snapshot);
       final target = File(p.join(root.path, 'library.json'));
       final tmp = File('${target.path}.tmp');
       await tmp.writeAsString(contents, flush: true);
@@ -252,13 +275,14 @@ class LibraryRepository extends ChangeNotifier {
           : item;
     }
     _tracks = _propagateTorrentAlbumMetadata(indexed.values);
+    await prepareCollectionSearch(this.tracks);
     notifyListeners();
     await _save();
   }
 
   Future<void> removeTracks(Iterable<String> ids) async {
     final removed = ids.toSet();
-    _tracks.removeWhere((t) => removed.contains(t.id));
+    _tracks = _tracks.where((t) => !removed.contains(t.id)).toList();
     _liked.removeAll(removed);
     for (final ids in _likedAlbums) {
       ids.removeAll(removed);
@@ -364,6 +388,7 @@ class LibraryRepository extends ChangeNotifier {
       );
       _playlists.add(playlist);
     }
+    await prepareCollectionSearch(this.tracks);
     notifyListeners();
     await _save();
     return playlist;

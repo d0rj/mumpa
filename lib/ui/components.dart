@@ -770,7 +770,7 @@ class TrackList extends SliverContent {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([
-      app.playback,
+      app.playback.trackState,
       app.library,
       app.downloads,
       app,
@@ -907,16 +907,16 @@ class TrackList extends SliverContent {
                   ),
                   IconButton(
                     onPressed: () => app.library.toggleLike(t.id),
-                    tooltip: app.library.liked.contains(t.id)
+                    tooltip: app.library.isTrackLiked(t.id)
                         ? 'Убрать из любимого'
                         : 'В любимое',
                     visualDensity: VisualDensity.compact,
                     icon: Icon(
-                      app.library.liked.contains(t.id)
+                      app.library.isTrackLiked(t.id)
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
                       size: 19,
-                      color: app.library.liked.contains(t.id) ? accent : muted,
+                      color: app.library.isTrackLiked(t.id) ? accent : muted,
                     ),
                   ),
                   if (c.maxWidth > 450)

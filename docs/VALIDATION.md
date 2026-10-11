@@ -1,4 +1,57 @@
-# Mumpa verification — 2026-10-10
+# Mumpa verification — 2026-10-11
+
+## 1.2.8 search performance, artist pages and settings
+
+- **321 unit/widget tests pass**, two opt-in network checks are skipped.
+  `flutter analyze --no-pub lib test integration_test` reports no issues;
+  `lib`/`test` and the new native test/driver pass Dart formatting.
+  Coverage includes immutable search snapshots and ID indexes, concurrent
+  collection removal during index preparation, liked artist tracks first,
+  queue order, settings subpages/navigation/drafts, recommendation cancellation,
+  authoritative artist IDs, disk cache restart/expiry/clear and response limits.
+  Evidence: `test-output/flutter-tests-1.2.8.log`, `analyze-1.2.8.log`,
+  `format-1.2.8.log`.
+- A read-only benchmark of the existing **9,397-track** profile measured
+  three local-search scans at **1.36–1.42 seconds before / 7–19 ms after**
+  indexing. Ten thousand last-track ID lookups dropped from **1.17 seconds
+  to 6.7 ms**. Search normalization runs in an isolate before publication;
+  immutable metadata reuses weak indexes. Large profile JSON encoding also runs
+  outside the UI isolate, while atomic writes retain their serialized order.
+  Evidence: `test-output/search-performance-before.log`,
+  `live-metadata-performance-1.2.8.log`. These are operation timings, not frames.
+- A **native Windows profile-mode** integration check types each character of
+  `Ежемесячные` into the actual global field with the real metadata in an isolated
+  temporary library. Editing plus the next frame takes **21–39 ms**, including
+  the first character. The full list remains lazy; ten playback-position ticks
+  produce **zero row transport notifications** and no per-row ID resolution.
+  Evidence: `test-output/windows-search-responsiveness-1.2.8.log`.
+  Audio is FakeAudioBackend, external HTTP/engine calls are disabled. This does
+  not measure Jackett response time, torrent throughput or physical Android UI.
+- Artist and settings layouts are checked at **320/1200 px**. An artist page
+  starts with that artist's newest liked tracks, then albums/discography/tracks.
+  Opening, searching and playing the liked subset preserve the full subset queue.
+  Settings build only the selected category: sources, torrent engine, downloads,
+  metadata/cache, Windows player or about; Back and field drafts are preserved.
+- The no-key **ListenBrainz Labs** query for `Ежемесячные` returns HTTP 200 and
+  seven similar artists. A fresh repository reads the same result with HTTP
+  disabled. Recommendations load separately after MusicBrainz identification,
+  use the shared size-limited FIFO metadata cache (7 days; empty results 1 day)
+  and remain optional on error. Mocked tests verify stale-page rejection,
+  independent cancellation, request deduplication, size/schema limits and cache
+  clearing. Source comparison and API limitations:
+  `docs/SIMILAR_ARTISTS_RESEARCH.md`. Evidence:
+  `test-output/live-metadata-performance-1.2.8.log`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds succeed for
+  **1.2.8+16**. Windows ProductVersion/FileVersion match; all four unchanged
+  engine inputs match the pinned `MatriX.145.2-mumpa4` SHA-256 lock. Android
+  uses the existing local development key. Evidence:
+  `test-output/windows-build-1.2.8.log`, `android-build-1.2.8.log`.
+  All three APK signatures/ABI version codes are verified; packaged ZIP/APKs
+  pass CRC and manifest SHA-256/size checks. The prior 1.2.7 process exits via
+  the normal save/shutdown handshake; packaged 1.2.8 opens a responding window.
+  Evidence: `test-output/package-verification-1.2.8.json`, `launch-1.2.8.json`.
+  A physical Android device, native audio decoding and public torrents were
+  not retested for these UI/metadata changes.
 
 ## Automatic GitHub Release publication
 
