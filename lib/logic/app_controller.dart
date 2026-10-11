@@ -22,8 +22,13 @@ import '../data/windows_player_service.dart';
 import '../domain/models.dart';
 import '../domain/music_metadata.dart';
 import '../domain/collection_filter.dart';
+import '../domain/local_music_results.dart';
 import 'corrected_music_search.dart';
 import 'playback_controller.dart';
+
+export '../domain/local_music_results.dart' show LocalMusicResults;
+
+part 'app_navigation.dart';
 
 enum AppPage {
   home,
@@ -37,121 +42,9 @@ enum AppPage {
   artist,
 }
 
-typedef LocalMusicResults = ({
-  List<String> artists,
-  List<Album> albums,
-  List<MusicPlaylist> playlists,
-  List<Track> tracks,
-});
-
 enum LibraryFilter { all, offline, torrents }
 
 enum LibrarySort { added, name, artist }
-
-/// An in-memory route snapshot. Library objects are resolved by stable IDs on
-/// return, so tag enrichment does not replace an album with a stale copy.
-class _NavigationEntry {
-  _NavigationEntry(AppController app, this.id)
-    : page = app.page,
-      album = (
-        id: app.selectedAlbum,
-        anchor: app._selectedAlbumAnchor,
-        tracks: app._selectedAlbumTrackIds == null
-            ? null
-            : Set<String>.unmodifiable(app._selectedAlbumTrackIds!),
-        playlistId: app.albumPlaylistId,
-      ),
-      playlistId = app.selectedPlaylist,
-      settingsSection = app.settingsSection,
-      artist = (
-        name: app.selectedArtist,
-        id: app._selectedArtistId,
-        profile: app.artistProfile,
-        error: app.artistError,
-        pending: app.artistLoading,
-        similar: app.similarArtistResults,
-        similarPending: app.similarArtistsLoading,
-      ),
-      search = (
-        query: app.query,
-        tracks: app.trackSearchMode,
-        recordings: List<MusicRecording>.unmodifiable(app.recordingResults),
-        recording: app.selectedRecording,
-        variants: List<TrackVariant>.unmodifiable(app.trackVariants),
-        format: app.versionFormat,
-        metadataError: app.metadataError,
-        versionError: app.versionError,
-        status: app.versionStatus,
-        pending: app.searching,
-        versionsPending: app.versionLoading,
-        completed: app.searchCompleted,
-        releases: List<SearchRelease>.unmodifiable(app.releases),
-        correction: app.correctedSearchQuery,
-        correctionCandidate: app.searchCorrectionCandidate,
-        suggestions: List<String>.unmodifiable(app.searchCorrectionSuggestions),
-      ),
-      catalog = (
-        sections: List<CatalogSection>.unmodifiable(app.catalogSections),
-        trail: List<CatalogSection>.unmodifiable(app.catalogTrail),
-        releases: List<SearchRelease>.unmodifiable(app.catalogReleases),
-        next: app.catalogNextPath,
-        error: app.catalogError,
-        connection: app.catalogNeedsConnection,
-        login: app.catalogNeedsLogin,
-        pending: app.catalogLoading,
-      ),
-      filter = app.filter,
-      sort = app.sort;
-
-  final int id;
-  final AppPage page;
-  final ({String? id, String? anchor, Set<String>? tracks, String? playlistId})
-  album;
-  final String? playlistId;
-  final String? settingsSection;
-  final ({
-    String? name,
-    String? id,
-    MusicArtist? profile,
-    String? error,
-    bool pending,
-    List<SimilarArtist> similar,
-    bool similarPending,
-  })
-  artist;
-  final ({
-    String query,
-    bool tracks,
-    List<MusicRecording> recordings,
-    MusicRecording? recording,
-    List<TrackVariant> variants,
-    String? format,
-    String? metadataError,
-    String? versionError,
-    String? status,
-    bool pending,
-    bool versionsPending,
-    bool completed,
-    List<SearchRelease> releases,
-    String? correction,
-    String? correctionCandidate,
-    List<String> suggestions,
-  })
-  search;
-  final ({
-    List<CatalogSection> sections,
-    List<CatalogSection> trail,
-    List<SearchRelease> releases,
-    String? next,
-    String? error,
-    bool connection,
-    bool login,
-    bool pending,
-  })
-  catalog;
-  final LibraryFilter filter;
-  final LibrarySort sort;
-}
 
 class AppController extends ChangeNotifier {
   AppController({
@@ -534,51 +427,47 @@ class AppController extends ChangeNotifier {
   String get artistSearchScope =>
       'artist:${normalizeMusicName(selectedArtist ?? '')}';
 
-  LocalMusicResults _localResults(
-    String scope, {
-    required List<Track> tracks,
-    required List<Album> albums,
-    required List<MusicPlaylist> playlists,
-  }) {
-    final query = localQuery(scope);
-    return (
-      artists: filterArtistNames(tracks, query),
-      albums: filterAlbums(albums, query),
-      playlists: filterPlaylists(playlists, query, tracks),
-      tracks: filterCollectionTracks(tracks, query),
+  final _libraryResults = LocalMusicResultsCache();
+  final _likedResults = LocalMusicResultsCache();
+
+  LocalMusicResults get librarySearchResults {
+    final source = library.tracks;
+    final grouped = albums;
+    final playlists = library.playlists;
+    final query = localQuery('library');
+    return _libraryResults.resolve(
+      key: (source, grouped, playlists, filter, query),
+      query: query,
+      tracks: () => source
+          .where(
+            (track) => switch (filter) {
+              LibraryFilter.offline => track.offline,
+              LibraryFilter.torrents => track.source == TrackSource.torrent,
+              _ => true,
+            },
+          )
+          .toList(),
+      albums: grouped,
+      playlists: playlists,
     );
   }
-
-  LocalMusicResults get librarySearchResults => _localResults(
-    'library',
-    tracks: library.tracks
-        .where(
-          (track) => switch (filter) {
-            LibraryFilter.offline => track.offline,
-            LibraryFilter.torrents => track.source == TrackSource.torrent,
-            _ => true,
-          },
-        )
-        .toList(),
-    albums: albums,
-    playlists: library.playlists,
-  );
 
   LocalMusicResults get likedSearchResults {
     final albums = library.favoriteAlbums;
     final playlists = library.favoritePlaylists;
-    final indexed = {for (final track in library.tracks) track.id: track};
-    final tracks = {
-      for (final track in likedTracks) track.id: track,
-      for (final album in albums)
-        for (final track in album.tracks) track.id: track,
-      for (final playlist in playlists)
-        for (final id in playlist.trackIds)
-          if (indexed[id] case final Track track) track.id: track,
-    }.values.toList();
-    return _localResults(
-      'liked',
-      tracks: tracks,
+    final liked = likedTracks;
+    final query = localQuery('liked');
+    return _likedResults.resolve(
+      key: (library.tracks, albums, playlists, liked, query),
+      query: query,
+      tracks: () => {
+        for (final track in liked) track.id: track,
+        for (final album in albums)
+          for (final track in album.tracks) track.id: track,
+        for (final playlist in playlists)
+          for (final id in playlist.trackIds)
+            if (library.byId(id) case final Track track) track.id: track,
+      }.values.toList(),
       albums: albums,
       playlists: playlists,
     );
@@ -702,7 +591,7 @@ class AppController extends ChangeNotifier {
     _albumSource = tracks;
     _albumFilter = filter;
     _albumSort = sort;
-    var albums = groupAlbums(library.tracks);
+    var albums = library.albums.toList();
     if (filter == LibraryFilter.offline) {
       albums = albums.where((a) => a.offline).toList();
     }
@@ -738,15 +627,29 @@ class AppController extends ChangeNotifier {
     return _searchTracks!;
   }
 
+  List<Track>? _selectedAlbumSource;
+  Set<String>? _selectedAlbumSelection;
+  String? _selectedAlbumResolvedKey;
+  Album? _selectedAlbumView;
   Album? get album {
     final currentKey = library.byId(_selectedAlbumAnchor ?? '')?.albumKey;
     final key = currentKey ?? selectedAlbum;
-    final tracks = _selectedAlbumTrackIds == null
-        ? library.tracks
-        : library.tracks.where(
-            (track) => _selectedAlbumTrackIds!.contains(track.id),
-          );
-    return groupAlbums(tracks).where((a) => a.id == key).firstOrNull;
+    final source = library.tracks;
+    if (!identical(source, _selectedAlbumSource) ||
+        !identical(_selectedAlbumTrackIds, _selectedAlbumSelection) ||
+        key != _selectedAlbumResolvedKey) {
+      _selectedAlbumSource = source;
+      _selectedAlbumSelection = _selectedAlbumTrackIds;
+      _selectedAlbumResolvedKey = key;
+      _selectedAlbumView = _selectedAlbumTrackIds == null
+          ? library.albumById(key ?? '')
+          : groupAlbums(
+              source.where(
+                (track) => _selectedAlbumTrackIds!.contains(track.id),
+              ),
+            ).where((a) => a.id == key).firstOrNull;
+    }
+    return _selectedAlbumView;
   }
 
   MusicPlaylist? get playlist =>
@@ -774,10 +677,9 @@ class AppController extends ChangeNotifier {
       library.recent.map(library.byId).whereType<Track>().toList();
   List<Album> get recentAlbums {
     final seen = <String>{};
-    final all = groupAlbums(library.tracks);
     return recentTracks
         .where((t) => seen.add(t.albumKey))
-        .map((t) => all.firstWhere((a) => a.id == t.albumKey))
+        .map((t) => library.albumById(t.albumKey)!)
         .toList();
   }
 

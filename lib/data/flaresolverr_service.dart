@@ -12,8 +12,8 @@ import 'package:path/path.dart' as p;
 
 const _version = '3.5.2';
 const _archiveHash =
-    '309abd7c821546325ae6c509b40d969c5e39034be2314d21b3f5e0517feda7a7';
-const _asset = 'assets/flaresolverr/flaresolverr_windows_x64.zip';
+    'de288f2d563764b648b3ce4ed5bc5fad873de49300f2991ba4f13d9a73b9bb6d';
+const _asset = 'assets/flaresolverr/flaresolverr_windows_x64_runtime.zip';
 const _criticalFiles = [
   'flaresolverr/flaresolverr.exe',
   'flaresolverr/_internal/python311.dll',
@@ -105,7 +105,7 @@ Future<String> _prepare(
   final input = InputFileStream(archivePath);
   try {
     // Decode file-backed streams and inflate directly into file streams. Neither
-    // the 378 MB ZIP nor Chromium's large DLL is copied onto the UI isolate.
+    // the runtime ZIP nor Chromium's large DLL is copied onto the UI isolate.
     final archive = ZipDecoder().decodeStream(input);
     for (final entry in archive) {
       final outputPath = p.normalize(p.join(staging.path, entry.name));

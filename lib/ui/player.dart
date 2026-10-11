@@ -13,7 +13,11 @@ class PlayerBar extends StatelessWidget {
   final bool compact;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([app.playback, app.library, app]),
+    listenable: Listenable.merge([
+      app.playback.controlsState,
+      app.library,
+      app,
+    ]),
     builder: (context, _) {
       final p = app.playback;
       final t = p.current;
@@ -86,7 +90,7 @@ class PlayerBar extends StatelessWidget {
                               ),
                       ),
                       IconButton(
-                        onPressed: p.queue.isEmpty ? null : p.next,
+                        onPressed: p.hasQueue ? p.next : null,
                         tooltip: 'Следующий трек',
                         icon: const Icon(Icons.skip_next_rounded, size: 24),
                       ),
@@ -98,14 +102,18 @@ class PlayerBar extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   bottom: Radius.circular(10),
                 ),
-                child: LinearProgressIndicator(
-                  minHeight: 2,
-                  value: p.duration.inMilliseconds > 0
-                      ? (p.position.inMilliseconds / p.duration.inMilliseconds)
-                            .clamp(0, 1)
-                      : 0,
-                  backgroundColor: Colors.white.withValues(alpha: .07),
-                  color: accent,
+                child: ListenableBuilder(
+                  listenable: p,
+                  builder: (_, _) => LinearProgressIndicator(
+                    minHeight: 2,
+                    value: p.duration.inMilliseconds > 0
+                        ? (p.position.inMilliseconds /
+                                  p.duration.inMilliseconds)
+                              .clamp(0, 1)
+                        : 0,
+                    backgroundColor: Colors.white.withValues(alpha: .07),
+                    color: accent,
+                  ),
                 ),
               ),
             ],
@@ -274,7 +282,7 @@ class _Transport extends StatelessWidget {
         ),
       ),
       IconButton(
-        onPressed: p.queue.isEmpty ? null : p.previous,
+        onPressed: p.hasQueue ? p.previous : null,
         tooltip: 'Предыдущий трек',
         icon: Icon(Icons.skip_previous_rounded, size: large ? 32 : 25),
       ),
@@ -313,7 +321,7 @@ class _Transport extends StatelessWidget {
       ),
       const SizedBox(width: 8),
       IconButton(
-        onPressed: p.queue.isEmpty ? null : p.next,
+        onPressed: p.hasQueue ? p.next : null,
         tooltip: 'Следующий трек',
         icon: Icon(Icons.skip_next_rounded, size: large ? 32 : 25),
       ),
@@ -346,7 +354,12 @@ class _SeekBar extends StatefulWidget {
 class _SeekBarState extends State<_SeekBar> {
   double? drag;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.player,
+    builder: (context, _) => _timeline(context),
+  );
+
+  Widget _timeline(BuildContext context) {
     final p = widget.player;
     final max = p.duration.inMilliseconds.toDouble();
     final value = drag ?? p.position.inMilliseconds.toDouble().clamp(0, max);
@@ -415,7 +428,7 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
       initialIndex: widget.initialTab.clamp(0, count - 1).toInt(),
       vsync: this,
     );
-    widget.app.playback.addListener(_refresh);
+    widget.app.playback.controlsState.addListener(_refresh);
     widget.app.library.addListener(_refresh);
     widget.app.addListener(_refresh);
   }
@@ -438,7 +451,7 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
 
   @override
   void dispose() {
-    widget.app.playback.removeListener(_refresh);
+    widget.app.playback.controlsState.removeListener(_refresh);
     widget.app.library.removeListener(_refresh);
     widget.app.removeListener(_refresh);
     _tabs.dispose();

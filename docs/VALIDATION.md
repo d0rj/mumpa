@@ -1,5 +1,62 @@
 # Mumpa verification — 2026-10-11
 
+## 1.2.10 performance, file organization and Windows package size
+
+- **351 unit/widget tests pass**, two opt-in live checks remain skipped.
+  Analyzer and Dart formatting pass. New checks preserve timeline updates while
+  retaining the existing player artwork widget, and verify volume/pause updates
+  at phone and desktop widths. Browsing checks cover cache invalidation after
+  queries, favorites, playlist membership, metadata replacement and removal.
+  Existing navigation, favorite chronology, queue/repeat/shuffle, radio,
+  persistence, downloads and artwork regressions pass. Logs:
+  `test-output/flutter-tests-1.2.10.log`, `analyze-1.2.10.log`.
+- On the same 10,000-track synthetic fixture, 100 warmed getter reads measured:
+
+  | View | Before, ms | After, ms |
+  | --- | ---: | ---: |
+  | Selected album | 960.845 | 0.042 |
+  | Recent albums | 974.494 | 0.673 |
+  | Library section results | 97.575 | 0.090 |
+  | Favorite section results | 66.838 | 0.041 |
+
+  These are diagnostic Dart test timings for repeated unchanged views, not
+  cold startup, network latency or a promised frame rate. Evidence:
+  `test-output/browsing-before.log`, `flutter-tests-1.2.10.log`.
+- Native **Windows profile** search uses a temporary copy of the current real
+  library plus one fixture track: **9,502 tracks**. Eleven edits plus their next
+  frame measure **21.5–56.4 ms**. Ten position updates perform 60 ID lookups and
+  do not rebuild visible track rows. Native **libmpv** separately verifies natural
+  track completion, prepared radio continuation, unchanged playlist membership
+  and pause retained for four seconds, with zero external HTTP/engine calls.
+  The Flutter driver reports success; its existing integration-plugin warning
+  is retained in the logs. Evidence: `windows-search-1.2.10.log`,
+  `windows-radio-1.2.10.log`. The radio fixture still writes a legacy 1.2.9-named
+  report; the fresh 1.2.10 build/driver log identifies this run.
+- The prepared FlareSolverr ZIP is **228,891,351 bytes**, down from
+  **378,135,875 bytes**, by omitting only Chromium's standalone test executable.
+  All **410 retained entries** have identical decoded SHA-256, CRC, sizes,
+  timestamps and attributes. The raw compressed records are copied intact.
+  The reduced helper starts, returns HTTP 200 health, and its real bundled
+  Chromium returns HTTP 200 with the expected local HTML response in **17.6 s**.
+  Evidence: `flaresolverr-runtime-verification.json`,
+  `flaresolverr-runtime-smoke.json` and `.log` under `test-output`.
+  Upstream references: [FlareSolverr's pinned browser launcher](https://github.com/FlareSolverr/FlareSolverr/blob/93125d6ea6956906c8dfa29e169b2dc67d993dc3/src/utils.py#L217),
+  [Chromium test targets](https://chromium.googlesource.com/chromium/src/+/main/chrome/test/BUILD.gn).
+- The final local **Windows release 1.2.10+18** builds. Its ZIP is
+  **338,849,067 bytes**, compared with **487,979,054 bytes** for local 1.2.9:
+  **149,129,987 bytes / 30.56% smaller**. ZIP CRCs, executable version and bundled
+  runtime SHA-256 pass; the original large helper archive is absent. Evidence:
+  `windows-build-1.2.10.log`, `package-verification-1.2.10.json`.
+- Page/metadata file extraction preserves the original non-whitespace content;
+  public imports and private Dart library boundaries are preserved by `part`.
+  Architecture/source notices document the runtime transformation. **27 release
+  publisher tests**, Actionlint 1.7.12, Node syntax, PowerShell parsing and
+  `git diff --check` pass. This change makes no Android size-reduction claim:
+  the Windows helper was already platform-filtered out of APKs. Hosted Windows
+  and Android release checks/build/publication are started separately and are
+  deliberately not monitored to completion. Physical Android and public torrent
+  networks are not retested for this optimization increment.
+
 ## 1.2.9 playlist radio
 
 - **348 unit/widget tests pass**, two opt-in live checks remain skipped.

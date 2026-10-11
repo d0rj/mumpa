@@ -38,6 +38,16 @@ function Get-VerifiedArchive {
 Get-VerifiedArchive `
     -Url "https://github.com/FlareSolverr/FlareSolverr/releases/download/v$flareVersion/flaresolverr_windows_x64.zip" `
     -Destination (Join-Path $assetDirectory 'flaresolverr_windows_x64.zip') -Hash $binaryHash
+$runtimePath = Join-Path $assetDirectory 'flaresolverr_windows_x64_runtime.zip'
+$runtimeHash = 'de288f2d563764b648b3ce4ed5bc5fad873de49300f2991ba4f13d9a73b9bb6d'
+if (!(Test-Path -LiteralPath $runtimePath) -or
+    (Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $runtimeHash) {
+    & node (Join-Path $PSScriptRoot 'prune-flaresolverr.mjs') (Join-Path $assetDirectory 'flaresolverr_windows_x64.zip') $runtimePath
+    if ($LASTEXITCODE -ne 0) { throw 'FlareSolverr runtime preparation failed' }
+}
+if ((Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $runtimeHash) {
+    throw 'FlareSolverr runtime checksum mismatch'
+}
 Get-VerifiedArchive `
     -Url "https://codeload.github.com/FlareSolverr/FlareSolverr/zip/$sourceRevision" `
     -Destination (Join-Path $sourceDirectoryPath "FlareSolverr-v$flareVersion-source.zip") -Hash $sourceHash

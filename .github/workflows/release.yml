@@ -50,6 +50,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: 1.27.1
@@ -76,7 +79,7 @@ jobs:
             assets/flaresolverr/*.zip
             artifacts/sources/Jackett-*-source.zip
             artifacts/sources/FlareSolverr-*-source.zip
-          key: helpers-windows-${{ hashFiles('tools/prepare-jackett.ps1', 'tools/prepare-flaresolverr.ps1') }}
+          key: helpers-windows-${{ hashFiles('tools/prepare-jackett.ps1', 'tools/prepare-flaresolverr.ps1', 'tools/prune-flaresolverr.mjs') }}
       - name: Install pinned Android SDK and select CI resource limits
         run: |
           $sdkManager = Join-Path $env:ANDROID_HOME 'cmdline-tools/latest/bin/sdkmanager.bat'
