@@ -25,7 +25,7 @@ def encode(value):
     if isinstance(value, list): return b'l' + b''.join(map(encode, value)) + b'e'
     return b'd' + b''.join(encode(k) + encode(value[k]) for k in sorted(value)) + b'e'
 
-audio = (ROOT / 'assets/demo/01 - First light.wav').read_bytes()
+audio = (ROOT / 'assets/demo/01 - First light.wav.bin').read_bytes()
 piece_size = 16384
 info = {'name': 'original.wav', 'length': len(audio), 'piece length': piece_size,
         'pieces': b''.join(hashlib.sha1(audio[n:n+piece_size]).digest() for n in range(0, len(audio), piece_size))}

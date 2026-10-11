@@ -22,12 +22,13 @@ export function prepareRelease(directory, expectedCommit, expectedRunId) {
   const required = [
     `Mumpa-${version}-windows-x64.zip`,
     ...['arm64', 'armv7', 'x86_64'].map((abi) => `Mumpa-${version}-android-${abi}.apk`),
+    `Mumpa-${version}-android-symbols.zip`,
     `sources/Mumpa-${version}-source.zip`,
     `sources/TorrServer-${build.engine}-source.zip`,
     `sources/TorrServer-${build.engine.replace(/-mumpa\d+$/, '')}-source.zip`,
   ];
   const manifest = parseJson(readFileSync(resolve(root, 'SHA256.json')));
-  if (!Array.isArray(manifest) || manifest.length !== 9) throw new Error('Expected nine packages in SHA256 manifest');
+  if (!Array.isArray(manifest) || manifest.length !== 10) throw new Error('Expected ten packages in SHA256 manifest');
   const seen = new Set();
   const files = manifest.map((entry) => {
     if (typeof entry.file !== 'string' ||

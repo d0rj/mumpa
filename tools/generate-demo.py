@@ -8,7 +8,8 @@ OUT = Path(__file__).resolve().parents[1] / "assets" / "demo"
 OUT.mkdir(parents=True, exist_ok=True)
 RATE = 22050
 for index, (name, root) in enumerate([("01 - First light.wav", 220), ("02 - Slow orbit.wav", 196), ("03 - After hours.wav", 174.614)]):
-    with wave.open(str(OUT / name), "wb") as audio:
+    # Keep the WAV payload intact; .bin avoids Android's WAV no-compress rule.
+    with wave.open(str(OUT / (name + ".bin")), "wb") as audio:
         audio.setnchannels(2)
         audio.setsampwidth(2)
         audio.setframerate(RATE)

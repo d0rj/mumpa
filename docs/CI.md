@@ -19,14 +19,23 @@ unit/widget-тесты с coverage на Windows и Ubuntu, а также Go-ре
 
 - Windows ZIP с приложением, помощниками и документацией;
 - три Android APK;
+- отдельный ZIP с символами Dart для диагностики Android;
 - соответствующие исходники Mumpa, исправленного TorrServer, Jackett и FlareSolverr;
 - `SHA256.json` для пакетов и `BUILD.json` с версией и commit.
 
 Релиз сначала создаётся как draft: он публикуется только после загрузки всех
-11 файлов и проверки их размеров/серверных SHA-256. `SHA256.json` в Releases
+12 файлов и проверки их размеров/серверных SHA-256. `SHA256.json` в Releases
 использует плоские имена Assets; в Actions Artifacts сохранён исходный layout
 с папкой `sources`. `BUILD.json` содержит полный `version+build`, исходный commit,
 номер workflow и тип Android-подписи.
+
+Android собирается через `tools/build-android.ps1` с `--split-debug-info`, без
+обфускации. `package-release.ps1` сохраняет все три соответствующих файла
+`app.android-*.symbols` в `Mumpa-<version>-android-symbols.zip`; публикация требует
+этот архив. Для разбора Android stack trace скачай символы именно этого выпуска
+и выполни `flutter symbolize -i trace.txt -d app.android-arm64.symbols`
+(для ARMv7 — `app.android-arm.symbols`, для x86_64 — `app.android-x64.symbols`).
+[Документация Flutter](https://docs.flutter.dev/deployment/obfuscate).
 
 Повторный запуск для того же commit проверяет существующий опубликованный
 выпуск и сохраняет его файлы. Различия нового rebuild из-за времён архивов или

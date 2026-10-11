@@ -1,5 +1,64 @@
 # Mumpa verification — 2026-10-11
 
+## 1.2.11 Android package size
+
+The baseline is a fresh ordinary release build of 1.2.10+18 with the same
+Flutter/Gradle/NDK and split ABIs, rather than a debug APK or a universal APK.
+The final build is 1.2.11+19:
+
+| APK | Before, bytes | After, bytes | Reduction |
+| --- | ---: | ---: | ---: |
+| ARM64 | 43,864,979 | 42,547,833 | 1,317,146 / 3.00% |
+| ARMv7 | 44,006,943 | 42,604,845 | 1,402,098 / 3.19% |
+| x86_64 | 45,211,789 | 43,867,835 | 1,343,954 / 2.97% |
+
+- The unused Cupertino Icons dependency/font is removed. No other locked
+  dependency changes. All displayed icons still use the existing Material set.
+- Demo assets have a `.wav.bin` package suffix so Android's default WAV
+  no-compress rule no longer applies. Their **decoded bytes and SHA-256 are
+  identical**, and `createApplication(demo: true)` still writes the original
+  `.wav` filenames. No audio conversion or quality change occurs. New installs
+  still do not seed demos. The native fixture confirms the original first WAV
+  hash `f762a101b2d8ed4d05d83e073b81ad38b8b3dddfed8f398f8500f89bae0fcad6`.
+- `tools/build-android.ps1` uses `--split-debug-info`, without obfuscation.
+  Each matching SYMBOLS file is retained in an additional release ZIP; publisher
+  preflight requires that ZIP. All three **ELF build IDs match** their compiled
+  `libapp.so`. A build experiment with only this flag saves 660,180 / 745,136 /
+  686,992 bytes for ARM64/ARMv7/x86_64. This is Flutter's
+  [documented size option](https://docs.flutter.dev/perf/app-size#reducing-app-size).
+- All other native libraries, including **TorrServer, Flutter and libmpv**, and
+  `classes.dex` match the baseline byte for byte. Engine source binaries retain
+  their locked hashes. All three APKs pass CRC, APK signature, alignment,
+  ABI/version/minSdk checks. Windows helper archives remain excluded. Evidence:
+  `test-output/android-size-verification-1.2.11.json`,
+  `android-symbols-verification-1.2.11.json`,
+  `android-platform-verification-1.2.11.json` and release build logs.
+- **351 unit/widget tests** pass, two opt-in live checks are skipped; analyzer,
+  formatting for `lib test`, **28 release publisher tests**, Actionlint, Node
+  syntax, PowerShell parsing and `git diff --check` pass. Windows release builds
+  with the new asset lookup as well. Logs: `flutter-tests-1.2.11.log`,
+  `analyze-1.2.11.log`, `release-publication-tests-1.2.11.log`,
+  `windows-build-1.2.11.log`.
+- Native **Android API 35 x86_64 profile** integration passes local playback and
+  seek; early torrent audio, liked torrent playback, HTTP Range; complete offline
+  download; engine restart; reader cancellation on peerless retries; offline
+  playback with engine/seeder stopped; native audio-service registration. First
+  streamed audio is observed at 1,401 ms, with 376,832 bytes transferred, through
+  the local original-content seeder. This is fixture evidence, not a public-swarm
+  latency claim. Log: `android-native-1.2.11.log`.
+- The actual optimized **release x86_64 APK** installs and renders the normal
+  app on the isolated emulator as 1.2.11 / versionCode 4019. Its extracted engine
+  hash matches the packaged engine, and no AndroidRuntime/Flutter exception is
+  observed. Screenshot: `android-release-1.2.11.png`. ARM64/ARMv7 runtime on
+  physical phones, store download/install size and public torrents are not
+  retested. No claim of universal zero regressions follows from these checks.
+
+R8, resource shrinking, icon tree shaking and ABI splits were already enabled.
+The largest APK entry remains the compressed torrent engine (~24 MB on ARM64).
+Codecs, engine APIs and supported Android versions are retained. Native-library
+extraction stays enabled because `MainActivity` executes the engine from
+`applicationInfo.nativeLibraryDir`; changing that setting can break playback.
+
 ## 1.2.10 performance, file organization and Windows package size
 
 - **351 unit/widget tests pass**, two opt-in live checks remain skipped.
