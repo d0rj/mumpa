@@ -16,6 +16,11 @@ if (!(Test-Path -LiteralPath (Join-Path $mumpaWindows 'mumpa.exe'))) { throw 'Bu
 foreach ($mumpaAbi in @('arm64-v8a','armeabi-v7a','x86_64')) {
     if (!(Test-Path -LiteralPath (Join-Path $mumpaApks "app-$mumpaAbi-release.apk"))) { throw "Build Android $mumpaAbi first." }
 }
+$mumpaSymbols = @('arm','arm64','x64') | ForEach-Object {
+    $mumpaSymbol = Join-Path $mumpaRoot "build/android-symbols/app.android-$_.symbols"
+    if (!(Test-Path -LiteralPath $mumpaSymbol)) { throw 'Build Android with tools/build-android.ps1 first.' }
+    $mumpaSymbol
+}
 New-Item -ItemType Directory -Force -Path $mumpaOutput | Out-Null
 $mumpaStage = Join-Path $mumpaOutput "Mumpa-$Version-windows-x64"
 if (Test-Path -LiteralPath $mumpaStage) {
@@ -35,6 +40,7 @@ Compress-Archive -LiteralPath $mumpaApp -DestinationPath (Join-Path $mumpaOutput
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-arm64-v8a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-arm64.apk") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-armeabi-v7a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-armv7.apk") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-x86_64-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-x86_64.apk") -Force
+Compress-Archive -LiteralPath $mumpaSymbols -DestinationPath (Join-Path $mumpaOutput "Mumpa-$Version-android-symbols.zip") -Force
 $mumpaReleaseFiles = @(Get-ChildItem -LiteralPath $mumpaOutput -File | Where-Object { $_.Extension -in @('.zip','.apk') })
 $mumpaSourceFolder = Join-Path $mumpaOutput 'sources'
 if (Test-Path -LiteralPath $mumpaSourceFolder) {

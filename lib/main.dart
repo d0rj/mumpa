@@ -65,7 +65,9 @@ Future<AppController> createApplication({
       '02 - Slow orbit.wav',
       '03 - After hours.wav',
     ].indexed) {
-      final asset = await rootBundle.load('assets/demo/$name');
+      // The .bin suffix lets Android compress these unchanged PCM WAV assets.
+      // Installed demo files retain their original names and exact audio bytes.
+      final asset = await rootBundle.load('assets/demo/$name.bin');
       final file = File(p.join(root.path, 'demo', name));
       await file.parent.create(recursive: true);
       await file.writeAsBytes(

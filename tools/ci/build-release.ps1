@@ -28,7 +28,7 @@ Invoke-CiCommand 'flutter' @('pub', 'get', '--enforce-lockfile')
 # --no-pub can retain integration_test in GeneratedPluginRegistrant.java even
 # after an ordinary pub get, while Gradle excludes that plugin from release.
 Invoke-CiCommand 'flutter' @('build', 'windows', '--release')
-Invoke-CiCommand 'flutter' @('build', 'apk', '--release', '--split-per-abi')
+& ./tools/build-android.ps1
 Invoke-CiCommand 'git' @('diff', '--exit-code', '--', 'pubspec.lock')
 
 $mumpaOutput = Join-Path $mumpaRoot 'artifacts/ci-release'

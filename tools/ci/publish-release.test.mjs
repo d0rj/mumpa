@@ -22,6 +22,7 @@ const PACKAGE_PATHS = [
   'Mumpa-1.2.7-android-arm64.apk',
   'Mumpa-1.2.7-android-armv7.apk',
   'Mumpa-1.2.7-android-x86_64.apk',
+  'Mumpa-1.2.7-android-symbols.zip',
   'sources/Mumpa-1.2.7-source.zip',
   'sources/TorrServer-MatriX.145.2-mumpa4-source.zip',
   'sources/TorrServer-MatriX.145.2-source.zip',
@@ -279,7 +280,7 @@ function githubMock(expectedContent, {
       }
     }
     if (method === 'PATCH' && address.pathname === `${API_PATH}/releases/7`) {
-      assert.equal(state.uploaded.size, 11, 'The draft may publish only after all 11 verified uploads');
+      assert.equal(state.uploaded.size, 12, 'The draft may publish only after all 12 verified uploads');
       assert.equal(state.activeUploads, 0);
       const body = JSON.parse((await bodyBytes(options.body)).toString('utf8'));
       assert.equal(body.draft, false);
@@ -323,7 +324,7 @@ test('preflight validates all packages and emits a flat checksummed release mani
   assert.equal(prepared.tag, TAG);
   assert.equal(typeof prepared.notes, 'string');
   assert.ok(prepared.notes.trim().length > 0);
-  assert.equal(prepared.files.length, 11);
+  assert.equal(prepared.files.length, 12);
   assert.deepEqual(new Set(prepared.files.map((file) => file.name)),
     new Set([...PACKAGE_PATHS.map((file) => basename(file)), 'BUILD.json', 'SHA256.json']));
   const content = await preparedBytes(prepared);
@@ -382,7 +383,7 @@ test('manifest traversal is rejected even when the outside file has valid bytes'
   await rejectedBeforeHttp(current);
 });
 
-test('fresh release stays draft until 11 sequential verified uploads finish', async (t) => {
+test('fresh release stays draft until 12 sequential verified uploads finish', async (t) => {
   const current = await fixture(t);
   const prepared = prepareRelease(current.directory, COMMIT, RUN_ID);
   const mock = githubMock(await preparedBytes(prepared));
@@ -391,7 +392,7 @@ test('fresh release stays draft until 11 sequential verified uploads finish', as
   assert.equal(result.url, RELEASE_URL);
   assert.equal(result.alreadyPublished, false);
   assert.equal(mock.state.createCount, 1);
-  assert.equal(mock.state.uploaded.size, 11);
+  assert.equal(mock.state.uploaded.size, 12);
   assert.equal(mock.state.peakUploads, 1);
   assert.equal(mock.state.publishCount, 1);
   assert.equal(mock.state.release.draft, false);
@@ -406,6 +407,17 @@ test('fresh release stays draft until 11 sequential verified uploads finish', as
   assert.deepEqual(mock.state.listedPages, [1]);
   assert.equal(mock.state.legacyCommitLookups, 0,
     'Fresh publication must avoid the legacy commits endpoint and its real 422');
+});
+
+test('Android debug symbols are required before any publication HTTP', async (t) => {
+  const current = await fixture(t);
+  const entry = current.manifest.find((item) => item.file.endsWith('-android-symbols.zip'));
+  const bytes = await readFile(join(current.directory, entry.file));
+  entry.file = 'unrelated.zip';
+  await writeFile(join(current.directory, entry.file), bytes);
+  await writeFile(join(current.directory, 'SHA256.json'), JSON.stringify(current.manifest));
+  assert.throws(() => prepareRelease(current.directory, COMMIT, RUN_ID), /Missing package: .*android-symbols.zip/);
+  await rejectedBeforeHttp(current);
 });
 
 test('upload failure aborts subsequent uploads and leaves the release draft', async (t) => {
@@ -508,7 +520,7 @@ test('same-commit partial draft skips valid assets and replaces a bad asset befo
       assert.equal(mock.state.createCount, 0, 'Resume must reuse the existing draft');
       assert.deepEqual(mock.state.listedPages, [1],
         'A draft must be discovered through the release list after tag lookup 404');
-      assert.equal(mock.state.uploadAttempts.length, 9);
+      assert.equal(mock.state.uploadAttempts.length, 10);
       assert.ok(validNames.every((name) => !mock.state.uploadAttempts.includes(name)));
       assert.deepEqual(new Set(mock.state.uploadAttempts),
         new Set(prepared.files.slice(2).map((file) => file.name)));
@@ -519,8 +531,8 @@ test('same-commit partial draft skips valid assets and replaces a bad asset befo
         call.method === 'POST' && call.name === bad.name);
       assert.ok(deletedAt >= 0 && uploadedAt > deletedAt,
         'The invalid draft asset must be removed before reupload');
-      assert.equal(mock.state.uploaded.size, 11);
-      assert.equal(mock.state.release.assets.length, 11);
+      assert.equal(mock.state.uploaded.size, 12);
+      assert.equal(mock.state.release.assets.length, 12);
       assert.equal(mock.state.peakUploads, 1);
       assert.equal(mock.state.publishCount, 1);
       assert.equal(mock.state.calls.at(-1).method, 'PATCH');
@@ -642,7 +654,7 @@ test('nested annotated version tag resolves to the same commit before publicatio
   assert.equal(result.alreadyPublished, false);
   assert.deepEqual(mock.state.annotatedLookups, [firstTag, secondTag]);
   assert.equal(mock.state.legacyCommitLookups, 0);
-  assert.equal(mock.state.uploaded.size, 11);
+  assert.equal(mock.state.uploaded.size, 12);
   assert.equal(mock.state.publishCount, 1);
 });
 
