@@ -208,7 +208,12 @@ void main() {
       tester.state<ScrollableState>(_scroll()).position.jumpTo(0);
       await tester.pumpAndSettle();
       await _show(tester, _likedRow('alias'));
-      await tester.tap(_likedRow('alias'));
+      await tester.tap(
+        find.descendant(
+          of: _likedRow('alias'),
+          matching: find.byKey(const ValueKey('track-title-alias')),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(fixture.playback.requestedTracks.map((track) => track.id), [
         'guest',
@@ -232,7 +237,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<TrackList>(_likedList()).tracks.single.id, 'alias');
       await _show(tester, _likedRow('alias'));
-      await tester.tap(_likedRow('alias'));
+      await tester.tap(
+        find.descendant(
+          of: _likedRow('alias'),
+          matching: find.byKey(const ValueKey('track-title-alias')),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(fixture.playback.requestedTracks.map((track) => track.id), [
         'guest',

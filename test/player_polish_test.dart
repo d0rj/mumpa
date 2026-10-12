@@ -487,7 +487,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.runAsync(() async {
-        await tester.tap(find.byKey(const ValueKey('track-row-matching')));
+        await tester.tap(find.byKey(const ValueKey('track-title-matching')));
         await Future<void>.delayed(const Duration(milliseconds: 50));
       });
       await tester.pump(const Duration(milliseconds: 200));

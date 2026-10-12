@@ -63,6 +63,16 @@ class PlayerBar extends StatelessWidget {
                                 color: muted,
                               ),
                             ),
+                            if (t != null)
+                              AlbumLink(
+                                key: const ValueKey('player-album'),
+                                album: t.album,
+                                onOpen: () => app.openTrackAlbum(t),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: muted,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -162,6 +172,16 @@ class PlayerBar extends StatelessWidget {
                                 : () => app.openArtist(t.artist),
                             style: const TextStyle(fontSize: 10, color: muted),
                           ),
+                          if (t != null)
+                            AlbumLink(
+                              key: const ValueKey('player-album'),
+                              album: t.album,
+                              onOpen: () => app.openTrackAlbum(t),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: muted,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -563,6 +583,17 @@ class _NowPlaying extends StatelessWidget {
                                     },
                               style: const TextStyle(color: muted),
                             ),
+                            if (t != null) ...[
+                              const SizedBox(height: 6),
+                              AlbumLink(
+                                key: const ValueKey('now-playing-album'),
+                                album: t.album,
+                                onOpen: () {
+                                  Navigator.pop(context);
+                                  app.openTrackAlbum(t);
+                                },
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -747,6 +778,18 @@ class _Queue extends StatelessWidget {
                                       onOpen: () {
                                         Navigator.pop(context);
                                         app.openArtist(t.artist);
+                                      },
+                                      style: const TextStyle(
+                                        color: muted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    AlbumLink(
+                                      key: ValueKey('queue-album-$entry'),
+                                      album: t.album,
+                                      onOpen: () {
+                                        Navigator.pop(context);
+                                        app.openTrackAlbum(t);
                                       },
                                       style: const TextStyle(
                                         color: muted,

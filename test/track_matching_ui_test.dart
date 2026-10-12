@@ -240,7 +240,7 @@ void runMatchingUiTests() {
     await matchingFrame(tester);
     expect(find.byKey(const ValueKey('track-row-flac')), findsNothing);
     await tester.tap(
-      find.byKey(const ValueKey('track-row-mp3')),
+      find.byKey(const ValueKey('track-title-mp3')),
       warnIfMissed: false,
     );
     await matchingFrame(tester);

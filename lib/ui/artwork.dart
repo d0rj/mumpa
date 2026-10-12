@@ -79,6 +79,38 @@ class ArtistLink extends StatelessWidget {
   }
 }
 
+class AlbumLink extends StatelessWidget {
+  const AlbumLink({
+    super.key,
+    required this.album,
+    required this.onOpen,
+    this.style = const TextStyle(color: muted, fontSize: 12),
+  });
+
+  final String album;
+  final VoidCallback onOpen;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Открыть альбом $album',
+    child: Tooltip(
+      message: 'Перейти к альбому',
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(3),
+        child: Text(
+          album,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+      ),
+    ),
+  );
+}
+
 class AsyncCoverArt extends StatefulWidget {
   const AsyncCoverArt({
     super.key,

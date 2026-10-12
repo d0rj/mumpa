@@ -47,6 +47,19 @@ class _AlbumPage extends StatelessWidget {
                 '${album.year != null ? '${album.year} · ' : ''}${app.library.trackCountLabel(album.tracks)}${album.offline ? ' · Доступен офлайн' : ''}',
                 style: const TextStyle(color: muted, fontSize: 12),
               ),
+              for (final collection in app.albumCollections) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  key: ValueKey('album-collection-${collection.id}'),
+                  onPressed: () => app.openPlaylist(collection),
+                  icon: const Icon(Icons.library_music_outlined, size: 18),
+                  label: Text(
+                    'В коллекцию «${collection.name}»',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ],
           );
           final art = AlbumArtwork(
@@ -373,7 +386,8 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                     prefixIcon: const Icon(Icons.search_rounded),
                     hintText: section.groupByAlbum
                         ? 'Поиск в коллекции'
-                        : section.playlistId == null
+                        : section.scope.startsWith('album:') ||
+                              section.playlistId == null
                         ? 'Поиск в альбоме'
                         : 'Поиск в плейлисте',
                     suffixIcon: searching

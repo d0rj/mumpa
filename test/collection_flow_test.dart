@@ -184,7 +184,7 @@ void main() {
             .first,
       );
       await tester.runAsync(() async {
-        await tester.tap(find.byKey(ValueKey('track-row-${second.id}')));
+        await tester.tap(find.byKey(ValueKey('track-title-${second.id}')));
         final deadline = DateTime.now().add(const Duration(seconds: 5));
         while (app.playback.loading && DateTime.now().isBefore(deadline)) {
           await Future<void>.delayed(const Duration(milliseconds: 10));

@@ -143,12 +143,14 @@ class TrackList extends SliverContent {
                     if (c.maxWidth > 700)
                       Expanded(
                         flex: 3,
-                        child: Text(
-                          t.album,
-                          key: ValueKey('track-album-${anchor.id}'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: muted),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: AlbumLink(
+                            album: t.album,
+                            onOpen: () => app.openTrackAlbum(t),
+                            key: ValueKey('track-album-${anchor.id}'),
+                            style: const TextStyle(fontSize: 12, color: muted),
+                          ),
                         ),
                       ),
                     if (c.maxWidth > 500)
@@ -253,6 +255,8 @@ class TrackList extends SliverContent {
                             await app.downloads.removeOffline(t);
                           case 'artist':
                             app.openArtist(t.artist);
+                          case 'album':
+                            app.openTrackAlbum(t);
                           case 'removePlaylist':
                             await app.library.removePlaylistTracks(
                               playlistId!,
@@ -267,6 +271,10 @@ class TrackList extends SliverContent {
                         }
                       },
                       itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'album',
+                          child: Text('Перейти к альбому'),
+                        ),
                         if (row.group.multiple)
                           const PopupMenuItem(
                             value: 'versions',

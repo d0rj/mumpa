@@ -1,5 +1,34 @@
 # Mumpa verification — 2026-10-12
 
+## Track → album → source collection navigation
+
+- Track lists have a clickable album name on desktop and a `Перейти к альбому`
+  menu action at every width. The compact/desktop player bar, full player and
+  queue also link to the track's album. Player sheets close on navigation.
+- The selected or playing version opens the album from its own torrent hash;
+  other releases with the same artist/title stay separate. Local albums stay
+  local. Current library metadata takes precedence over stale track objects.
+- Album headers link to their actual source collections using both torrent
+  hash and track membership. Ordinary playlists do not become parent
+  collections. A library album containing multiple releases exposes all of
+  its source collections; deleted collections disappear from the links.
+- 17 new tests cover 320/390/1200 px, direct links/menus, player/queue navigation,
+  source identity, preferred/playing variants, Back, metadata refresh, deletion,
+  and unchanged playback/queue. Existing playback tests now tap track titles
+  explicitly because an album name has its own navigation action.
+- All 389 unit/widget tests passed; two existing opt-in tests skipped.
+  `flutter analyze --no-pub lib test integration_test` and formatting passed.
+  Evidence: `test-output/album-navigation-full-tests.log`,
+  `album-navigation-analyze.log` and `album-navigation-*.png`.
+- Responsive previews use the application's Manrope and MaterialIcons fonts;
+  desktop and mobile album headers were visually inspected. Playback checks
+  use the fake backend and cached fixtures without starting the torrent engine.
+- Windows x64 release and Android ARM64/ARMv7/x86_64 release APKs built
+  successfully; Android debug symbols are present. Build logs:
+  `test-output/album-navigation-windows-build.log` and
+  `album-navigation-android-build.log`. These are local builds of 1.2.13+21;
+  no new release was published and no physical device was used.
+
 ## 1.2.13 search Back restoration
 
 - Reproduced the blank search page after scrolling search results, opening an

@@ -820,6 +820,49 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  void openTrackAlbum(Track value) {
+    final track = library.byId(value.id) ?? value;
+    final wholeAlbum = library.albumById(track.albumKey);
+    if (wholeAlbum == null) return;
+    // A selected recording version belongs to its own release, even when
+    // the library groups other releases under the same artist/album title.
+    final tracks = wholeAlbum.tracks
+        .where(
+          (item) => track.torrentHash == null
+              ? item.torrentHash == null
+              : item.torrentHash == track.torrentHash,
+        )
+        .toList();
+    if (tracks.isEmpty) return;
+    final collection = library.playlists
+        .where(
+          (item) =>
+              item.sourceHash != null &&
+              item.sourceHash == track.torrentHash &&
+              item.trackIds.contains(track.id),
+        )
+        .firstOrNull;
+    openAlbum(Album(tracks), playlistId: collection?.id);
+  }
+
+  List<MusicPlaylist> get albumCollections {
+    final tracks = album?.tracks ?? const <Track>[];
+    final idsByHash = <String, Set<String>>{};
+    for (final track in tracks) {
+      final hash = track.torrentHash;
+      if (hash != null) idsByHash.putIfAbsent(hash, () => {}).add(track.id);
+    }
+    return library.playlists
+        .where(
+          (item) =>
+              item.sourceHash != null &&
+              item.trackIds.any(
+                (id) => idsByHash[item.sourceHash]?.contains(id) ?? false,
+              ),
+        )
+        .toList();
+  }
+
   void openPlaylist(MusicPlaylist value) {
     _navigate(
       AppPage.playlist,

@@ -122,7 +122,7 @@ void main() {
         expect(tester.widget<TextField>(field).controller!.text, 'елки band');
         await tester.ensureVisible(find.byKey(const ValueKey('track-row-two')));
         await tester.runAsync(() async {
-          await tester.tap(find.byKey(const ValueKey('track-row-two')));
+          await tester.tap(find.byKey(const ValueKey('track-title-two')));
           for (var i = 0; i < 30 && !app.playback.playing; i++) {
             await Future<void>.delayed(const Duration(milliseconds: 10));
           }
