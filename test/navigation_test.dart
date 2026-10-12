@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mumpa/data/download_repository.dart';
@@ -126,6 +127,105 @@ void _viewport(WidgetTester tester) {
 }
 
 void main() {
+  for (final scenario in [
+    (width: 1200.0, expanded: false),
+    (width: 1200.0, expanded: true),
+    (width: 390.0, expanded: false),
+    (width: 390.0, expanded: true),
+  ]) {
+    testWidgets('Back paints search after album playback: $scenario', (
+      tester,
+    ) async {
+      final f = await _fixture(tester);
+      _viewport(tester);
+      tester.view.physicalSize = Size(scenario.width, 900);
+      try {
+        f.app.navigate(AppPage.search);
+        f.app.query = 'Band A';
+        f.app.searchCompleted = true;
+        f.app.releases = const [
+          SearchRelease(title: 'Band A - Album A', link: 'fixture:a'),
+          SearchRelease(title: 'Band A - Live', link: 'fixture:live'),
+        ];
+        await tester.pumpWidget(MumpaApp(controller: f.app));
+        await tester.pumpAndSettle();
+        if (scenario.expanded) {
+          await tester.tap(find.text('Настройки поиска'));
+          await tester.pumpAndSettle();
+        }
+        final scrollable = find
+            .descendant(
+              of: find.byType(ContentPage),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        await tester.drag(scrollable, const Offset(0, -1200));
+        await tester.pumpAndSettle();
+        final previous = tester
+            .state<ScrollableState>(scrollable)
+            .position
+            .pixels;
+        expect(previous, greaterThan(300));
+        f.app.openAlbum(f.albumA);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byKey(const Key('play-album')));
+        await tester.runAsync(() => f.app.playCollection(f.albumA.tracks));
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(f.app.playback.playing, isTrue);
+        await tester.tap(find.byKey(const ValueKey('navigation-back')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(f.app.page, AppPage.search);
+        expect(f.app.query, 'Band A');
+        expect(f.app.releases.map((release) => release.link), [
+          'fixture:a',
+          'fixture:live',
+        ]);
+        expect(
+          tester.state<ScrollableState>(scrollable).position.pixels,
+          closeTo(previous, 1),
+        );
+        final sliver = tester.renderObject<RenderSliver>(
+          find
+              .descendant(
+                of: find.byType(ContentPage),
+                matching: find.byType(SliverPadding),
+              )
+              .first,
+        );
+        expect(sliver.geometry!.paintExtent, greaterThan(100));
+        expect(
+          find
+              .descendant(
+                of: find.byType(ContentPage),
+                matching: find.byType(InkWell),
+              )
+              .hitTestable(),
+          findsWidgets,
+        );
+        expect(tester.takeException(), isNull);
+        tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.text('Настройки поиска').hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('search-tracks-mode')).hitTestable(),
+          scenario.expanded ? findsOneWidget : findsNothing,
+        );
+        await tester.tap(find.text('Настройки поиска'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          find.byKey(const ValueKey('search-tracks-mode')).hitTestable(),
+          scenario.expanded ? findsNothing : findsOneWidget,
+        );
+        expect(f.app.playback.playing, isTrue);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await f.close(tester);
+      }
+    });
+  }
+
   testWidgets(
     'Back restores albums and their latest enriched library context',
     (tester) async {

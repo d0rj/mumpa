@@ -21,7 +21,8 @@ class SearchOptionsPanel extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
-        key: const ValueKey('search-options'),
+        // Keep the expansion flag separate from the page's scroll offset.
+        key: const PageStorageKey('search-options'),
         leading: const Icon(Icons.tune_rounded, color: muted),
         title: const Text(
           'Настройки поиска',

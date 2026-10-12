@@ -1,5 +1,28 @@
 # Mumpa verification — 2026-10-12
 
+## 1.2.13 search Back restoration
+
+- Reproduced the blank search page after scrolling search results, opening an
+  album, starting playback and pressing Back. The search options ExpansionTile
+  inherited the same PageStorage identifier as the page's scroll position;
+  rebuilding it tried to cast the stored double to bool.
+- A dedicated PageStorageKey for the search options separates its expansion
+  flag from the scroll offset. Navigation snapshots and playback are unchanged.
+- Four regression cases cover 390/1200 px and expanded/collapsed options:
+  preserved query, source results, scroll position, painted/clickable content,
+  expansion state/toggling and continuing playback through the fake backend.
+  The original code fails with `double is not a subtype of bool?`.
+- 372 unit/widget tests passed; two existing opt-in tests skipped. Static
+  analysis passed for lib/test/integration_test. Evidence:
+  test-output/search-back-before.log, search-back-tests.log,
+  search-back-full-tests.log and search-back-analyze.log.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds passed as
+  1.2.13+21; Android symbols are retained. Packages and SHA-256 manifest are in
+  artifacts/release-1.2.13. Build logs: search-back-windows-build.log and
+  search-back-android-build.log; package checks: search-back-packages.json.
+- Playback in the navigation regression uses an isolated fake decoder. This
+  change has not been exercised on a physical Android device or a public swarm.
+
 ## 1.2.12 known track versions
 
 - 368 unit/widget tests passed (two existing opt-in tests skipped). Analyzer
