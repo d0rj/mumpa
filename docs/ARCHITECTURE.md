@@ -1,5 +1,15 @@
 # Mumpa architecture
 
+## Known track versions — 1.2.12
+
+`TrackMatchIndex` groups existing files using conservative artist/title,
+performance-context and duration rules. Immutable projections retain collection
+membership separately from the preferred playable version. Defaults/exclusions
+persist as optional file-ID fields; files and saved playlist references stay
+intact. Track rows show stacked covers, immediate cover play and a version popup.
+Collection playback collapses groups and remaps selection; manual queue edits
+retain occurrences. Rules and limitations: `docs/TRACK_MATCHING.md`.
+
 ## Unchanged behavior optimizations — 1.2.10
 
 LibraryRepository publishes immutable revision views through `LibraryViews`.

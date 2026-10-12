@@ -256,7 +256,10 @@ List<Widget> _localResultSections(
       _PlaylistGrid(app, playlists: results.playlists),
     ],
     if (results.tracks.isNotEmpty) ...[
-      SectionTitle('Треки', subtitle: '${results.tracks.length} найдено'),
+      SectionTitle(
+        'Треки',
+        subtitle: '${app.library.matchedTracks(results.tracks).length} найдено',
+      ),
       TrackList(app: app, tracks: results.tracks),
     ],
   ];
@@ -350,7 +353,7 @@ class _LikedPage extends StatelessWidget {
           ],
           SectionTitle(
             'Любимые треки',
-            subtitle: '${app.likedTracks.length} треков',
+            subtitle: app.library.trackCountLabel(app.likedTracks),
             action: app.likedTracks.isEmpty
                 ? null
                 : FilledButton.icon(

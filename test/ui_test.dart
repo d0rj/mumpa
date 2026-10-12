@@ -138,6 +138,9 @@ void main() {
       });
       await tester.pump(const Duration(milliseconds: 250));
       expect(app.playback.current, isNotNull);
+      // Matching rows also highlight another known copy of the active song.
+      // Pause its continuous wave before waiting for search to settle.
+      await tester.runAsync(app.playback.pause);
       app.navigate(AppPage.search);
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('music-search')), 'orbit');

@@ -44,7 +44,7 @@ class _AlbumPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${album.year != null ? '${album.year} · ' : ''}${album.tracks.length} треков${album.offline ? ' · Доступен офлайн' : ''}',
+                '${album.year != null ? '${album.year} · ' : ''}${app.library.trackCountLabel(album.tracks)}${album.offline ? ' · Доступен офлайн' : ''}',
                 style: const TextStyle(color: muted, fontSize: 12),
               ),
             ],
@@ -200,7 +200,10 @@ class _TrackCollection extends StatelessWidget {
         style: Theme.of(context).textTheme.headlineLarge,
       ),
       const SizedBox(height: 8),
-      Text('${tracks.length} треков', style: const TextStyle(color: muted)),
+      Text(
+        app.library.trackCountLabel(tracks),
+        style: const TextStyle(color: muted),
+      ),
       const SizedBox(height: 24),
       Wrap(
         spacing: 14,
@@ -417,7 +420,7 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                 if (searching) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'Найдено: ${filtered.length} из ${tracks.length}',
+                    'Найдено: ${section.app.library.matchedTracks(filtered).length} из ${section.app.library.matchedTracks(tracks).length}',
                     style: const TextStyle(color: muted, fontSize: 12),
                   ),
                 ],

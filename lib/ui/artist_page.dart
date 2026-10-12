@@ -65,7 +65,7 @@ class _ArtistPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '${tracks.length} треков · ${albums.length} альбомов в медиатеке',
+                    '${app.library.trackCountLabel(tracks)} · ${albums.length} альбомов в медиатеке',
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   if (profile != null) ...[
@@ -154,7 +154,7 @@ class _ArtistPage extends StatelessWidget {
           SectionTitle(
             'Любимые треки',
             key: const ValueKey('artist-liked-section'),
-            subtitle: '${visibleLikedTracks.length} треков',
+            subtitle: app.library.trackCountLabel(visibleLikedTracks),
             action: IconButton(
               key: const ValueKey('play-artist-liked'),
               tooltip: 'Слушать любимые треки исполнителя',

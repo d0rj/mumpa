@@ -192,7 +192,8 @@ class _SearchPage extends StatelessWidget {
       if (app.query.trim().isNotEmpty) ...[
         SectionTitle(
           'В твоей медиатеке',
-          subtitle: 'Найдено: ${app.searchTracks.length}',
+          subtitle:
+              'Найдено: ${app.library.matchedTracks(app.searchTracks).length}',
         ),
         if (app.searchTracks.isNotEmpty)
           TrackList(app: app, tracks: app.searchTracks)

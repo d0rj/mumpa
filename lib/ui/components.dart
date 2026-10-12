@@ -3,11 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
 import '../domain/models.dart';
+import '../domain/music_metadata.dart';
+import '../domain/track_matching.dart';
 import '../logic/app_controller.dart';
 import 'theme.dart';
 
 part 'artwork.dart';
 part 'track_list.dart';
+part 'track_versions.dart';
 
 class AlbumCard extends StatefulWidget {
   const AlbumCard({

@@ -832,8 +832,29 @@ class AppController extends ChangeNotifier {
     List<Track> tracks, {
     int index = 0,
     String? playlistId,
-  }) =>
-      playback.playTracks(tracks, index: index, contextPlaylistId: playlistId);
+    Track? selectedVariant,
+  }) async {
+    if (tracks.isEmpty || index < 0 || index >= tracks.length) return;
+    final rows = library.matchedTracks(tracks);
+    final selectedId = tracks[index].id;
+    final selectedIndex = rows.indexWhere(
+      (row) => row.group.ids.contains(selectedId),
+    );
+    if (selectedIndex < 0) return;
+    final queue = rows.map((row) => row.preferred).toList();
+    // An explicit menu selection wins for this occurrence without rewriting
+    // album/playlist membership or every saved preference.
+    if (selectedVariant != null &&
+        rows[selectedIndex].group.ids.contains(selectedVariant.id)) {
+      queue[selectedIndex] =
+          library.byId(selectedVariant.id) ?? selectedVariant;
+    }
+    await playback.playTracks(
+      queue,
+      index: selectedIndex,
+      contextPlaylistId: playlistId,
+    );
+  }
 
   Future<void> addToCurrentPlaylist(Track track) async {
     final target = currentPlaylist;
@@ -1141,10 +1162,11 @@ class AppController extends ChangeNotifier {
     final imported = await _importVariant(variant);
     if (imported == null) return;
     openPlaylist(imported.playlist);
-    await playback.playTracks(
+    await playCollection(
       imported.tracks,
       index: imported.tracks.indexWhere((t) => t.id == imported.selected.id),
-      contextPlaylistId: imported.playlist.id,
+      playlistId: imported.playlist.id,
+      selectedVariant: imported.selected,
     );
   }
 

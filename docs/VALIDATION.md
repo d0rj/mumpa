@@ -1,4 +1,30 @@
-# Mumpa verification — 2026-10-11
+# Mumpa verification — 2026-10-12
+
+## 1.2.12 known track versions
+
+- 368 unit/widget tests passed (two existing opt-in tests skipped). Analyzer
+  passed for lib/test/integration_test. New checks cover conservative matching,
+  censorship/format variants, duration partitions, 10k-copy scaling, defaults,
+  split/rejoin, metadata invalidation, grouped favorites, and 320/1200 px UI.
+- Isolated Windows debug integration passed with real libmpv: the popup played
+  the chosen 21-second file; cover play started the 20-second default; the queue
+  retained one version per song, saved playlist IDs stayed unchanged, and no
+  network/engine requests occurred. Row/picker screenshots were inspected.
+- Read-only production metadata audit: 9,501 files, 8,933 displayed groups,
+  391 groups with multiple known files. Preparation/grouping took 450 ms in this
+  native debug run. Only 26 files had known durations: these are candidate
+  metadata matches, not acoustically verified duplicate counts. Different-album
+  intro/outro titles remain separate. The production JSON stayed identical.
+- Windows x64 release and Android ARM64/ARMv7/x86_64 releases built as
+  1.2.12+20 with separate Android symbols. No dependency/runtime upgrades.
+- Evidence: test-output/track-matching-tests.log, track-matching-native.log,
+  track-matching-native.json, track-matching-rows.png, track-matching-picker.png,
+  track-matching-windows-build.log, track-matching-android-build.log.
+- This verifies local Windows decoding/selection and Android compilation.
+  Public torrent swarms and physical Android devices were not exercised.
+  No remote publication was performed.
+
+Rules and storage behavior: [TRACK_MATCHING.md](TRACK_MATCHING.md).
 
 ## 1.2.11 Android package size
 

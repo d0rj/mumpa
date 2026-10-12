@@ -11,6 +11,7 @@ import 'package:path/path.dart' as p;
 import '../domain/models.dart';
 import '../domain/torrent_album_layout.dart';
 import '../domain/collection_filter.dart';
+import '../domain/track_matching.dart';
 import 'library_views.dart';
 
 part 'library_metadata.dart';
@@ -32,6 +33,45 @@ class LibraryRepository extends ChangeNotifier {
   LibraryViews? _views;
   List<Album>? _albumSnapshot;
   Map<String, Album>? _albumIndex;
+  TrackMatchIndex? _trackMatches;
+  Set<String> _matchExcluded = {}, _preferredVariants = {};
+  TrackMatchIndex get trackMatches => _trackMatches ??= TrackMatchIndex(
+    tracks,
+    excluded: _matchExcluded,
+    preferred: _preferredVariants,
+    sourceDescriptions: _sourceDescriptions,
+  );
+  Map<String, String> get _sourceDescriptions => {
+    for (final playlist in _playlists)
+      if (playlist.sourceHash != null) playlist.sourceHash!: playlist.name,
+  };
+  List<MatchedTrack> matchedTracks(List<Track> tracks) =>
+      trackMatches.rowsFor(tracks);
+  bool isMatchExcluded(String id) => _matchExcluded.contains(id);
+  bool isPreferredVariant(String id) => _preferredVariants.contains(id);
+
+  String trackCountLabel(List<Track> tracks) {
+    final count = matchedTracks(tracks).length;
+    return '$count треков${count == tracks.length ? '' : ' · ${tracks.length} файлов'}';
+  }
+
+  Future<void> _prepareTracks() async {
+    final snapshot = tracks;
+    await Future.wait([
+      prepareCollectionSearch(snapshot),
+      prepareTrackMatching(snapshot),
+    ]);
+    // A concurrent import/removal owns the new revision.
+    if (identical(snapshot, tracks)) {
+      _trackMatches = TrackMatchIndex(
+        snapshot,
+        excluded: _matchExcluded,
+        preferred: _preferredVariants,
+        sourceDescriptions: _sourceDescriptions,
+      );
+    }
+  }
+
   LibraryViews get _currentViews => _views ??= LibraryViews(
     tracks: tracks,
     playlists: _playlists,
@@ -56,6 +96,7 @@ class LibraryRepository extends ChangeNotifier {
     _views = null;
     _albumSnapshot = null;
     _albumIndex = null;
+    _trackMatches = null;
   }
 
   List<MusicPlaylist> _playlists = [];
@@ -119,6 +160,12 @@ class LibraryRepository extends ChangeNotifier {
         _likedPlaylists = Set<String>.from((j['likedPlaylists'] as List?) ?? [])
           ..removeWhere((id) => !playlistIds.contains(id));
         final trackIds = _tracks.map((track) => track.id).toSet();
+        _matchExcluded = Set<String>.from(
+          (j['trackMatchExcluded'] as List?) ?? [],
+        )..retainAll(trackIds);
+        _preferredVariants = Set<String>.from(
+          (j['preferredTrackVariants'] as List?) ?? [],
+        )..retainAll(trackIds);
         _likedAlbums = ((j['likedAlbums'] as List?) ?? [])
             .map(
               (ids) =>
@@ -151,7 +198,7 @@ class LibraryRepository extends ChangeNotifier {
     if (await _upgradeTorrentLayouts()) {
       await _save();
     }
-    await prepareCollectionSearch(tracks);
+    await _prepareTracks();
     notifyListeners();
   }
 
@@ -246,6 +293,8 @@ class LibraryRepository extends ChangeNotifier {
       'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
       'recent': List<String>.of(_recent),
       'settings': _settings,
+      'trackMatchExcluded': _matchExcluded.toList(),
+      'preferredTrackVariants': _preferredVariants.toList(),
     };
     final next = _writeTail.catchError((Object _) {}).then((_) async {
       final contents = await _encodeLibrarySnapshot(snapshot);
@@ -283,7 +332,7 @@ class LibraryRepository extends ChangeNotifier {
           : item;
     }
     _tracks = _propagateTorrentAlbumMetadata(indexed.values);
-    await prepareCollectionSearch(this.tracks);
+    await _prepareTracks();
     notifyListeners();
     await _save();
   }
@@ -292,6 +341,8 @@ class LibraryRepository extends ChangeNotifier {
     final removed = ids.toSet();
     _tracks = _tracks.where((t) => !removed.contains(t.id)).toList();
     _liked.removeAll(removed);
+    _matchExcluded.removeAll(removed);
+    _preferredVariants.removeAll(removed);
     for (final ids in _likedAlbums) {
       ids.removeAll(removed);
     }
@@ -310,6 +361,43 @@ class LibraryRepository extends ChangeNotifier {
 
   Future<void> toggleLike(String id) async {
     if (!_liked.add(id)) _liked.remove(id);
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> toggleMatchedTrackLike(
+    TrackMatchGroup group,
+    String preferredId,
+  ) async {
+    if (group.ids.any(_liked.contains)) {
+      _liked.removeAll(group.ids);
+    } else if (group.ids.contains(preferredId) && byId(preferredId) != null) {
+      _liked.add(preferredId);
+    }
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> preferTrackVariant(String id) async {
+    final track = byId(id);
+    if (track == null) return;
+    _preferredVariants.removeAll(trackMatches.groupFor(track).ids);
+    _preferredVariants.add(id);
+    _trackMatches = null;
+    notifyListeners();
+    await _save();
+  }
+
+  Future<void> setTrackMatchExcluded(String id, bool excluded) async {
+    if (byId(id) == null) return;
+    if (excluded) {
+      _matchExcluded.add(id);
+    } else {
+      _matchExcluded.remove(id);
+      // Keep one explicit default when rejoining a separated file.
+      _preferredVariants.remove(id);
+    }
+    _trackMatches = null;
     notifyListeners();
     await _save();
   }
@@ -396,7 +484,7 @@ class LibraryRepository extends ChangeNotifier {
       );
       _playlists.add(playlist);
     }
-    await prepareCollectionSearch(this.tracks);
+    await _prepareTracks();
     notifyListeners();
     await _save();
     return playlist;
@@ -405,6 +493,7 @@ class LibraryRepository extends ChangeNotifier {
   Future<void> deletePlaylist(String id) async {
     _playlists.removeWhere((l) => l.id == id);
     _likedPlaylists.remove(id);
+    _trackMatches = null;
     notifyListeners();
     await _save();
   }
@@ -413,6 +502,7 @@ class LibraryRepository extends ChangeNotifier {
     _playlists = _playlists
         .map((l) => l.id == id ? l.copyWith(name: name.trim()) : l)
         .toList();
+    _trackMatches = null;
     notifyListeners();
     await _save();
   }
@@ -429,12 +519,18 @@ class LibraryRepository extends ChangeNotifier {
     await _save();
   }
 
-  Future<void> removeFromPlaylist(String id, String track) async {
+  Future<void> removeFromPlaylist(String id, String track) =>
+      removePlaylistTracks(id, [track]);
+
+  Future<void> removePlaylistTracks(String id, Iterable<String> tracks) async {
+    final removed = tracks.toSet();
     _playlists = _playlists
         .map(
           (l) => l.id == id
               ? l.copyWith(
-                  trackIds: l.trackIds.where((t) => t != track).toList(),
+                  trackIds: l.trackIds
+                      .where((t) => !removed.contains(t))
+                      .toList(),
                 )
               : l,
         )
