@@ -26,6 +26,15 @@ class _UiLibrary extends LibraryRepository {
   @override
   Future<void> movePlaylistTrack(String id, int from, int to) =>
       _ioZone.run(() => super.movePlaylistTrack(id, from, to));
+  @override
+  Future<void> movePlaylistTrackGroup(
+    String id,
+    Set<String> moving,
+    Set<String> target, {
+    required bool after,
+  }) => _ioZone.run(
+    () => super.movePlaylistTrackGroup(id, moving, target, after: after),
+  );
 }
 
 class _Audio extends FakeAudioBackend {
@@ -179,13 +188,6 @@ Finder _handle(String id) => find.byKey(ValueKey('playlist-drag-$id'));
 Finder _item(String value) => find.byWidgetPredicate(
   (w) => w is PopupMenuItem<String> && w.value == value,
 );
-const _editKey = ValueKey('playlist-edit-order');
-
-Future<void> _edit(WidgetTester tester) async {
-  await tester.ensureVisible(find.byKey(_editKey));
-  await tester.tap(find.byKey(_editKey));
-  await _pump(tester);
-}
 
 Future<void> _drag(
   WidgetTester tester,
@@ -231,9 +233,10 @@ void main() {
         final player = f.app.playback;
         final queue = player.queue.map((t) => t.id).toList();
         final counters = (f.audio.opens, f.audio.stops, f.audio.seeks);
-        await _edit(tester);
-        expect(_row('variant'), findsOneWidget);
-        expect(find.byKey(const ValueKey('collection-search')), findsNothing);
+        expect(find.byKey(const ValueKey('playlist-edit-order')), findsNothing);
+        expect(_row('variant'), findsNothing);
+        expect(find.byKey(const ValueKey('track-versions-a')), findsOneWidget);
+        expect(find.byKey(const ValueKey('collection-search')), findsOneWidget);
         expect(tester.getSize(_handle('d')), const Size(48, 48));
         await tester.ensureVisible(_row('d'));
         final first = tester.getRect(_row('a'));
@@ -252,6 +255,16 @@ void main() {
           kind,
         );
         expect(f.ids, ['a', 'missing', 'variant', 'b', 'c', 'd']);
+        final next = tester.getRect(_row('b'));
+        await _drag(
+          tester,
+          'a',
+          Offset(tester.getCenter(_handle('a')).dx, next.bottom - 2),
+          kind,
+        );
+        expect(f.ids, ['missing', 'b', 'a', 'variant', 'c', 'd']);
+        expect(_row('variant'), findsNothing);
+        expect(find.byKey(const ValueKey('track-versions-a')), findsOneWidget);
         expect(player.queue.map((t) => t.id), queue);
         expect(player.current!.id, 'b');
         expect(player.position, const Duration(seconds: 7));
@@ -269,37 +282,47 @@ void main() {
     );
 
     testWidgets(
-      'playlist menu edits exact variant and restores local filter at $width',
+      'playlist direct drag and menus preserve filtered and hidden tracks at $width',
       (tester) async {
         final f = await _mount(tester, width);
         final field = find.byKey(const ValueKey('collection-search'));
         await tester.ensureVisible(field);
-        await tester.enterText(field, 'Song c');
+        await tester.enterText(field, 'Second album');
         await _pump(tester);
-        await _edit(tester);
-        expect(_row('variant'), findsOneWidget);
-        await tester.ensureVisible(_row('variant'));
-        await tester.tap(find.byKey(const ValueKey('track-actions-variant')));
-        await _pump(tester);
-        await _choose(tester, 'moveUp');
-        expect(f.ids, ['variant', 'a', 'missing', 'b', 'c', 'd']);
-        await tester.tap(find.byKey(const ValueKey('track-actions-variant')));
+        expect(_row('a'), findsNothing);
+        expect(_handle('c'), findsOneWidget);
+        await tester.ensureVisible(_row('d'));
+        final first = tester.getRect(_row('c'));
+        await _drag(
+          tester,
+          'd',
+          Offset(tester.getCenter(_handle('d')).dx, first.top + 2),
+          kind,
+        );
+        expect(f.ids, ['a', 'missing', 'variant', 'b', 'd', 'c']);
+        expect(
+          tester.widget<TextField>(field).controller!.text,
+          'Second album',
+        );
+        await tester.tap(find.byKey(const ValueKey('track-actions-d')));
         await _pump(tester);
         expect(
           tester.widget<PopupMenuItem<String>>(_item('moveUp')).enabled,
           isFalse,
         );
         await _choose(tester, 'moveDown');
-        expect(f.ids, ['a', 'variant', 'missing', 'b', 'c', 'd']);
+        expect(f.ids, ['a', 'missing', 'variant', 'b', 'c', 'd']);
         await tester.ensureVisible(_row('d'));
         await tester.tap(find.byKey(const ValueKey('track-actions-d')));
         await _pump(tester);
         await _choose(tester, 'moveUp');
-        expect(f.ids, ['a', 'variant', 'missing', 'b', 'd', 'c']);
-        await _edit(tester);
-        expect(tester.widget<TextField>(field).controller!.text, 'Song c');
+        expect(f.ids, ['a', 'missing', 'variant', 'b', 'd', 'c']);
+        expect(
+          tester.widget<TextField>(field).controller!.text,
+          'Second album',
+        );
         expect(_row('c'), findsOneWidget);
-        expect(_handle('c'), findsNothing);
+        expect(_handle('c'), findsOneWidget);
         expect(_row('a'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('collection-search-clear')));
         await _pump(tester);
@@ -317,28 +340,35 @@ void main() {
     );
   }
 
-  testWidgets('collection album view returns after editing order', (
-    tester,
-  ) async {
-    final f = await _mount(tester, 1200, collection: true);
-    expect(
-      find.byKey(const ValueKey('collection-albums-view')),
-      findsOneWidget,
-    );
-    expect(_row('a'), findsNothing);
-    await _edit(tester);
-    expect(_row('a'), findsOneWidget);
-    expect(_row('variant'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('track-actions-d')));
-    await _pump(tester);
-    expect(
-      tester.widget<PopupMenuItem<String>>(_item('moveDown')).enabled,
-      isFalse,
-    );
-    await _choose(tester, 'moveUp');
-    expect(f.ids, ['a', 'variant', 'b', 'd', 'c']);
-    await _edit(tester);
-    expect(_row('a'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'collection track view has direct handles and preserves album view',
+    (tester) async {
+      final f = await _mount(tester, 1200, collection: true);
+      expect(
+        find.byKey(const ValueKey('collection-albums-view')),
+        findsOneWidget,
+      );
+      expect(_row('a'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('collection-tracks-view')));
+      await _pump(tester);
+      expect(_row('a'), findsOneWidget);
+      expect(_row('variant'), findsNothing);
+      expect(_handle('a'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('track-actions-d')));
+      await _pump(tester);
+      expect(
+        tester.widget<PopupMenuItem<String>>(_item('moveDown')).enabled,
+        isFalse,
+      );
+      await _choose(tester, 'moveUp');
+      expect(f.ids, ['a', 'variant', 'b', 'd', 'c']);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('collection-albums-view')),
+      );
+      await tester.tap(find.byKey(const ValueKey('collection-albums-view')));
+      await _pump(tester);
+      expect(_row('a'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

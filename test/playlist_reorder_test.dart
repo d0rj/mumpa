@@ -154,4 +154,113 @@ void main() {
     expect(reopened.trackIds, ['b', 'c', 'd', 'a']);
     expect(reopened.sourceHash, 'source');
   });
+
+  test(
+    'moving a song retains all saved variants and persists their order',
+    () async {
+      final list = await library.createPlaylist('Variants');
+      await library.addToPlaylist(list.id, [
+        'a',
+        'missing',
+        'b',
+        'a2',
+        'c',
+        'd',
+      ]);
+      await library.movePlaylistTrackGroup(
+        list.id,
+        {'a', 'a2'},
+        {'c'},
+        after: true,
+      );
+      expect(library.playlists.single.trackIds, [
+        'missing',
+        'b',
+        'c',
+        'a',
+        'a2',
+        'd',
+      ]);
+      await library.movePlaylistTrackGroup(
+        list.id,
+        {'a', 'a2'},
+        {'b'},
+        after: false,
+      );
+      final restored = LibraryRepository(root);
+      await restored.load();
+      addTearDown(restored.dispose);
+      expect(restored.playlists.single.trackIds, [
+        'missing',
+        'a',
+        'a2',
+        'b',
+        'c',
+        'd',
+      ]);
+    },
+  );
+
+  test(
+    'filtered moves keep hidden IDs and target every saved variant',
+    () async {
+      final list = await library.createPlaylist('Filtered');
+      await library.addToPlaylist(list.id, [
+        'a',
+        'b',
+        'hidden',
+        'b2',
+        'c',
+        'd',
+      ]);
+      await library.movePlaylistTrackGroup(
+        list.id,
+        {'d'},
+        {'b', 'b2'},
+        after: true,
+      );
+      expect(library.playlists.single.trackIds, [
+        'a',
+        'b',
+        'hidden',
+        'b2',
+        'd',
+        'c',
+      ]);
+      await library.movePlaylistTrackGroup(
+        list.id,
+        {'c'},
+        {'b', 'b2'},
+        after: false,
+      );
+      expect(library.playlists.single.trackIds, [
+        'a',
+        'c',
+        'b',
+        'hidden',
+        'b2',
+        'd',
+      ]);
+    },
+  );
+
+  test('invalid and unchanged group moves retain the same snapshot', () async {
+    final list = await library.createPlaylist('Guarded');
+    await library.addToPlaylist(list.id, ['a', 'b']);
+    final snapshot = library.playlists;
+    var changes = 0;
+    library.addListener(() => changes++);
+    for (final (id, moving, target) in [
+      ('missing', {'a'}, {'b'}),
+      (list.id, {'a'}, {'a'}),
+      (list.id, {'absent'}, {'b'}),
+      (list.id, {'a'}, {'absent'}),
+      (list.id, <String>{}, {'b'}),
+      (list.id, {'b'}, {'a'}),
+    ]) {
+      await library.movePlaylistTrackGroup(id, moving, target, after: true);
+    }
+    expect(changes, 0);
+    expect(identical(library.playlists, snapshot), isTrue);
+  });
 }

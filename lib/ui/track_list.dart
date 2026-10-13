@@ -36,18 +36,7 @@ class TrackList extends SliverContent {
       app,
     ]),
     builder: (_, _) {
-      // Editing exposes individual saved files, including known variants.
-      final rows = onReorder == null
-          ? app.library.matchedTracks(tracks)
-          : tracks
-                .map(
-                  (track) => MatchedTrack(
-                    group: TrackMatchGroup([track]),
-                    members: [track],
-                    preferred: track,
-                  ),
-                )
-                .toList();
+      final rows = app.library.matchedTracks(tracks);
       final occurrences = <String, int>{};
       final keys = [
         for (final row in rows)
@@ -95,36 +84,39 @@ class TrackList extends SliverContent {
               padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 30,
-                    height: 30,
-                    child: active && app.playback.buffering
-                        ? const Center(
-                            child: SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                  if (onReorder == null || c.maxWidth > 450)
+                    SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: active && app.playback.buffering
+                          ? const Center(
+                              child: SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : active
+                          ? Center(
+                              child: app.playback.stopped
+                                  ? const Icon(
+                                      Icons.play_arrow_rounded,
+                                      size: 18,
+                                      color: accent,
+                                    )
+                                  : PlayingIndicator(
+                                      key: ValueKey('playing-wave-${t.id}'),
+                                      playing: app.playback.playing,
+                                      size: 20,
+                                    ),
+                            )
+                          : Text(
+                              '${i + 1}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: muted),
                             ),
-                          )
-                        : active
-                        ? Center(
-                            child: app.playback.stopped
-                                ? const Icon(
-                                    Icons.play_arrow_rounded,
-                                    size: 18,
-                                    color: accent,
-                                  )
-                                : PlayingIndicator(
-                                    key: ValueKey('playing-wave-${t.id}'),
-                                    playing: app.playback.playing,
-                                    size: 20,
-                                  ),
-                          )
-                        : Text(
-                            '${i + 1}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: muted),
-                          ),
-                  ),
+                    ),
                   TrackStackArtwork(
                     app: app,
                     track: row.preferred,
@@ -195,48 +187,48 @@ class TrackList extends SliverContent {
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
-                  SizedBox(
-                    key: ValueKey('track-status-${anchor.id}'),
-                    width: 28,
-                    height: 22,
-                    child: Center(
-                      child: t.offline
-                          ? const Tooltip(
-                              message: 'Доступен офлайн',
-                              child: Icon(
-                                Icons.download_done_rounded,
-                                size: 14,
-                                color: accent,
-                              ),
-                            )
-                          : downloading != null
-                          ? Tooltip(
-                              message: 'Сохраняется для офлайн',
-                              child: SizedBox.square(
-                                dimension: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  value: downloading.progress,
-                                ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
                   if (onReorder == null || c.maxWidth > 450)
-                    IconButton(
-                      onPressed: () =>
-                          app.library.toggleMatchedTrackLike(row.group, t.id),
-                      tooltip: liked ? 'Убрать из любимого' : 'В любимое',
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        liked
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        size: 19,
-                        color: liked ? accent : muted,
+                    SizedBox(
+                      key: ValueKey('track-status-${anchor.id}'),
+                      width: 28,
+                      height: 22,
+                      child: Center(
+                        child: t.offline
+                            ? const Tooltip(
+                                message: 'Доступен офлайн',
+                                child: Icon(
+                                  Icons.download_done_rounded,
+                                  size: 14,
+                                  color: accent,
+                                ),
+                              )
+                            : downloading != null
+                            ? Tooltip(
+                                message: 'Сохраняется для офлайн',
+                                child: SizedBox.square(
+                                  dimension: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: downloading.progress,
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     ),
+                  IconButton(
+                    onPressed: () =>
+                        app.library.toggleMatchedTrackLike(row.group, t.id),
+                    tooltip: liked ? 'Убрать из любимого' : 'В любимое',
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      liked
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      size: 19,
+                      color: liked ? accent : muted,
+                    ),
+                  ),
                   if (c.maxWidth > 450)
                     SizedBox(
                       width: 40,

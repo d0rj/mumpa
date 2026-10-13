@@ -323,7 +323,6 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   final _search = TextEditingController();
   late bool _albums = widget.section.groupByAlbum;
   bool _restored = false;
-  bool _reordering = false;
 
   String get _storageId => 'collection-view:${widget.section.scope}';
 
@@ -360,23 +359,22 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
         .where((playlist) => playlist.id == section.playlistId)
         .firstOrNull;
     if (playlist == null) return;
-    // Old profiles can retain IDs whose files are absent from the library.
-    // Translate visible positions without dropping those saved entries.
-    final positions = [
-      for (var i = 0; i < playlist.trackIds.length; i++)
-        if (section.app.library.byId(playlist.trackIds[i]) != null) i,
-    ];
+    final rows = section.app.library.matchedTracks(
+      filterCollectionTracks(section.tracks, _search.text),
+    );
     if (from < 0 ||
         to < 0 ||
-        from >= positions.length ||
-        to >= positions.length) {
+        from >= rows.length ||
+        to >= rows.length ||
+        from == to) {
       return;
     }
     unawaited(
-      section.app.library.movePlaylistTrack(
+      section.app.library.movePlaylistTrackGroup(
         playlist.id,
-        positions[from],
-        positions[to],
+        rows[from].group.ids,
+        rows[to].group.ids,
+        after: to > from,
       ),
     );
   }
@@ -391,13 +389,12 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   Widget build(BuildContext context) {
     final section = widget.section;
     final tracks = section.tracks;
-    final editing = _reordering && section.playlistId != null;
-    final filtered = editing
-        ? tracks
-        : filterCollectionTracks(tracks, _search.text);
-    final searching = !editing && _search.text.trim().isNotEmpty;
+    final reorderable =
+        section.playlistId != null && section.scope.startsWith('playlist:');
+    final filtered = filterCollectionTracks(tracks, _search.text);
+    final searching = _search.text.trim().isNotEmpty;
     final groups = section.groupByAlbum ? groupAlbums(tracks) : const <Album>[];
-    final showAlbums = !editing && _albums && !searching && groups.length > 1;
+    final showAlbums = _albums && !searching && groups.length > 1;
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -406,54 +403,32 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (section.playlistId != null &&
-                    section.scope.startsWith('playlist:') &&
-                    (tracks.length > 1 || editing)) ...[
-                  OutlinedButton.icon(
-                    key: const ValueKey('playlist-edit-order'),
-                    onPressed: () => setState(() {
-                      FocusScope.of(context).unfocus();
-                      _reordering = !editing;
-                    }),
-                    icon: Icon(
-                      editing ? Icons.check_rounded : Icons.swap_vert_rounded,
-                    ),
-                    label: Text(editing ? 'Готово' : 'Изменить порядок'),
+                TextField(
+                  key: const ValueKey('collection-search'),
+                  controller: _search,
+                  onChanged: (_) {
+                    _saveView();
+                    setState(() {});
+                  },
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: section.groupByAlbum
+                        ? 'Поиск в коллекции'
+                        : section.scope.startsWith('album:') ||
+                              section.playlistId == null
+                        ? 'Поиск в альбоме'
+                        : 'Поиск в плейлисте',
+                    suffixIcon: searching
+                        ? IconButton(
+                            key: const ValueKey('collection-search-clear'),
+                            tooltip: 'Очистить поиск',
+                            onPressed: _clear,
+                            icon: const Icon(Icons.close_rounded),
+                          )
+                        : null,
                   ),
-                  const SizedBox(height: 12),
-                ],
-                if (editing)
-                  const Text(
-                    'Перетаскивай треки за ручку справа или выбирай «Выше» / «Ниже» в меню. Порядок сохраняется автоматически.',
-                    style: TextStyle(color: muted, fontSize: 12),
-                  )
-                else
-                  TextField(
-                    key: const ValueKey('collection-search'),
-                    controller: _search,
-                    onChanged: (_) {
-                      _saveView();
-                      setState(() {});
-                    },
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      hintText: section.groupByAlbum
-                          ? 'Поиск в коллекции'
-                          : section.scope.startsWith('album:') ||
-                                section.playlistId == null
-                          ? 'Поиск в альбоме'
-                          : 'Поиск в плейлисте',
-                      suffixIcon: searching
-                          ? IconButton(
-                              key: const ValueKey('collection-search-clear'),
-                              tooltip: 'Очистить поиск',
-                              onPressed: _clear,
-                              icon: const Icon(Icons.close_rounded),
-                            )
-                          : null,
-                    ),
-                  ),
-                if (!editing && groups.length > 1) ...[
+                ),
+                if (groups.length > 1) ...[
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,
@@ -516,7 +491,7 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
             tracks: filtered,
             queueTracks: tracks,
             playlistId: section.playlistId,
-            onReorder: editing ? _moveTrack : null,
+            onReorder: reorderable ? _moveTrack : null,
           ),
       ],
     );

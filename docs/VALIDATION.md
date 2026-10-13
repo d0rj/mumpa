@@ -1,5 +1,30 @@
 # Mumpa verification — 2026-10-13
 
+## Direct playlist dragging 1.2.16+24
+
+- The user clarified that moving tracks must be immediately available, like
+  moving the playback queue. The extra order-editing button/mode is removed.
+  Playlist rows expose permanent drag handles and menu moves while retaining
+  the search field, grouped variants/version picker and favorites.
+- **415 unit/widget tests passed**, three existing opt-in tests skipped;
+  analysis passed for lib/test/integration_test. Evidence:
+  `test-output/playlist-direct-full-tests.log` and `playlist-direct-analyze.log`.
+- Actual mouse/touch dragging at 320/1200 px starts directly on the page with
+  no edit-mode click. Tests cover both directions, grouped variants moving
+  together, filtered dragging/menu moves with hidden IDs retained, disabled
+  endpoints, collection view switching, saved order after restart and next
+  collection playback order. Current playback position and decoder counters
+  remain unchanged. Audio in these checks uses the fake backend.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds passed with Android
+  symbols retained. Logs: `playlist-direct-windows-build.log` and
+  `playlist-direct-android-build.log`. Physical Android interaction was not run.
+- The installed Windows app was gracefully upgraded to 1.2.16+24 and reopened.
+  All 9,861 tracks, 17 playlists and favorites match the pre-update snapshots.
+  Evidence: `playlist-direct-install-status.json` and
+  `playlist-direct-installed.json`. Prior installed versions are retained.
+- Local artifacts are in `artifacts/release-1.2.16`; no push or public release
+  was performed.
+
 ## Saved playlist order 1.2.15+23
 
 - **412 unit/widget tests passed**, three existing opt-in tests skipped.

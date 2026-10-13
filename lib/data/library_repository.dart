@@ -541,6 +541,32 @@ class LibraryRepository extends ChangeNotifier {
     await _save();
   }
 
+  /// Move a displayed song and all of its saved variants as one block.
+  /// Hidden search results and absent file IDs retain their relative order.
+  Future<void> movePlaylistTrackGroup(
+    String id,
+    Set<String> moving,
+    Set<String> target, {
+    required bool after,
+  }) async {
+    final index = _playlists.indexWhere((playlist) => playlist.id == id);
+    if (index < 0 || moving.any(target.contains)) return;
+    final playlist = _playlists[index];
+    final moved = playlist.trackIds.where(moving.contains).toList();
+    final remaining = playlist.trackIds
+        .where((id) => !moving.contains(id))
+        .toList();
+    final destination = after
+        ? remaining.lastIndexWhere(target.contains)
+        : remaining.indexWhere(target.contains);
+    if (moved.isEmpty || destination < 0) return;
+    remaining.insertAll(destination + (after ? 1 : 0), moved);
+    if (listEquals(playlist.trackIds, remaining)) return;
+    _playlists[index] = playlist.copyWith(trackIds: remaining);
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> removePlaylistTracks(String id, Iterable<String> tracks) async {
     final removed = tracks.toSet();
     _playlists = _playlists

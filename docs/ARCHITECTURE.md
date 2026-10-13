@@ -1,6 +1,6 @@
 # Mumpa architecture
 
-## Saved playlist order — 1.2.15
+## Saved playlist order — 1.2.16
 
 `LibraryRepository.movePlaylistTrack` moves one occurrence between final indices
 in the existing `trackIds` list and persists it through the serialized atomic
@@ -8,13 +8,16 @@ JSON writer. Names, source hashes, favorites, duplicate and absent file IDs are
 retained. No schema migration is required; reopening a source retains its saved
 order.
 
-The collection page's order editor temporarily shows every saved, resolvable
-file rather than grouped matches or search results. Visible indices map back to
-saved indices so missing files are retained. `TrackList` uses a lazy
-`SliverReorderableList`, stable ID/occurrence keys, 48 px drag handles and up/down
-menu actions. Finishing restores the local search and album view. Playback uses
-the saved order on the next collection start; editing never mutates or reopens
-an already active playback queue.
+Playlist rows always expose direct drag handles; there is no separate editor.
+`TrackList` retains matched song rows, the version picker and favorites, with a
+lazy `SliverReorderableList`, stable ID/occurrence keys, 48 px drag handles and
+up/down menu actions. Visible row indices resolve to matched source/target IDs.
+`movePlaylistTrackGroup` moves every saved variant of the source row before/after
+the target row, preserving relative order within the moved block and among
+hidden or absent IDs. Filtering remains active while dragging. Album pages keep
+their own track order; a collection's existing track/album view switch is
+unchanged. Playback uses the saved order on the next collection start; dragging
+never mutates or reopens an already active playback queue.
 
 ## Known track versions — 1.2.12
 
