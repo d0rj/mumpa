@@ -329,9 +329,9 @@ class _Sidebar extends StatelessWidget {
         ),
         Expanded(
           child: ListView.builder(
-            itemCount: app.library.playlists.length,
+            itemCount: app.library.mediaPlaylists.length,
             itemBuilder: (_, i) {
-              final playlist = app.library.playlists[i];
+              final playlist = app.library.mediaPlaylists[i];
               return ListTile(
                 dense: true,
                 onTap: () => app.openPlaylist(playlist),

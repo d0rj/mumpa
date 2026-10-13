@@ -1,5 +1,36 @@
 # Mumpa verification — 2026-10-13
 
+## Personal library and radio candidates — 1.2.19+27
+
+- Inspected sources remain available for search, version picks, queues and
+  navigation. They enter the personal library through playback, an explicit
+  add, favorites, a completed download or personal playlist membership.
+  Playback selects the complete album in that source, preserving all discs,
+  while unrelated discography albums and inspected mirrors remain hidden.
+- Home, Library, library search, artist library sections and sidebar collections
+  use the personal views. Radio's known-track fallback uses the same selection;
+  independent catalog discovery remains available.
+- Played membership persists beyond the last 100 recent items and follows
+  corrected tags. Old profiles recover available intent without deleting files,
+  playlists or known source records.
+- **458 unit/widget tests passed**, three existing opt-in tests skipped; analysis
+  and formatting passed. Source visibility also passed at 320/390/1200 px.
+- Real Windows/libmpv playback of an original generated WAV showed exactly one
+  selected album/two tracks after playback, with four known files retained.
+  Native position advanced 310 ms; library membership survived restart.
+- A temporary copy of the production profile reduced 819 known albums to 200
+  personal albums, 9,861 known tracks to 653 personal tracks, and 17 stored
+  playlists to 12 visible playlists. All 45 favorite tracks, three favorite
+  albums and 36 offline tracks remained visible. Production was read only;
+  its hash was unchanged during the final audit.
+- Windows x64 and all three Android ABI releases built with separate Android
+  symbols. Physical Android and public torrent playback were not retested.
+- Evidence: `library-membership-full-tests.log`, `library-membership-analyze.log`,
+  `library-membership-native-final-test.log`, `library-membership-native.json`,
+  `library-membership-profile-audit.json`, `library-membership-native.png`,
+  `library-membership-{windows,android}-build.log` under `test-output/`.
+  Semantics and migration limits: [LIBRARY_MEMBERSHIP.md](LIBRARY_MEMBERSHIP.md).
+
 ## Queue prefetch, unavailable tracks and cover controls — 1.2.18+26
 
 - The persisted prefetch count is 0–10 (default 3). It prepares the next missing

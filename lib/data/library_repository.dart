@@ -80,6 +80,7 @@ class LibraryRepository extends ChangeNotifier {
     likedPlaylists: _likedPlaylists,
     likedAlbums: _likedAlbums,
     recent: _recent,
+    retainedTrackIds: _retainedTrackIds,
     settings: _settings,
   );
 
@@ -108,11 +109,19 @@ class LibraryRepository extends ChangeNotifier {
   Set<String> _likedPlaylists = {};
   List<Set<String>> _likedAlbums = [];
   List<String> _recent = [];
+  // Playback/library membership outlives the bounded recent-history list.
+  Set<String> _retainedTrackIds = {};
   Map<String, dynamic> _settings = {};
   Future<void> _writeTail = Future.value();
   String? loadWarning;
   List<Track> get tracks => _trackSnapshot ??= List.unmodifiable(_tracks);
   List<MusicPlaylist> get playlists => _currentViews.playlists;
+
+  /// Personal library views exclude sources inspected only for discovery.
+  /// Keep all known records available for queues, navigation and version picks.
+  List<Track> get mediaTracks => _currentViews.mediaTracks;
+  List<Album> get mediaAlbums => _currentViews.mediaAlbums;
+  List<MusicPlaylist> get mediaPlaylists => _currentViews.mediaPlaylists;
   Set<String> get liked => _currentViews.liked;
   bool isTrackLiked(String id) => _liked.contains(id);
   Set<String> get likedPlaylists => _currentViews.likedPlaylists;
@@ -226,6 +235,9 @@ class LibraryRepository extends ChangeNotifier {
             .where((ids) => ids.isNotEmpty)
             .toList();
         _recent = List<String>.from((j['recent'] as List?) ?? []);
+        _retainedTrackIds = Set<String>.from(
+          (j['retainedTrackIds'] as List?) ?? _recent,
+        )..retainAll(trackIds);
         _settings = Map<String, dynamic>.from((j['settings'] as Map?) ?? {});
         if (name.endsWith('.bak')) {
           loadWarning = 'Библиотека восстановлена из резервной копии.';
@@ -352,6 +364,7 @@ class LibraryRepository extends ChangeNotifier {
       'likedPlaylists': _likedPlaylists.toList(),
       'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
       'recent': List<String>.of(_recent),
+      'retainedTrackIds': _retainedTrackIds.toList(),
       'settings': _settings,
       'trackMatchExcluded': _matchExcluded.toList(),
       'preferredTrackVariants': _preferredVariants.toList(),
@@ -371,6 +384,7 @@ class LibraryRepository extends ChangeNotifier {
   Future<void> upsert(
     Iterable<Track> tracks, {
     bool preserveCache = true,
+    bool addToLibrary = false,
   }) async {
     final indexed = {for (final t in _tracks) t.id: t};
     for (final t in tracks) {
@@ -398,6 +412,7 @@ class LibraryRepository extends ChangeNotifier {
         }
       }
       indexed[t.id] = item;
+      if (addToLibrary) _retainedTrackIds.add(t.id);
     }
     _tracks = _propagateTorrentAlbumMetadata(indexed.values);
     await _prepareTracks();
@@ -418,6 +433,7 @@ class LibraryRepository extends ChangeNotifier {
     }
     _likedAlbums.removeWhere((ids) => ids.isEmpty);
     _recent.removeWhere(removed.contains);
+    _retainedTrackIds.removeAll(removed);
     _playlists = _playlists
         .map(
           (l) => l.copyWith(
@@ -502,6 +518,8 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   Future<void> markPlayed(String id) async {
+    if (byId(id) == null) return;
+    _retainedTrackIds.add(id);
     _recent.remove(id);
     _recent.insert(0, id);
     if (_recent.length > 100) _recent.removeRange(100, _recent.length);

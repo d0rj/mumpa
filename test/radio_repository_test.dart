@@ -320,6 +320,68 @@ void main() {
     },
   );
   test(
+    'radio ignores inspected albums and uses the played source album',
+    () async {
+      const played = Track(
+        id: 'played',
+        title: 'Played song',
+        artist: 'Seed',
+        album: 'Selected',
+        source: TrackSource.torrent,
+        torrentHash: 'found',
+      );
+      const sibling = Track(
+        id: 'sibling',
+        title: 'Sibling song',
+        artist: 'Seed',
+        album: 'Selected',
+        source: TrackSource.torrent,
+        torrentHash: 'found',
+      );
+      const other = Track(
+        id: 'other',
+        title: 'Other song',
+        artist: 'Seed',
+        album: 'Only inspected',
+        source: TrackSource.torrent,
+        torrentHash: 'found',
+      );
+      const related = Track(
+        id: 'related',
+        title: 'Related song',
+        artist: 'Related',
+        album: 'Only inspected related',
+        source: TrackSource.torrent,
+        torrentHash: 'found',
+      );
+      await library.openSourceCollection(
+        hash: 'found',
+        name: 'Found',
+        tracks: [played, sibling, other, related],
+      );
+      expect(
+        await radio.candidates([seed], {}, SourceOperation()).toList(),
+        isEmpty,
+      );
+      await library.markPlayed(played.id);
+      final excluded = {radioSongKey(played)};
+      expect(
+        (await radio.candidates([seed], excluded, SourceOperation()).toList())
+            .map((t) => t.id),
+        ['sibling'],
+      );
+      await library.toggleLike(related.id);
+      expect(
+        (await radio.candidates([seed], excluded, SourceOperation()).toList())
+            .map((t) => t.id)
+            .toSet(),
+        {'sibling', 'related'},
+      );
+      expect(indexer.searches, 0);
+      expect(torrents.uploads, 0);
+    },
+  );
+  test(
     'bounded discovery rejects unrelated releases, skips bad metainfo and reuses cache',
     () async {
       await library.setSetting('indexerUrl', 'http://localhost/api');

@@ -28,7 +28,9 @@ Future<void> main(List<String> arguments) async {
   if (!Platform.isWindows || evidenceArguments.length != 1) {
     throw const FormatException('Windows fixture requires --evidence=<path>.');
   }
-  final evidence = File(evidenceArguments.single.substring('--evidence='.length));
+  final evidence = File(
+    evidenceArguments.single.substring('--evidence='.length),
+  );
   final temporary = await Directory.systemTemp.createTemp(
     'mumpa-browser-lifecycle-',
   );

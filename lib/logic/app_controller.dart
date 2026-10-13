@@ -280,7 +280,7 @@ class AppController extends ChangeNotifier {
   String? _artistTrackName;
   MusicArtist? _artistTrackProfile;
   List<Track> get artistTracks {
-    final source = library.tracks;
+    final source = library.mediaTracks;
     if (!identical(source, _artistTrackSource) ||
         selectedArtist != _artistTrackName ||
         !identical(artistProfile, _artistTrackProfile)) {
@@ -443,9 +443,9 @@ class AppController extends ChangeNotifier {
   final _likedResults = LocalMusicResultsCache();
 
   LocalMusicResults get librarySearchResults {
-    final source = library.tracks;
+    final source = library.mediaTracks;
     final grouped = albums;
-    final playlists = library.playlists;
+    final playlists = library.mediaPlaylists;
     final query = localQuery('library');
     return _libraryResults.resolve(
       key: (source, grouped, playlists, filter, query),
@@ -595,7 +595,7 @@ class AppController extends ChangeNotifier {
   LibrarySort? _albumSort;
   List<Album>? _albums;
   List<Album> get albums {
-    final tracks = library.tracks;
+    final tracks = library.mediaTracks;
     if (identical(tracks, _albumSource) &&
         filter == _albumFilter &&
         sort == _albumSort) {
@@ -604,7 +604,7 @@ class AppController extends ChangeNotifier {
     _albumSource = tracks;
     _albumFilter = filter;
     _albumSort = sort;
-    var albums = library.albums.toList();
+    var albums = library.mediaAlbums.toList();
     if (filter == LibraryFilter.offline) {
       albums = albums.where((a) => a.offline).toList();
     }
@@ -1407,7 +1407,7 @@ class AppController extends ChangeNotifier {
           .tracks(info, link: link, album: album, artist: artist)
           .where((t) => selected.contains(t.torrentIndex))
           .toList();
-      await library.upsert(tracks);
+      await library.upsert(tracks, addToLibrary: true);
       message = 'Альбом добавлен · ${tracks.length} треков';
       if (tracks.isNotEmpty) openAlbum(Album(tracks));
     });

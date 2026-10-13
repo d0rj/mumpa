@@ -110,6 +110,11 @@ void main() {
     'source creates a collection; only played track auto-downloads; current playlist extends queue',
     () async {
       await app.openRelease(release);
+      expect(app.albums, isEmpty);
+      expect(app.library.mediaPlaylists, isEmpty);
+      app.setLocalQuery('library', 'Fixture');
+      expect(app.librarySearchResults.playlists, isEmpty);
+      expect(app.librarySearchResults.tracks, isEmpty);
       expect(app.error, isNull);
       expect(app.page, AppPage.playlist);
       expect(app.playlistTracks.length, 3);
@@ -128,6 +133,9 @@ void main() {
       expect(Uri.parse(backend.opened!).queryParameters['index'], '3');
       expect(downloads.requested, [app.playback.current!.id]);
       expect(downloads.priorityUsed, isTrue);
+      expect(app.albums, hasLength(1));
+      expect(app.library.mediaPlaylists.single.id, playlist.id);
+      expect(app.librarySearchResults.playlists.single.id, playlist.id);
       final localFile = await File('${root.path}/extra.wav').writeAsBytes([1]);
       final extra = Track(
         id: 'extra',
@@ -150,7 +158,7 @@ void main() {
     },
   );
 
-  for (final width in [1200.0, 390.0]) {
+  for (final width in [1200.0, 390.0, 320.0]) {
     testWidgets('source tap opens playable collection at width $width', (
       tester,
     ) async {
@@ -172,6 +180,13 @@ void main() {
       expect(find.byKey(const ValueKey('collection-title')), findsOneWidget);
       expect(find.byType(CheckboxListTile), findsNothing);
       expect(app.playlistTracks.length, 3);
+      final inspected = app.playlist!;
+      app.navigate(AppPage.library);
+      await tester.pumpAndSettle();
+      expect(find.text(release.title), findsNothing);
+      expect(find.text('Здесь пока тихо'), findsOneWidget);
+      app.openPlaylist(inspected);
+      await tester.pumpAndSettle();
       final second = app.playlistTracks[1];
       await tester.scrollUntilVisible(
         find.byKey(ValueKey('track-row-${second.id}')),
@@ -194,6 +209,11 @@ void main() {
       expect(app.playback.current!.id, second.id);
       expect(app.playback.playing, isTrue);
       expect(downloads.requested, [second.id]);
+      await tester.runAsync(() => app.playback.pause());
+      app.navigate(AppPage.library);
+      await tester.pumpAndSettle();
+      expect(find.text('Здесь пока тихо'), findsNothing);
+      expect(find.text(release.title), findsWidgets);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

@@ -50,7 +50,7 @@ class _HomePage extends StatelessWidget {
       SectionTitle(
         'Твоя медиатека',
         subtitle:
-            '${app.library.tracks.length} треков · ${app.albums.length} альбомов',
+            '${app.library.mediaTracks.length} треков · ${app.albums.length} альбомов',
         action: TextButton(
           onPressed: () => app.navigate(AppPage.library),
           child: const Text('Открыть всё'),
@@ -62,11 +62,11 @@ class _HomePage extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 18),
           child: Text(
-            'Добавь альбом из каталога или выбери папку с локальной музыкой.',
+            'Включи трек из каталога или выбери папку с локальной музыкой.',
             style: TextStyle(color: muted),
           ),
         ),
-      if (app.library.playlists.isNotEmpty) ...[
+      if (app.library.mediaPlaylists.isNotEmpty) ...[
         const SectionTitle('Плейлисты'),
         _PlaylistGrid(app),
       ],
@@ -179,7 +179,8 @@ class _LibraryPage extends StatelessWidget {
             const EmptyState(
               icon: Icons.album_outlined,
               title: 'Здесь пока тихо',
-              description: 'Добавь альбом или выбери другой фильтр.',
+              description:
+                  'Включи трек, добавь музыку или выбери другой фильтр.',
             )
           else
             albumGrid(app, app.albums),
@@ -277,9 +278,9 @@ class _PlaylistGrid extends SliverContent {
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
     ),
-    itemCount: (playlists ?? app.library.playlists).length,
+    itemCount: (playlists ?? app.library.mediaPlaylists).length,
     itemBuilder: (_, i) {
-      final list = (playlists ?? app.library.playlists)[i];
+      final list = (playlists ?? app.library.mediaPlaylists)[i];
       return Material(
         color: const Color(0xFF202621),
         borderRadius: BorderRadius.circular(12),

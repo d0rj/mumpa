@@ -10,12 +10,14 @@ class LibraryViews {
     required Set<String> likedPlaylists,
     required List<Set<String>> likedAlbums,
     required List<String> recent,
+    required Set<String> retainedTrackIds,
     required Map<String, dynamic> settings,
   }) : playlists = List.unmodifiable(playlists),
        liked = Set.unmodifiable(liked),
        likedPlaylists = Set.unmodifiable(likedPlaylists),
        _likedAlbums = [for (final ids in likedAlbums) Set<String>.of(ids)],
        recent = List.unmodifiable(recent),
+       _retainedTrackIds = Set.of(retainedTrackIds),
        settings = Map.unmodifiable(settings);
 
   final List<Track> tracks;
@@ -23,8 +25,45 @@ class LibraryViews {
   final Set<String> liked, likedPlaylists;
   final List<Set<String>> _likedAlbums;
   final List<String> recent;
+  final Set<String> _retainedTrackIds;
   final Map<String, dynamic> settings;
   late final _indexedTracks = {for (final track in tracks) track.id: track};
+  late final _libraryAnchors = <String>{
+    ..._retainedTrackIds,
+    ...liked,
+    for (final ids in _likedAlbums) ...ids,
+    for (final playlist in playlists)
+      if (playlist.sourceHash == null || likedPlaylists.contains(playlist.id))
+        ...playlist.trackIds,
+    for (final track in tracks)
+      if (track.source != TrackSource.torrent || track.offline) track.id,
+  };
+
+  late final mediaTracks = _mediaTracks();
+  List<Track> _mediaTracks() {
+    // An anchor selects its complete album from that source, not the entire
+    // discography or every inspected mirror with the same artist/album title.
+    final selected = {
+      for (final track in tracks)
+        if (_libraryAnchors.contains(track.id))
+          (track.albumKey, track.torrentHash),
+    };
+    return List.unmodifiable(
+      tracks.where(
+        (track) => selected.contains((track.albumKey, track.torrentHash)),
+      ),
+    );
+  }
+
+  late final mediaAlbums = List<Album>.unmodifiable(groupAlbums(mediaTracks));
+  late final mediaPlaylists = List<MusicPlaylist>.unmodifiable(
+    playlists.where(
+      (playlist) =>
+          playlist.sourceHash == null ||
+          likedPlaylists.contains(playlist.id) ||
+          playlist.trackIds.any(_libraryAnchors.contains),
+    ),
+  );
   late final offlineTracks = _offlineTracks();
   List<Track> _offlineTracks() {
     final items = tracks.where((track) => track.cachedPath != null).toList();

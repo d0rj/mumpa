@@ -76,7 +76,7 @@ class RadioRepository implements RadioSource {
   List<Track> _known(String artist, Set<String> excluded) {
     final name = normalizeMusicName(artist);
     final tracks =
-        library.tracks
+        library.mediaTracks
             .where(
               (track) =>
                   track.source != TrackSource.demo &&
