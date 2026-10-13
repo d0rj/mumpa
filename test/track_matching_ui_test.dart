@@ -140,6 +140,74 @@ Future<void> closeMatchingFixture(
 }
 
 void runMatchingUiTests() {
+  testWidgets(
+    'offline deletion requires confirmation and preserves the heart',
+    (tester) async {
+      final f = (await tester.runAsync(MatchingFixture.create))!;
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox());
+        await closeMatchingFixture(tester, f);
+      });
+      late Track saved;
+      late File file;
+      await tester.runAsync(() async {
+        await f.app.library.downloads.create(recursive: true);
+        file = await File(
+          '${f.app.library.downloads.path}/saved.wav',
+        ).writeAsBytes([1, 2, 3]);
+        saved = Track(
+          id: 'saved',
+          title: 'Saved song',
+          artist: 'Saved artist',
+          album: 'Saved album',
+          source: TrackSource.torrent,
+          torrentHash: 'saved-source',
+          torrentPath: 'saved.wav',
+          cachedPath: file.path,
+          bytes: 3,
+        );
+        await f.app.library.upsert([saved]);
+        await f.app.library.toggleLike(saved.id);
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: mumpaTheme(),
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                TrackList(app: f.app, tracks: [saved]),
+              ],
+            ),
+          ),
+        ),
+      );
+      await matchingFrame(tester);
+      await tester.tap(find.byKey(const ValueKey('track-actions-saved')));
+      await matchingFrame(tester);
+      await tester.tap(find.text('Удалить офлайн-копию'));
+      await matchingFrame(tester);
+      expect(find.text('Удалить офлайн-копию?'), findsOneWidget);
+      await tester.tap(find.text('Отмена'));
+      await matchingFrame(tester);
+      expect(await tester.runAsync(file.exists), isTrue);
+      expect(f.app.library.byId(saved.id)!.cachedPath, file.path);
+      await tester.tap(find.byKey(const ValueKey('track-actions-saved')));
+      await matchingFrame(tester);
+      await tester.tap(find.text('Удалить офлайн-копию'));
+      await matchingFrame(tester);
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Удалить копию'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+      await matchingFrame(tester);
+      expect(await tester.runAsync(file.exists), isFalse);
+      expect(f.app.library.byId(saved.id)!.cachedPath, isNull);
+      expect(f.app.library.isTrackLiked(saved.id), isTrue);
+      expect(f.networkRequests, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final width in [320.0, 1200.0]) {
     testWidgets(
       'known variants, cover play and full filtered queue at $width px',

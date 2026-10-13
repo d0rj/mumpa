@@ -79,6 +79,13 @@ void main() {
       ]);
       expect(restarted.favoriteTracks.first.title, 'Updated song');
       await restarted.removeTracks(['c']);
+      expect(restarted.favoriteTracks.map((track) => track.id), [
+        'b',
+        'c',
+        'a',
+      ]);
+      await restarted.toggleLike('c');
+      await restarted.removeTracks(['c']);
       expect(restarted.favoriteTracks.map((track) => track.id), ['b', 'a']);
     },
   );

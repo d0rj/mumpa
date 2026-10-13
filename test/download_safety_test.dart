@@ -225,6 +225,39 @@ class _Fixture {
 
 void main() {
   test(
+    'cleanup during finalization preserves the completed offline file',
+    () async {
+      final fixture = await _Fixture.create();
+      try {
+        final bytes = _wav(64 * 1024);
+        final track = _track('protected-finish', bytes: bytes.length);
+        fixture.library.blockedId = track.id;
+        fixture.plans[track.id] = _ResponsePlan(
+          bytes,
+          contentLength: bytes.length,
+        );
+        await fixture.library.upsert([track]);
+        fixture.downloads.enqueue([track]);
+        await fixture.library.entered.future.timeout(
+          const Duration(seconds: 10),
+        );
+        final cleanup = fixture.downloads.removeOffline(track);
+        fixture.library.release.complete();
+        await cleanup.timeout(const Duration(seconds: 10));
+        expect(
+          fixture.library.byId(track.id)!.cachedPath,
+          fixture.target(track.id).path,
+        );
+        expect(await fixture.target(track.id).readAsBytes(), bytes);
+        expect(fixture.job(track.id).state, DownloadState.complete);
+        expect(fixture.requests, [track.id]);
+      } finally {
+        await fixture.close();
+      }
+    },
+  );
+
+  test(
     'stale remove waits for finalization and preserves enriched metadata',
     () async {
       final fixture = await _Fixture.create();
@@ -250,9 +283,11 @@ void main() {
         await fixture.partial(stale.id).writeAsBytes(bytes.sublist(0, 44));
 
         var removed = false;
-        final removal = fixture.downloads.removeOffline(stale).then((_) {
-          removed = true;
-        });
+        final removal = fixture.downloads
+            .removeOffline(stale, userRequested: true)
+            .then((_) {
+              removed = true;
+            });
         fixture.downloads.enqueue([stale], priority: true);
         fixture.downloads.retry(stale.id);
         await Future<void>.delayed(Duration.zero);

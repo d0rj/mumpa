@@ -283,12 +283,11 @@ class RadioRepository implements RadioSource {
     Track track,
     SourceOperation operation,
   ) async {
-    for (final path in [track.cachedPath, track.localPath]) {
-      operation.check();
-      if (path != null && await File(path).exists()) {
-        return PreparedRadioTrack(track, Uri.file(path));
-      }
-    }
+    operation.check();
+    track = library.byId(track.id) ?? track;
+    final path = await operation.wait(library.localPathFor(track));
+    operation.check();
+    if (path != null) return PreparedRadioTrack(track, Uri.file(path));
     if (track.source != TrackSource.torrent) {
       throw const FileSystemException('Нет аудиофайла.');
     }

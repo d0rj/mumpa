@@ -128,15 +128,17 @@ void main() {
   );
 
   test(
-    'track deletion retains remaining favorite files and removes empty albums',
+    'favorite album files survive removal until the album is unliked',
     () async {
       final tracks = discography('source');
       await library.upsert(tracks);
       await library.toggleAlbumLike(groupAlbums(tracks).first);
       await library.removeTracks([tracks.first.id]);
-      expect(library.favoriteAlbums.single.tracks.single.id, tracks[1].id);
+      expect(library.favoriteAlbums.single.tracks, hasLength(2));
       expect(library.isAlbumLiked(library.favoriteAlbums.single), isTrue);
       expect(() => library.favoriteAlbums.clear(), throwsUnsupportedError);
+      await library.toggleAlbumLike(library.favoriteAlbums.single);
+      await library.removeTracks([tracks.first.id]);
       await library.removeTracks([tracks[1].id]);
       expect(library.favoriteAlbums, isEmpty);
       await library.toggleAlbumLike(groupAlbums(tracks).first);

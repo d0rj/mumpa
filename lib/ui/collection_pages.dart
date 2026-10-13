@@ -127,6 +127,8 @@ class _AlbumPage extends StatelessWidget {
                   builder: (context) => AlertDialog(
                     title: const Text('Убрать альбом из медиатеки?'),
                     content: const Text(
+                      'Лайкнутые и скачанные треки, избранные альбомы '
+                      'и треки избранных плейлистов останутся в библиотеке. '
                       'Исходные музыкальные файлы сохранятся.',
                     ),
                     actions: [

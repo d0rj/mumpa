@@ -1,5 +1,22 @@
 # Mumpa architecture
 
+## Shared offline files and retention — 1.2.17
+
+`LibraryRepository.localCopiesFor` indexes completed/local copies by exact
+torrent infohash and path across the entire library, retaining each file ID.
+`localPathFor` refreshes stale records and verifies the file before playback;
+the player and radio use it, and downloads recheck before starting network I/O.
+Collection defaults prioritize available offline versions across known groups.
+Explicit picker selections retain their exact version and saved membership.
+
+Download startup scans the download folder once and recovers final files whose
+known size matches. Partial/unknown-size/short files remain unavailable offline.
+Removal of an album retains downloaded files, liked tracks, favorite albums and
+favorite-playlist members. Default offline cleanup protects those records even
+when a download finishes while cleanup waits. Explicit offline removal requires
+UI confirmation and retains liked/library records and other file references.
+Quota changes refuse new transfers rather than evicting completed audio.
+
 ## Saved playlist order — 1.2.16
 
 `LibraryRepository.movePlaylistTrack` moves one occurrence between final indices

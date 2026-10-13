@@ -63,6 +63,144 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const enabled = bool.fromEnvironment('TRACK_MATCHING_NATIVE');
   if (enabled && Platform.isWindows) MediaKit.ensureInitialized();
+  testWidgets(
+    'another playlist reuses offline audio with no torrent requests',
+    (tester) async {
+      if (!enabled || !Platform.isWindows) return;
+      final root = await Directory(
+        'D:/Projects/mumpa/.local',
+      ).createTemp('offline-native-');
+      final library = LibraryRepository(root);
+      await library.load();
+      await library.setSetting('volume', 0.0);
+      var networkCalls = 0;
+      final client = MockClient((_) async {
+        networkCalls++;
+        throw StateError('No HTTP expected');
+      });
+      final torrents = TorrentService(
+        client: client,
+        endpoint: () async {
+          networkCalls++;
+          throw StateError('No engine expected');
+        },
+      );
+      await library.downloads.create(recursive: true);
+      final bytes = _silence(20);
+      final file = await File(
+        '${library.downloads.path}/saved.wav',
+      ).writeAsBytes(bytes);
+      final tracks = [
+        Track(
+          id: 'stream',
+          title: 'Same song',
+          artist: 'Band',
+          album: 'Online collection',
+          source: TrackSource.torrent,
+          torrentHash: 'stream-source',
+          torrentPath: 'Song.wav',
+          durationMs: 20000,
+          bytes: bytes.length,
+          albumSource: TrackAlbumSource.directory,
+        ),
+        Track(
+          id: 'saved',
+          title: 'Same song',
+          artist: 'Band',
+          album: 'Downloaded collection',
+          source: TrackSource.torrent,
+          torrentHash: 'saved-source',
+          torrentPath: 'Song.wav',
+          cachedPath: file.path,
+          durationMs: 20000,
+          bytes: bytes.length,
+          albumSource: TrackAlbumSource.directory,
+        ),
+      ];
+      await library.upsert(tracks);
+      final online = await library.createPlaylist('Online');
+      final offline = await library.createPlaylist('Offline');
+      await library.addToPlaylist(online.id, ['stream']);
+      await library.addToPlaylist(offline.id, ['saved']);
+      await library.toggleLike('saved');
+      await library.preferTrackVariant('stream');
+      final playback = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: NativeAudioBackend(),
+      );
+      await playback.initialize(platformAudio: false);
+      final downloads = DownloadRepository(library, torrents);
+      final app = AppController(
+        library: library,
+        playback: playback,
+        downloads: downloads,
+        torrents: torrents,
+        engine: TorrentEngine(root),
+        metadata: _Metadata(root, client),
+        indexer: IndexerService(client: client),
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox());
+        await app.shutdown();
+        library.dispose();
+        await root.delete(recursive: true);
+      });
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Offline playback'))),
+      );
+      for (final playlist in [online, offline]) {
+        final currentPlaylist = library.playlists.singleWhere(
+          (item) => item.id == playlist.id,
+        );
+        await app.playCollection(
+          currentPlaylist.trackIds
+              .map(library.byId)
+              .whereType<Track>()
+              .toList(),
+          playlistId: playlist.id,
+        );
+        final deadline = DateTime.now().add(const Duration(seconds: 10));
+        while (playback.position <= const Duration(milliseconds: 250) &&
+            DateTime.now().isBefore(deadline)) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(playback.current!.id, 'saved');
+        expect(playback.playing, isTrue);
+        expect(
+          playback.position,
+          greaterThan(const Duration(milliseconds: 250)),
+        );
+        expect(playback.error, isNull);
+        expect(downloads.jobs, isEmpty);
+        await playback.pause();
+      }
+      await library.removeTracks(['saved']);
+      await downloads.removeOffline(tracks.last);
+      await library.setSetting('cacheLimitMb', 0);
+      expect(library.byId('saved')!.cachedPath, file.path);
+      expect(await file.readAsBytes(), bytes);
+      expect(library.playlists.map((item) => item.trackIds), [
+        ['stream'],
+        ['saved'],
+      ]);
+      expect(networkCalls, 0);
+      await File(
+        'D:/Projects/mumpa/test-output/offline-native.json',
+      ).writeAsString(
+        const JsonEncoder.withIndent('  ').convert({
+          'nativeDecoder': 'Windows/libmpv',
+          'playedPlaylists': 2,
+          'selectedTrack': 'saved',
+          'networkCalls': networkCalls,
+          'downloadJobs': downloads.jobs.length,
+          'protectedFileBytes': bytes.length,
+          'playlistMembershipPreserved': true,
+          'likesPreserved': library.liked.contains('saved'),
+        }),
+      );
+    },
+  );
   testWidgets('known versions render and play through native decoder', (
     tester,
   ) async {

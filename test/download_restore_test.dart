@@ -128,7 +128,7 @@ void main() {
           readable: false,
         ),
         _ListedPartial(
-          p.join(directory.path, 'track-3.mp3'),
+          p.join(directory.path, 'track-3.flac'),
           4096,
           readable: false,
         ),

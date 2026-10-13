@@ -1,5 +1,42 @@
 # Mumpa verification — 2026-10-13
 
+## Shared offline playback and protected music 1.2.17+25
+
+- Ordinary collection playback prefers an existing offline version from the
+  entire known library, even when the saved default/source belongs to another
+  playlist. Exact torrent infohash/path aliases and stale records reuse their
+  completed file in playback, radio and the download queue. Explicit picker
+  selections retain their exact codec/edit/source and saved playlist IDs.
+- Album removal preserves downloaded tracks, individual hearts, favorite album
+  files and favorite-playlist members. Default offline cleanup preserves those
+  files, including finalization races. Explicit offline removal has a cancelable
+  confirmation, retains the library/heart and preserves shared file references.
+  Lower quotas and metadata-cache clearing retain completed audio files.
+- Startup recovers final download files with a matching known byte count.
+  Short files, unknown-size files and `.part` files never become offline copies.
+- **424 unit/widget tests passed**, three existing opt-in tests skipped.
+  Analysis passed for lib/test/integration_test. Tests cover global reuse,
+  stale records, identical file aliases, known-version defaults, exact selection,
+  missing-file fallback, crash recovery, retention/restart, shared references,
+  finalization races and cancel/confirm UI behavior. Evidence:
+  `test-output/offline-full-tests.log`, `offline-analyze.log`.
+  An initial concurrent build/test run exceeded an unrelated artwork test's
+  one-second timeout; the complete run at concurrency 2 passed without changing
+  that test or the artwork implementation.
+- The opt-in Windows/libmpv test played an actual local WAV from two different
+  saved playlists with **zero HTTP/engine requests and zero download jobs**;
+  membership, likes and the protected file survived removal/quota checks.
+  The existing native version-picker test also passed. Evidence:
+  `test-output/offline-native-test.log`, `offline-native.json`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds passed with Android
+  symbols retained. Evidence: `offline-windows-build.log`,
+  `offline-android-build.log`. Physical Android interaction remains untested.
+- Installed Windows upgraded to 1.2.17+25 and restarted. All **9,861 tracks,
+  17 playlists, 42 likes and 32 cached files** match the pre-install hashes.
+  Earlier installed versions were retained. Evidence:
+  `test-output/offline-installed.json`, `offline-install-status.json`.
+- Local release artifacts: `artifacts/release-1.2.17`. No push or public release.
+
 ## Direct playlist dragging 1.2.16+24
 
 - The user clarified that moving tracks must be immediately available, like

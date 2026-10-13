@@ -74,6 +74,7 @@ void main() {
       expect(library.byId('a'), same(updated));
       expect(filterCollectionTracks(library.tracks, 'old'), isEmpty);
       expect(filterCollectionTracks(library.tracks, 'new'), [updated]);
+      await library.toggleLike('a');
       await library.removeTracks(['a']);
       expect(library.byId('a'), isNull);
       expect(library.tracks, isEmpty);

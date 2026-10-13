@@ -490,11 +490,9 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<String> resolve(Track track) async {
-    for (final path in [track.cachedPath, track.localPath]) {
-      if (path != null && await File(path).exists()) {
-        return Uri.file(path).toString();
-      }
-    }
+    track = library.byId(track.id) ?? track;
+    final path = await library.localPathFor(track);
+    if (path != null) return Uri.file(path).toString();
     if (track.source == TrackSource.torrent) {
       return (await torrents.resolve(track)).toString();
     }

@@ -30,6 +30,7 @@ class LibraryRepository extends ChangeNotifier {
   List<Track> _trackItems = [];
   List<Track>? _trackSnapshot;
   Map<String, Track>? _trackIndex;
+  Map<String, List<Track>>? _offlineTorrentIndex;
   LibraryViews? _views;
   List<Album>? _albumSnapshot;
   Map<String, Album>? _albumIndex;
@@ -93,6 +94,7 @@ class LibraryRepository extends ChangeNotifier {
     _trackItems = value;
     _trackSnapshot = null;
     _trackIndex = null;
+    _offlineTorrentIndex = null;
     _views = null;
     _albumSnapshot = null;
     _albumIndex = null;
@@ -138,6 +140,54 @@ class LibraryRepository extends ChangeNotifier {
   Map<String, Track> get _indexedTracks =>
       _trackIndex ??= {for (final track in _tracks) track.id: track};
   Track? byId(String id) => _indexedTracks[id];
+
+  String? _torrentFileKey(Track track) =>
+      track.source == TrackSource.torrent &&
+          track.torrentHash != null &&
+          track.torrentPath != null
+      ? '${track.torrentHash!.toLowerCase()}\u0000${track.torrentPath!.replaceAll('\\', '/')}'
+      : null;
+
+  /// Reuse only the identical torrent file here. Different codecs/edits remain
+  /// separate versions, selected by the collection's matching/version picker.
+  Iterable<Track> localCopiesFor(Track track) sync* {
+    final latest = byId(track.id) ?? track;
+    if (latest.offline) yield latest;
+    final key = _torrentFileKey(latest);
+    if (key == null) return;
+    if (_offlineTorrentIndex == null) {
+      final index = <String, List<Track>>{};
+      for (final item in tracks.where((item) => item.offline)) {
+        final itemKey = _torrentFileKey(item);
+        if (itemKey != null) {
+          index.putIfAbsent(itemKey, () => []).add(item);
+        }
+      }
+      _offlineTorrentIndex = index;
+    }
+    yield* (_offlineTorrentIndex![key] ?? const <Track>[]).where(
+      (item) => item.id != latest.id,
+    );
+  }
+
+  Future<String?> localPathFor(Track track) async {
+    for (final copy in localCopiesFor(track)) {
+      for (final path in [copy.cachedPath, copy.localPath]) {
+        if (path != null && await File(path).exists()) return path;
+      }
+    }
+    return null;
+  }
+
+  bool isTrackProtected(String id) =>
+      _liked.contains(id) ||
+      byId(id)?.cachedPath != null ||
+      _likedAlbums.any((ids) => ids.contains(id)) ||
+      _playlists.any(
+        (playlist) =>
+            _likedPlaylists.contains(playlist.id) &&
+            playlist.trackIds.contains(id),
+      );
 
   Future<void> load() async {
     await root.create(recursive: true);
@@ -338,7 +388,9 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   Future<void> removeTracks(Iterable<String> ids) async {
-    final removed = ids.toSet();
+    // Removing a collection must never orphan offline files or erase favorites.
+    final removed = ids.where((id) => !isTrackProtected(id)).toSet();
+    if (removed.isEmpty) return;
     _tracks = _tracks.where((t) => !removed.contains(t.id)).toList();
     _liked.removeAll(removed);
     _matchExcluded.removeAll(removed);

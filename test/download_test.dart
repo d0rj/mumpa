@@ -136,7 +136,10 @@ void main() {
       final cached = library.byId(track.id)!.cachedPath!;
       expect(await File(cached).readAsBytes(), bytes);
       expect(await File('$cached.part').exists(), isFalse);
-      await downloads.removeOffline(library.byId(track.id)!);
+      await downloads.removeOffline(
+        library.byId(track.id)!,
+        userRequested: true,
+      );
       expect(library.byId(track.id)!.cachedPath, isNull);
       expect(await File(cached).exists(), isFalse);
     },

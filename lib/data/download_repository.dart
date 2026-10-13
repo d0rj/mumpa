@@ -77,14 +77,27 @@ class DownloadRepository extends ChangeNotifier {
     // List the few existing transfers once instead of stat'ing every missing
     // .part file during application startup. Do not follow unrelated links.
     final partials = <String, File>{};
+    final completed = <String, File>{};
     await for (final entity in directory.list(followLinks: false)) {
       if (entity is File && p.extension(entity.path).toLowerCase() == '.part') {
         partials[_restorePathKey(entity.path)] = entity;
+      } else if (entity is File) {
+        completed[_restorePathKey(entity.path)] = entity;
       }
     }
+    final recovered = <Track>[];
     for (final track in library.tracks.where(
       (t) => t.source == TrackSource.torrent && t.cachedPath == null,
     )) {
+      final complete = completed[_restorePathKey(_path(track))];
+      // A crash after rename but before the library save leaves an unindexed
+      // completed file. A .part, unknown size or short file never qualifies.
+      if (complete != null &&
+          track.bytes > 0 &&
+          await complete.length() == track.bytes) {
+        recovered.add(track.copyWith(cachedPath: complete.path));
+        continue;
+      }
       final partial = partials[_restorePathKey('${_path(track)}.part')];
       if (partial != null) {
         final job = DownloadJob(track, state: DownloadState.paused)
@@ -93,6 +106,7 @@ class DownloadRepository extends ChangeNotifier {
         _jobs[track.id] = job;
       }
     }
+    if (recovered.isNotEmpty) await library.upsert(recovered);
     notifyListeners();
   }
 
@@ -113,7 +127,8 @@ class DownloadRepository extends ChangeNotifier {
     final selected = <String>[];
     for (final track in tracks) {
       final latest = library.byId(track.id) ?? track;
-      if (latest.source != TrackSource.torrent || latest.cachedPath != null) {
+      if (latest.source != TrackSource.torrent ||
+          library.localCopiesFor(latest).isNotEmpty) {
         continue;
       }
       if (_removals.containsKey(track.id)) continue;
@@ -253,6 +268,16 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   Future<void> _download(DownloadJob job, _DownloadAttempt attempt) async {
+    // A queued job may have become local while waiting for a slot.
+    final existing = await library.localPathFor(job.track);
+    attempt.check();
+    if (existing != null) {
+      job.received = await File(existing).length();
+      attempt.check();
+      job.total = job.received;
+      job.state = DownloadState.complete;
+      return;
+    }
     job.cancelled = false;
     job.state = DownloadState.downloading;
     notifyListeners();
@@ -459,14 +484,14 @@ class DownloadRepository extends ChangeNotifier {
     _reservations[attempt] = candidate;
   });
 
-  Future<void> removeOffline(Track track) {
+  Future<void> removeOffline(Track track, {bool userRequested = false}) {
     final pending = _removals[track.id];
     if (pending != null) return pending;
     final result = Completer<void>();
     _removals[track.id] = result.future;
     unawaited(() async {
       try {
-        await _removeOffline(track);
+        await _removeOffline(track, userRequested: userRequested);
         result.complete();
       } catch (error, stack) {
         result.completeError(error, stack);
@@ -481,25 +506,37 @@ class DownloadRepository extends ChangeNotifier {
     return result.future;
   }
 
-  Future<void> _removeOffline(Track track) async {
+  Future<void> _removeOffline(
+    Track track, {
+    required bool userRequested,
+  }) async {
+    if (!userRequested && library.isTrackProtected(track.id)) return;
     final job = _jobs[track.id];
     pause(track.id);
     await job?._completion;
     // A finishing transfer may have published new tags and cachedPath while
     // remove awaited it. Never overwrite those with the caller's old snapshot.
     final latest = library.byId(track.id) ?? track;
+    if (!userRequested &&
+        (latest.cachedPath != null || library.isTrackProtected(track.id))) {
+      return;
+    }
     // Never delete an imported file or a path outside the app-owned download directory.
     await _withQuotaLock(() async {
       if (latest.cachedPath != null &&
           p.isWithin(library.downloads.path, latest.cachedPath!)) {
         final file = File(latest.cachedPath!);
-        if (await file.exists()) await file.delete();
+        if (!_sharedCopy(file.path, latest.id) && await file.exists()) {
+          await file.delete();
+        }
       }
       if (latest.source == TrackSource.torrent) {
         for (final path in [_path(latest), '${_path(latest)}.part']) {
           if (!p.isWithin(library.downloads.path, path)) continue;
           final file = File(path);
-          if (await file.exists()) await file.delete();
+          if (!_sharedCopy(path, latest.id) && await file.exists()) {
+            await file.delete();
+          }
         }
       }
     });
@@ -511,6 +548,13 @@ class DownloadRepository extends ChangeNotifier {
     ], preserveCache: false);
     if (!_disposed) notifyListeners();
   }
+
+  bool _sharedCopy(String path, String removingId) => library.tracks.any(
+    (track) =>
+        track.id != removingId &&
+        track.cachedPath != null &&
+        _restorePathKey(track.cachedPath!) == _restorePathKey(path),
+  );
 
   Future<void> close() async {
     dispose();

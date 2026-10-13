@@ -106,6 +106,7 @@ void main() {
       app.recentAlbums.first.tracks,
       contains(predicate<Track>((track) => track.title == 'Updated song')),
     );
+    await library.toggleLike('1');
     await library.removeTracks(['1']);
     expect(app.likedSearchResults.tracks.map((track) => track.id), ['3', '2']);
   });

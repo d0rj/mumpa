@@ -70,6 +70,10 @@ void main() {
     expect((fresh.settings['playback'] as Map)['position'], 4000);
     fresh.dispose();
     await library.removeTracks(['a']);
+    expect(library.playlists.single.trackIds, ['a', 'c']);
+    expect(library.liked, {'a'});
+    await library.toggleLike('a');
+    await library.removeTracks(['a']);
     expect(library.playlists.single.trackIds, ['c']);
     expect(library.liked, isEmpty);
   });

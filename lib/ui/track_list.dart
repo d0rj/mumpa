@@ -52,7 +52,7 @@ class TrackList extends SliverContent {
         final active = current != null && row.group.ids.contains(current.id);
         final t = active ? current : row.preferred;
         final liked = row.group.ids.any(app.library.isTrackLiked);
-        void play(Track version) {
+        void play([Track? version]) {
           final queue = queueTracks ?? tracks;
           final index = queue.indexWhere((item) => item.id == anchor.id);
           if (index < 0) return;
@@ -78,7 +78,7 @@ class TrackList extends SliverContent {
           key: keys[i],
           builder: (context, c) => InkWell(
             key: ValueKey('track-row-${anchor.id}'),
-            onTap: row.group.multiple ? chooseVersion : () => play(t),
+            onTap: row.group.multiple ? chooseVersion : () => play(),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
@@ -122,7 +122,7 @@ class TrackList extends SliverContent {
                     track: row.preferred,
                     variants: row.group.variants,
                     rowId: anchor.id,
-                    onPlay: () => play(row.preferred),
+                    onPlay: () => play(),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -266,7 +266,33 @@ class TrackList extends SliverContent {
                         case 'download':
                           app.downloads.enqueue([t]);
                         case 'removeCache':
-                          await app.downloads.removeOffline(t);
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Удалить офлайн-копию?'),
+                              content: const Text(
+                                'Трек сохранится в библиотеке и избранном, '
+                                'но для прослушивания потребуется сеть.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Отмена'),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Удалить копию'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true) {
+                            await app.downloads.removeOffline(
+                              t,
+                              userRequested: true,
+                            );
+                          }
                         case 'artist':
                           app.openArtist(t.artist);
                         case 'album':

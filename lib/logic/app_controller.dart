@@ -565,7 +565,8 @@ class AppController extends ChangeNotifier {
         library.settings['autoCache'] != true) {
       return;
     }
-    if (track.source == TrackSource.torrent && track.cachedPath == null) {
+    if (track.source == TrackSource.torrent &&
+        library.localCopiesFor(track).isEmpty) {
       _autoCachedId = track.id;
       downloads.enqueue([track], priority: true);
     }
@@ -875,6 +876,7 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  int _collectionPlayRequest = 0;
   Future<void> playCollection(
     List<Track> tracks, {
     int index = 0,
@@ -882,13 +884,33 @@ class AppController extends ChangeNotifier {
     Track? selectedVariant,
   }) async {
     if (tracks.isEmpty || index < 0 || index >= tracks.length) return;
+    final request = ++_collectionPlayRequest;
     final rows = library.matchedTracks(tracks);
     final selectedId = tracks[index].id;
     final selectedIndex = rows.indexWhere(
       (row) => row.group.ids.contains(selectedId),
     );
     if (selectedIndex < 0) return;
-    final queue = rows.map((row) => row.preferred).toList();
+    final queue = <Track>[];
+    for (final row in rows) {
+      var selected = row.preferred;
+      // Only ordinary playback can choose another known version. The picker
+      // below still requests the exact file, including its codec/clean edit.
+      if (row.group.multiple) {
+        for (final candidate in [
+          row.preferred,
+          ...row.members,
+          ...row.group.variants,
+        ].where((track) => library.localCopiesFor(track).isNotEmpty)) {
+          if (await library.localPathFor(candidate) != null) {
+            selected = candidate;
+            break;
+          }
+        }
+      }
+      queue.add(selected);
+    }
+    if (request != _collectionPlayRequest) return;
     // An explicit menu selection wins for this occurrence without rewriting
     // album/playlist membership or every saved preference.
     if (selectedVariant != null &&

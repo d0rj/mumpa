@@ -7,8 +7,9 @@ comparison or build a global index.
 Click a grouped row or `×N` to choose a version. The popup shows format, known
 duration, album, source collection, filename, size, offline status and censorship
 hints. A star saves the default. Play on the small cover starts immediately:
-explicit default first, then an offline collection member, then another known
-offline copy, then the original member. Selecting a popup row plays that exact
+an available offline default first, then an offline collection member, then
+another known offline copy, then the saved online default or original member.
+Ordinary collection playback checks that the local file still exists. Selecting a popup row plays that exact
 file for this queue occurrence. Up to two offset covers sit behind the front;
 hidden layers use cached artwork/fallbacks without extra cover requests.
 

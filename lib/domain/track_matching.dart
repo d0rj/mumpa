@@ -221,9 +221,12 @@ class TrackMatchIndex {
           group: entry.key,
           members: List.unmodifiable(entry.value),
           preferred:
-              _defaults[entry.key] ??
+              (_defaults[entry.key]?.offline == true
+                  ? _defaults[entry.key]
+                  : null) ??
               entry.value.where((track) => track.offline).firstOrNull ??
               entry.key.variants.where((track) => track.offline).firstOrNull ??
+              _defaults[entry.key] ??
               entry.value.first,
         ),
     ]);
