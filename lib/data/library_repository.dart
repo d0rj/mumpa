@@ -522,6 +522,25 @@ class LibraryRepository extends ChangeNotifier {
   Future<void> removeFromPlaylist(String id, String track) =>
       removePlaylistTracks(id, [track]);
 
+  /// Move one saved occurrence to its final index, retaining every file ID.
+  Future<void> movePlaylistTrack(String id, int from, int to) async {
+    final index = _playlists.indexWhere((playlist) => playlist.id == id);
+    if (index < 0) return;
+    final playlist = _playlists[index];
+    if (from < 0 ||
+        from >= playlist.trackIds.length ||
+        to < 0 ||
+        to >= playlist.trackIds.length ||
+        from == to) {
+      return;
+    }
+    final ids = List.of(playlist.trackIds);
+    ids.insert(to, ids.removeAt(from));
+    _playlists[index] = playlist.copyWith(trackIds: ids);
+    notifyListeners();
+    await _save();
+  }
+
   Future<void> removePlaylistTracks(String id, Iterable<String> tracks) async {
     final removed = tracks.toSet();
     _playlists = _playlists

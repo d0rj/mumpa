@@ -1,5 +1,30 @@
 # Mumpa verification — 2026-10-13
 
+## Saved playlist order 1.2.15+23
+
+- **412 unit/widget tests passed**, three existing opt-in tests skipped.
+  Analysis passed for lib/test/integration_test; changed Dart files pass format.
+  Evidence: `test-output/playlist-order-full-tests.log`,
+  `playlist-order-analyze.log` and `playlist-order-format.log`.
+- Ten new tests cover actual mouse/touch dragging up/down at 320/1200 px,
+  menu moves and disabled endpoints, individual matched variants, missing and
+  legacy duplicate IDs, local filter/album-view restoration, next playlist
+  playback order, restart persistence, rapid writes, subsequent edits and
+  reopening a source collection. Playback remains paused at the same position
+  with unchanged decoder open/stop/seek counters while editing. The decoder in
+  these interaction checks is a fake backend.
+- Windows x64 and Android ARM64/ARMv7/x86_64 release builds passed, with Android
+  debug symbols retained. Logs: `playlist-order-windows-build.log` and
+  `playlist-order-android-build.log`. Physical Android interaction was not run.
+- The installed Windows app was gracefully shut down, upgraded to 1.2.15+23
+  and restarted. The profile retains **9,861 tracks and 17 playlists**; track,
+  playlist and favorite snapshots match before/after. The prior installed
+  version and its earlier backup are retained. Evidence:
+  `test-output/playlist-order-install-status.json` and
+  `playlist-order-installed.json`.
+- Local release packages are in `artifacts/release-1.2.15`; no push or public
+  release was performed.
+
 ## Windows installation and app updates 1.2.14+22
 
 - Installed in the user's `%LOCALAPPDATA%/Programs/Mumpa/current`, registered

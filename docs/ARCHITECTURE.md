@@ -1,5 +1,21 @@
 # Mumpa architecture
 
+## Saved playlist order — 1.2.15
+
+`LibraryRepository.movePlaylistTrack` moves one occurrence between final indices
+in the existing `trackIds` list and persists it through the serialized atomic
+JSON writer. Names, source hashes, favorites, duplicate and absent file IDs are
+retained. No schema migration is required; reopening a source retains its saved
+order.
+
+The collection page's order editor temporarily shows every saved, resolvable
+file rather than grouped matches or search results. Visible indices map back to
+saved indices so missing files are retained. `TrackList` uses a lazy
+`SliverReorderableList`, stable ID/occurrence keys, 48 px drag handles and up/down
+menu actions. Finishing restores the local search and album view. Playback uses
+the saved order on the next collection start; editing never mutates or reopens
+an already active playback queue.
+
 ## Known track versions — 1.2.12
 
 `TrackMatchIndex` groups existing files using conservative artist/title,
