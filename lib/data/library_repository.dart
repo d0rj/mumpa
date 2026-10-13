@@ -117,6 +117,7 @@ class LibraryRepository extends ChangeNotifier {
   bool isTrackLiked(String id) => _liked.contains(id);
   Set<String> get likedPlaylists => _currentViews.likedPlaylists;
   List<Track> get favoriteTracks => _currentViews.favoriteTracks;
+  List<Track> get offlineTracks => _currentViews.offlineTracks;
   List<MusicPlaylist> get favoritePlaylists => _currentViews.favoritePlaylists;
 
   bool isPlaylistLiked(String id) => _likedPlaylists.contains(id);
@@ -235,17 +236,26 @@ class LibraryRepository extends ChangeNotifier {
             'Не удалось прочитать библиотеку. Исходный файл сохранён.';
       }
     }
+    // Older profiles lack completion dates. Use the final file's modification
+    // time once, then persist it so later tag updates do not change the order.
+    var migratedDownloadDates = false;
     // An interrupted transfer never becomes an offline item.
     _tracks = await Future.wait(
-      _tracks.map(
-        (t) async => t.cachedPath != null && !await File(t.cachedPath!).exists()
-            ? t.copyWith(clearCache: true)
-            : t,
-      ),
+      _tracks.map((track) async {
+        if (track.cachedPath == null) return track;
+        final stat = await File(track.cachedPath!).stat();
+        if (stat.type != FileSystemEntityType.file) {
+          return track.copyWith(clearCache: true);
+        }
+        if (track.downloadedAt != null) return track;
+        migratedDownloadDates = true;
+        return track.copyWith(downloadedAt: stat.modified.toUtc());
+      }),
     );
     // Default applies once to new/older profiles; an explicit opt-out survives.
     _settings.putIfAbsent('autoCache', () => true);
-    if (await _upgradeTorrentLayouts()) {
+    final upgradedLayouts = await _upgradeTorrentLayouts();
+    if (upgradedLayouts || migratedDownloadDates) {
       await _save();
     }
     await _prepareTracks();
@@ -368,7 +378,7 @@ class LibraryRepository extends ChangeNotifier {
       final inferred =
           t.albumSource == TrackAlbumSource.release ||
           t.albumSource == TrackAlbumSource.directory;
-      final item =
+      var item =
           old != null &&
               t.source == TrackSource.torrent &&
               inferred &&
@@ -376,10 +386,18 @@ class LibraryRepository extends ChangeNotifier {
               preserveCache
           ? _mergeTorrentImport(old, t)
           : t;
-      indexed[t.id] =
-          preserveCache && old?.cachedPath != null && item.cachedPath == null
-          ? item.copyWith(cachedPath: old!.cachedPath)
-          : item;
+      if (preserveCache && old?.cachedPath != null) {
+        if (item.cachedPath == null) {
+          item = item.copyWith(
+            cachedPath: old!.cachedPath,
+            downloadedAt: old.downloadedAt,
+          );
+        } else if (item.cachedPath == old!.cachedPath &&
+            item.downloadedAt == null) {
+          item = item.copyWith(downloadedAt: old.downloadedAt);
+        }
+      }
+      indexed[t.id] = item;
     }
     _tracks = _propagateTorrentAlbumMetadata(indexed.values);
     await _prepareTracks();

@@ -95,7 +95,12 @@ class DownloadRepository extends ChangeNotifier {
       if (complete != null &&
           track.bytes > 0 &&
           await complete.length() == track.bytes) {
-        recovered.add(track.copyWith(cachedPath: complete.path));
+        recovered.add(
+          track.copyWith(
+            cachedPath: complete.path,
+            downloadedAt: (await complete.lastModified()).toUtc(),
+          ),
+        );
         continue;
       }
       final partial = partials[_restorePathKey('${_path(track)}.part')];
@@ -399,11 +404,12 @@ class DownloadRepository extends ChangeNotifier {
         await partial.rename(target.path);
         _reservations[attempt]!.published = true;
       });
+      final downloadedAt = DateTime.now().toUtc();
       final track = await library.inspect(
         target.path,
         torrent: library.byId(job.track.id) ?? job.track,
       );
-      await library.upsert([track]);
+      await library.upsert([track.copyWith(downloadedAt: downloadedAt)]);
       job.received = await target.length();
       job.total = job.received;
       job.state = DownloadState.complete;

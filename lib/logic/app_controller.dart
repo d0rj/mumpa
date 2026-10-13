@@ -665,8 +665,7 @@ class AppController extends ChangeNotifier {
   List<Track> get playlistTracks =>
       playlist?.trackIds.map(library.byId).whereType<Track>().toList() ?? [];
   List<Track> get likedTracks => library.favoriteTracks;
-  List<Track> get offlineTracks =>
-      library.tracks.where((t) => t.cachedPath != null).toList();
+  List<Track> get offlineTracks => library.offlineTracks;
   List<Track> get offlineSearchTracks =>
       filterCollectionTracks(offlineTracks, localQuery('downloads'));
   List<DownloadJob> get downloadSearchJobs {

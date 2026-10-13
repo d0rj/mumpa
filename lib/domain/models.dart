@@ -54,6 +54,7 @@ class Track {
     this.torrentIndex,
     this.torrentPath,
     this.cachedPath,
+    this.downloadedAt,
     this.bytes = 0,
     this.durationMs = 0,
     this.number = 0,
@@ -76,6 +77,7 @@ class Track {
       lyrics,
       torrentAlbumPath;
   final TrackAlbumSource? albumSource;
+  final DateTime? downloadedAt;
   final bool albumArtistFromTags;
   final int? torrentIndex, year;
   final int bytes, durationMs, number, disc;
@@ -88,6 +90,7 @@ class Track {
       .toUpperCase();
   Track copyWith({
     String? cachedPath,
+    DateTime? downloadedAt,
     bool clearCache = false,
     String? artPath,
     String? title,
@@ -116,6 +119,7 @@ class Track {
     torrentIndex: torrentIndex,
     torrentPath: torrentPath,
     cachedPath: clearCache ? null : cachedPath ?? this.cachedPath,
+    downloadedAt: clearCache ? null : downloadedAt ?? this.downloadedAt,
     bytes: bytes,
     durationMs: durationMs ?? this.durationMs,
     number: number ?? this.number,
@@ -140,6 +144,8 @@ class Track {
     'torrentIndex': torrentIndex,
     'torrentPath': torrentPath,
     'cachedPath': cachedPath,
+    if (downloadedAt != null)
+      'downloadedAt': downloadedAt!.toUtc().toIso8601String(),
     'bytes': bytes,
     'durationMs': durationMs,
     'number': number,
@@ -164,6 +170,7 @@ class Track {
     torrentIndex: j['torrentIndex'] as int?,
     torrentPath: j['torrentPath'] as String?,
     cachedPath: j['cachedPath'] as String?,
+    downloadedAt: DateTime.tryParse(j['downloadedAt'] as String? ?? ''),
     bytes: (j['bytes'] as num?)?.toInt() ?? 0,
     durationMs: (j['durationMs'] as num?)?.toInt() ?? 0,
     number: j['number'] as int? ?? 0,

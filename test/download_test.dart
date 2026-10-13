@@ -134,6 +134,7 @@ void main() {
       await until(() => downloads.jobs.single.state == DownloadState.complete);
       expect(range, 'bytes=8192-');
       final cached = library.byId(track.id)!.cachedPath!;
+      expect(library.byId(track.id)!.downloadedAt, isNotNull);
       expect(await File(cached).readAsBytes(), bytes);
       expect(await File('$cached.part').exists(), isFalse);
       await downloads.removeOffline(
@@ -141,6 +142,7 @@ void main() {
         userRequested: true,
       );
       expect(library.byId(track.id)!.cachedPath, isNull);
+      expect(library.byId(track.id)!.downloadedAt, isNull);
       expect(await File(cached).exists(), isFalse);
     },
   );
@@ -154,6 +156,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 80));
       expect(downloads.jobs.single.state, DownloadState.paused);
       expect(library.byId(track.id)!.cachedPath, isNull);
+      expect(library.byId(track.id)!.downloadedAt, isNull);
       downloads.retry(track.id);
       await until(() => downloads.jobs.single.state == DownloadState.complete);
       expect(range, startsWith('bytes='));
@@ -171,6 +174,7 @@ void main() {
       await until(() => downloads.jobs.single.state == DownloadState.failed);
       expect(downloads.jobs.single.error, contains('Лимит'));
       expect(library.byId(track.id)!.offline, isFalse);
+      expect(library.byId(track.id)!.downloadedAt, isNull);
     },
   );
   test(
@@ -223,6 +227,19 @@ void main() {
       );
       expect(requests.map((r) => r.index), [7, 8, 7, 9]);
       expect(requests[2].offset, greaterThan(0));
+      expect(library.offlineTracks.map((track) => track.id), [
+        'later',
+        'torrent1',
+        'priority',
+      ]);
+      final fresh = LibraryRepository(root);
+      addTearDown(fresh.dispose);
+      await fresh.load();
+      expect(fresh.offlineTracks.map((track) => track.id), [
+        'later',
+        'torrent1',
+        'priority',
+      ]);
       for (final item in [
         (track, bytes),
         (priority, payloads[8]!),

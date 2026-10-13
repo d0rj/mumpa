@@ -1,5 +1,22 @@
 # Mumpa verification — 2026-10-13
 
+## Download completion order — 2026-10-13
+
+- Downloaded tracks display newest completion first, including local search.
+  Optional UTC dates persist across restart; legacy cached files migrate once
+  using their modification times. Metadata refresh preserves the date, removing
+  the offline copy clears it, and downloading again moves the track to the top.
+- **49 targeted unit/widget tests passed**: date serialization, ordering distinct
+  from library import, stable ties, immutable views, search, migration persistence,
+  missing files, crash recovery, actual HTTP completion order after priority
+  preemption, pause/resume, quotas, parallel downloads and existing library/search
+  regressions. Actual row positions were verified at **320/1200 px**.
+  Evidence: `test-output/download-order-tests.log`.
+- Full analysis found two existing brace-style notices in the separately modified
+  queue-prefetch tests. Analysis of the library and download-order tests is recorded
+  in `test-output/download-order-analyze-targeted.log`. No installed application,
+  native audio or physical Android checks were performed for this sorting change.
+
 ## Shared offline playback and protected music 1.2.17+25
 
 - Ordinary collection playback prefers an existing offline version from the

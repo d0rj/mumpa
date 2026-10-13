@@ -1,5 +1,19 @@
 # Mumpa architecture
 
+## Download completion order — 2026-10-13
+
+Completed offline tracks carry an optional UTC `downloadedAt` timestamp in
+`library.json`. The downloader records it after the final atomic rename and
+before metadata inspection; crash recovery uses the final file's modification
+time. On loading an older profile, existing cached files receive their modification
+times once, and those dates are persisted. Missing files clear both cache and date.
+
+`LibraryViews.offlineTracks` provides an immutable cached list, newest completion
+first, with stable library order for equal or absent dates. Downloads search
+filters this view without reordering it. Tag refreshes and source reimports retain
+the date with the cached path; explicit removal clears it, and a subsequent
+download receives a fresh completion date.
+
 ## Shared offline files and retention — 1.2.17
 
 `LibraryRepository.localCopiesFor` indexes completed/local copies by exact

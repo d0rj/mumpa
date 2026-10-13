@@ -25,6 +25,19 @@ class LibraryViews {
   final List<String> recent;
   final Map<String, dynamic> settings;
   late final _indexedTracks = {for (final track in tracks) track.id: track};
+  late final offlineTracks = _offlineTracks();
+  List<Track> _offlineTracks() {
+    final items = tracks.where((track) => track.cachedPath != null).toList();
+    final positions = {for (var i = 0; i < tracks.length; i++) tracks[i].id: i};
+    items.sort((a, b) {
+      final time = (b.downloadedAt?.microsecondsSinceEpoch ?? 0).compareTo(
+        a.downloadedAt?.microsecondsSinceEpoch ?? 0,
+      );
+      return time != 0 ? time : positions[a.id]!.compareTo(positions[b.id]!);
+    });
+    return List.unmodifiable(items);
+  }
+
   late final favoriteTracks = List<Track>.unmodifiable(
     liked.toList().reversed.map((id) => _indexedTracks[id]).whereType<Track>(),
   );
