@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
+import '../data/file_location_service.dart';
 import '../domain/models.dart';
 import '../domain/music_metadata.dart';
 import '../domain/track_matching.dart';

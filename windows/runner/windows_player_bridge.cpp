@@ -2,6 +2,7 @@
 
 #include <flutter/standard_method_codec.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <systemmediatransportcontrolsinterop.h>
 #include <windowsx.h>
 
@@ -350,6 +351,32 @@ void WindowsPlayerBridge::HandleMethod(
     result->Success();
   } else if (call.method_name() == "show") {
     ShowWindow();
+    result->Success();
+  } else if (call.method_name() == "revealFile") {
+    const auto* path = call.arguments()
+        ? std::get_if<std::string>(call.arguments()) : nullptr;
+    if (!path || path->empty() || path->find('\0') != std::string::npos) {
+      result->Error("invalid-path", "Expected a file path");
+      return;
+    }
+    const std::wstring wide_path(winrt::to_hstring(*path));
+    const DWORD attributes = GetFileAttributesW(wide_path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES ||
+        (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+      result->Error("file-not-found", "Track file not found");
+      return;
+    }
+    PIDLIST_ABSOLUTE item = nullptr;
+    HRESULT status = SHParseDisplayName(wide_path.c_str(), nullptr, &item, 0, nullptr);
+    if (SUCCEEDED(status)) {
+      // With zero children the Shell opens the parent and selects this file.
+      status = SHOpenFolderAndSelectItems(item, 0, nullptr, 0);
+    }
+    CoTaskMemFree(item);
+    if (FAILED(status)) {
+      result->Error("reveal-failed", "Could not show track file in Explorer");
+      return;
+    }
     result->Success();
   } else if (call.method_name() == "quitReady") {
     result->Success();

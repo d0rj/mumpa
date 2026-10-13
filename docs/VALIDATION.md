@@ -1,5 +1,32 @@
 # Mumpa verification — 2026-10-13
 
+## Reveal downloaded tracks in Windows Explorer — 2026-10-13
+
+- Windows track rows offer a folder button and a "Показать в проводнике"
+  menu action for completed cached copies and imported local originals. The
+  download page shows the actual downloads directory. Rows reserve the folder
+  column so downloading a track does not move the album/format columns.
+- The action resolves the latest existing local copy, including identical
+  torrent files referenced by another playlist, and selects it through the
+  Windows Shell API. Missing files and shell errors report an app error without
+  starting playback or a download. Incomplete `.part` files have no action.
+- **29 targeted unit/widget tests passed**, including seven new cases, menus
+  at 320/1200 px, stable column positions, version groups and offline ordering.
+  Analysis of all six changed Dart files passed. Evidence:
+  `test-output/file-location-ui-regressions.log`,
+  `file-location-analyze-targeted.log`.
+- The native Windows integration passed and the real Explorer selection was
+  independently observed through Shell.Application for `Песня & live, 01.flac`.
+  A missing file returns `file-not-found`. Evidence:
+  `test-output/file-location-native.log`, `file-location-native.json`,
+  `file-location-explorer.json`. Windows release compilation passed.
+- The broad run also covered separate uncommitted player/prefetch changes. It
+  reported a failure in `late stream failure or completion after Pause cannot
+  restart the queue`, plus the folder-column regression subsequently fixed and
+  rechecked above. Whole-project analysis reported two brace-style notices in
+  the separately modified playback controller. This feature's commit excludes
+  those changes. The installed app and physical Android were not updated/tested.
+
 ## Download completion order — 2026-10-13
 
 - Downloaded tracks display newest completion first, including local search.

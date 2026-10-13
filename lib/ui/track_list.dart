@@ -74,6 +74,19 @@ class TrackList extends SliverContent {
               (j) => j.track.id == t.id && j.state == DownloadState.downloading,
             )
             .firstOrNull;
+        final canReveal = FileLocationService.canReveal(app.library, t);
+        Future<void> revealFile() async {
+          try {
+            await FileLocationService.revealTrack(app.library, t);
+          } on FileSystemException catch (error) {
+            app.reportError(error.message);
+          } catch (_) {
+            app.reportError(
+              'Не удалось открыть расположение трека в проводнике.',
+            );
+          }
+        }
+
         return LayoutBuilder(
           key: keys[i],
           builder: (context, c) => InkWell(
@@ -229,6 +242,23 @@ class TrackList extends SliverContent {
                       color: liked ? accent : muted,
                     ),
                   ),
+                  if (FileLocationService.available && c.maxWidth > 450)
+                    SizedBox(
+                      width: 40,
+                      child: canReveal
+                          ? IconButton(
+                              key: ValueKey('track-reveal-${anchor.id}'),
+                              onPressed: revealFile,
+                              tooltip: 'Показать в проводнике',
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.folder_open_rounded,
+                                size: 19,
+                                color: muted,
+                              ),
+                            )
+                          : null,
+                    ),
                   if (c.maxWidth > 450)
                     SizedBox(
                       width: 40,
@@ -265,6 +295,8 @@ class TrackList extends SliverContent {
                           app.playback.enqueue(t);
                         case 'download':
                           app.downloads.enqueue([t]);
+                        case 'revealFile':
+                          await revealFile();
                         case 'removeCache':
                           final confirmed = await showDialog<bool>(
                             context: context,
@@ -372,6 +404,11 @@ class TrackList extends SliverContent {
                         const PopupMenuItem(
                           value: 'removeCache',
                           child: Text('Удалить офлайн-копию'),
+                        ),
+                      if (canReveal)
+                        const PopupMenuItem(
+                          value: 'revealFile',
+                          child: Text('Показать в проводнике'),
                         ),
                       if (playlistId != null)
                         const PopupMenuItem(

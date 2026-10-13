@@ -17,6 +17,11 @@ class _DownloadsPage extends StatelessWidget {
           subtitle:
               '${app.offlineTracks.length} скачанных треков · ${formatBytes(app.offlineTracks.fold<int>(0, (a, t) => a + t.bytes))}',
         ),
+        if (Platform.isWindows)
+          SelectableText(
+            'Папка загрузок: ${app.library.downloads.path}',
+            style: const TextStyle(fontSize: 11, color: muted),
+          ),
         LocalSearchField(
           app: app,
           scope: 'downloads',
