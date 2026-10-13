@@ -1,5 +1,30 @@
 # Mumpa verification — 2026-10-13
 
+## Queue prefetch, unavailable tracks and cover controls — 1.2.18+26
+
+- The persisted prefetch count is 0–10 (default 3). It prepares the next missing
+  files in the actual queue, reuses verified shared offline copies and respects
+  concurrency/quota, manual tasks and Pause/Stop. Completed files do not expand
+  a stationary lookahead through the entire playlist.
+- Failed file/source/decoder starts and later stream failures advance without
+  editing saved playlists. Repeat-all is bounded even for late startup errors;
+  repeat-one cannot trap a failed file. Late events after Pause do not restart.
+- Small-cover buttons appear on hover or while that track/version plays.
+  Grouped version selection and direct touch cover play remain available.
+- Final **450 unit/widget tests passed**, three existing opt-in tests skipped;
+  whole-project analysis and formatting passed. The earlier isolated change
+  passed 443 tests. Final combined evidence: `prefetch-final-full-tests.log`,
+  `prefetch-final-analyze.log`. Concurrent Explorer changes are also included
+  in this final checked tree, with their column regression fixed.
+- Real Windows/libmpv and generated WAV/loopback HTTP passed prefetch,
+  natural-completion transition, missing-file/HTTP-503 skipping, completed-file
+  reuse, exact bytes, unchanged playlist and Pause. Evidence:
+  `prefetch-native-test.log`, `prefetch-native.json`.
+- Windows x64 and Android ARM64/ARMv7/x86_64 releases built with symbols retained:
+  `prefetch-final-windows-build.log`, `prefetch-final-android-build.log`.
+  Public swarms and physical Android playback were not tested.
+- Implementation and detailed semantics: [QUEUE_PREFETCH.md](QUEUE_PREFETCH.md).
+
 ## Reveal downloaded tracks in Windows Explorer — 2026-10-13
 
 - Windows track rows offer a folder button and a "Показать в проводнике"

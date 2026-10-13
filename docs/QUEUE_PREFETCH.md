@@ -56,3 +56,14 @@ were not tested. Native transfer evidence uses controlled loopback sources.
 `graphify query` and `graphify update .` were attempted; the installed executable
 reported `uv trampoline failed to canonicalize script path`, so the graph could
 not be refreshed.
+
+## Final combined verification
+
+After the concurrent Explorer work was committed and its alignment regression
+fixed, the current checkout passed **450 unit/widget tests** (three opt-in checks
+skipped) and whole-project analysis. Windows x64 release and Android
+ARM64/ARMv7/x86_64 release APKs with debug symbols built successfully.
+`prefetch-final-full-tests.log`, `prefetch-final-analyze.log`,
+`prefetch-final-windows-build.log` and `prefetch-final-android-build.log` record
+this final combined state. The native prefetch check also passed on the final
+playback implementation. Core implementation commit: `b4612d2`.
