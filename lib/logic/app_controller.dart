@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../data/download_repository.dart';
+import '../data/app_update_service.dart';
 import '../data/library_repository.dart';
 import '../data/jackett_service.dart';
 import '../data/flaresolverr_service.dart';
@@ -190,6 +191,9 @@ class AppController extends ChangeNotifier {
   }
 
   WindowsPlayerService? windowsPlayer;
+  late final updates = AppUpdateService(
+    Directory('${library.root.path}/updates'),
+  );
   Future<void>? _shutdown;
   Future<void>? _catalogDisposal, _jackettStop, _flaresolverrStop;
   Future<void> shutdown() => _shutdown ??= _shutdownApplication();
@@ -1862,6 +1866,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    updates.dispose();
     _searchDebounce?.cancel();
     ++_searchId;
     _opening?.cancel();

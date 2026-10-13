@@ -179,7 +179,13 @@ class _BootstrapState extends State<_Bootstrap> {
   Future<AppController> _startApplication() async {
     await Future<void>.delayed(Duration.zero);
     MediaKit.ensureInitialized();
-    return createApplication(desktopIntegration: true);
+    final app = await createApplication(desktopIntegration: true);
+    if (app.library.settings['checkAppUpdates'] != false) {
+      unawaited(app.updates.check());
+    } else {
+      unawaited(app.updates.readInstalledVersion());
+    }
+    return app;
   }
 
   @override

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.2.13+21
+version: 1.2.14+22
 
 environment:
   sdk: ^3.12.2
@@ -46,6 +46,7 @@ dependencies:
   enough_convert: ^1.7.1
   flutter_inappwebview: ^6.1.5
   archive: ^4.0.7
+  package_info_plus: ^10.2.2
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +72,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
+    - assets/updater/
     - path: assets/engine/TorrServer.exe
       platforms: [windows]
     - path: assets/jackett/Jackett.Binaries.Windows.zip

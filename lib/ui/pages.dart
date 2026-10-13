@@ -13,6 +13,7 @@ import 'components.dart';
 import 'dialogs.dart';
 import 'theme.dart';
 import 'search_fields.dart';
+import 'app_update_panel.dart';
 
 part 'library_pages.dart';
 part 'artist_page.dart';

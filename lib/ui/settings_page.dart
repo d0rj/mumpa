@@ -33,7 +33,7 @@ enum _SettingsSection {
   ),
   about(
     'О приложении',
-    'Лицензии и расположение медиатеки',
+    'Обновления, лицензии и расположение медиатеки',
     Icons.info_outline,
   );
 
@@ -689,6 +689,22 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   List<Widget> _aboutControls() => [
+    AppUpdatePanel(
+      updates: widget.app.updates,
+      quit: () async {
+        final shell = widget.app.windowsPlayer;
+        if (shell == null || !shell.available) {
+          throw const FormatException(
+            'Перезапуск недоступен. Заверши Mumpa и повтори установку.',
+          );
+        }
+        await shell.requestQuit();
+      },
+      autoCheck: widget.app.library.settings['checkAppUpdates'] != false,
+      onAutoCheck: (value) =>
+          unawaited(widget.app.library.setSetting('checkAppUpdates', value)),
+    ),
+    const SizedBox(height: 24),
     const SectionTitle('Mumpa'),
     const Text(
       'Музыка из твоих файлов и источников.\nДемо Mumpa Sessions — оригинальные синтезированные фрагменты.\nFlutter · media_kit · TorrServer MatriX.145.2',
@@ -699,7 +715,7 @@ class _SettingsPageState extends State<SettingsPage> {
       onPressed: () => showLicensePage(
         context: context,
         applicationName: 'Mumpa',
-        applicationVersion: '1.2.8',
+        applicationVersion: widget.app.updates.currentVersion,
         applicationLegalese:
             'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
       ),

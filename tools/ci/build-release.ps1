@@ -28,6 +28,7 @@ Invoke-CiCommand 'flutter' @('pub', 'get', '--enforce-lockfile')
 # --no-pub can retain integration_test in GeneratedPluginRegistrant.java even
 # after an ordinary pub get, while Gradle excludes that plugin from release.
 Invoke-CiCommand 'flutter' @('build', 'windows', '--release')
+& ./tools/test-install-windows.ps1
 & ./tools/build-android.ps1
 Invoke-CiCommand 'git' @('diff', '--exit-code', '--', 'pubspec.lock')
 

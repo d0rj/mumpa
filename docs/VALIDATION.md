@@ -1,4 +1,34 @@
-# Mumpa verification — 2026-10-12
+# Mumpa verification — 2026-10-13
+
+## Windows installation and app updates 1.2.14+22
+
+- Installed in the user's `%LOCALAPPDATA%/Programs/Mumpa/current`, registered
+  in HKCU uninstall entries and the Start menu. `Get-StartApps` reports Mumpa;
+  the shortcut targets the installed executable. The user confirmed that the
+  actual library opened. The installed process responds with title Mumpa.
+- **402 unit/widget tests passed**, three opt-in tests skipped. Analysis and
+  formatting passed. The release publisher's **28 tests passed**.
+- Installer fixture checks passed: initial install, replace, previous version,
+  deliberate failure after file promotion and rollback, traversal rejection,
+  SHA-256 rejection, and matching packaged helper scripts.
+- The private GitHub release BUILD/SHA256 metadata was read using the host's
+  existing `gh` credentials in the opt-in headless test. Downloaded package
+  corruption, truncated bytes, retry, cached package, and changed files before
+  installation were verified with isolated fixtures. The private → public
+  transition test checks that public download makes no further CLI calls.
+- Windows x64 and Android ARM64/ARMv7/x86_64 releases built. Android supports
+  the system APK installer and scoped FileProvider; a physical Android install
+  has not been tested. Existing CI debug-key signing remains incompatible
+  across different ephemeral keys.
+- A full live download of the 338 MB GitHub Windows ZIP was interrupted while
+  diagnosing a slow transfer. It is **not** reported as a passed full remote
+  download. An earlier native test-only window was closed; the installed app
+  was then opened and confirmed by the user. Release builds ran sequentially
+  after a concurrent integration test changed Android plugin registration.
+- Evidence: `test-output/installed-windows-1.2.14.json`,
+  `test-output/live-release-check/result.json`, `test-output/updates-full-tests.log`,
+  `test-output/updates-android-build.log`, and isolated `test-output/install-test-*`.
+  [Installation and update protocol](APP_UPDATES.md).
 
 ## Track → album → source collection navigation
 

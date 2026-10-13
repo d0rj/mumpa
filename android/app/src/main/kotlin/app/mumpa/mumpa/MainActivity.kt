@@ -3,6 +3,10 @@ package app.mumpa.mumpa
 import android.app.Activity
 import android.content.Intent
 import android.provider.DocumentsContract
+import android.provider.Settings
+import android.net.Uri
+import android.os.Build
+import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -18,6 +22,30 @@ class MainActivity : AudioServiceActivity() {
     private var folderResult: MethodChannel.Result? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.mumpa/updates").setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "abis" -> result.success(Build.SUPPORTED_ABIS.toList())
+                    "install" -> {
+                        val apk = File(requireNotNull(call.argument<String>("path"))).canonicalFile
+                        val updateRoot = File(filesDir, "Mumpa/updates").canonicalFile
+                        require(apk.isFile && apk.extension == "apk" && apk.path.startsWith(updateRoot.path + File.separator)) {
+                            "Update must be an APK in the private update directory"
+                        }
+                        if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+                            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                            result.error("PERMISSION", "Разреши установку из Mumpa, вернись и нажми «Установить обновление» снова.", null)
+                        } else {
+                            val uri = FileProvider.getUriForFile(this, "$packageName.updates", apk)
+                            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                            result.success(null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: Exception) { result.error("UPDATE", e.message, null) }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.mumpa/engine").setMethodCallHandler { call, result ->
             when (call.method) {
                 "start" -> {

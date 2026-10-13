@@ -71,7 +71,7 @@ export function prepareRelease(directory, expectedCommit, expectedRunId) {
   return {
     version: build.version, tag: `v${version}`, files, prerelease: version.includes('-'),
     notes: `Mumpa **${build.version}**\n\n` +
-      `Windows: распакуйте Mumpa-${version}-windows-x64.zip и запустите Mumpa/mumpa.exe.\n\n` +
+      `Windows: распакуйте Mumpa-${version}-windows-x64.zip и откройте Mumpa/Install Mumpa.cmd для установки в меню «Пуск». Переносной запуск: Mumpa/mumpa.exe.\n\n` +
       `Android: Mumpa-${version}-android-arm64.apk для большинства телефонов; также доступны ARMv7 и x86_64. ${signing}\n\n` +
       `Исходники приложения и помощников приложены. SHA256.json использует имена файлов этой страницы.\n\n` +
       `Commit: \`${build.commit}\`. [Проверки и сборка](https://github.com/REPOSITORY/actions/runs/${build.githubRun}).\n`,

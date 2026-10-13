@@ -36,6 +36,12 @@ foreach ($mumpaNotice in @('LICENSE','THIRD_PARTY_NOTICES.md','README.md')) {
     Copy-Item -LiteralPath (Join-Path $mumpaRoot $mumpaNotice) -Destination $mumpaApp
 }
 Copy-Item -LiteralPath (Join-Path $mumpaRoot 'docs') -Destination $mumpaApp -Recurse -Force
+$mumpaInstallTools = Join-Path $mumpaApp 'tools'
+New-Item -ItemType Directory -Force -Path $mumpaInstallTools | Out-Null
+foreach ($mumpaTool in @('install-windows.ps1','uninstall-windows.ps1')) {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $mumpaTool) -Destination $mumpaInstallTools -Force
+}
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install Mumpa.cmd') -Destination $mumpaApp -Force
 Compress-Archive -LiteralPath $mumpaApp -DestinationPath (Join-Path $mumpaOutput "Mumpa-$Version-windows-x64.zip") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-arm64-v8a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-arm64.apk") -Force
 Copy-Item -LiteralPath (Join-Path $mumpaApks 'app-armeabi-v7a-release.apk') -Destination (Join-Path $mumpaOutput "Mumpa-$Version-android-armv7.apk") -Force
