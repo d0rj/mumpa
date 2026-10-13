@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:mumpa/data/download_repository.dart';
@@ -239,6 +240,17 @@ void runMatchingUiTests() {
           ),
         );
         await matchingFrame(tester);
+        final cover = find.byKey(const ValueKey('track-cover-play-mp3'));
+        final icon = find.byKey(const ValueKey('track-cover-icon-mp3'));
+        expect(icon, findsNothing);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(0, 0));
+        await mouse.moveTo(tester.getCenter(cover));
+        await matchingFrame(tester);
+        expect(icon, findsOneWidget);
+        await mouse.moveTo(const Offset(0, 0));
+        await matchingFrame(tester);
+        expect(icon, findsNothing);
         expect(
           find.byKey(const ValueKey('track-cover-layer-flac')),
           findsOneWidget,
@@ -272,6 +284,27 @@ void runMatchingUiTests() {
         expect(f.app.playback.queue.map((track) => track.id), ['flac', 'next']);
         expect(f.app.playback.contextPlaylistId, f.playlist.id);
         expect(f.app.library.playlists.single.trackIds, ['mp3', 'next']);
+        expect(icon, findsOneWidget);
+        expect(
+          find.descendant(
+            of: cover,
+            matching: find.byIcon(Icons.pause_rounded),
+          ),
+          findsOneWidget,
+        );
+        var pauseDone = false;
+        late Future<void> paused;
+        await tester.runAsync(() async {
+          paused = f.app.playback.pause().whenComplete(() => pauseDone = true);
+        });
+        for (var i = 0; i < 20 && !pauseDone; i++) {
+          await matchingFrame(tester);
+        }
+        expect(pauseDone, isTrue);
+        await tester.runAsync(() => paused);
+        await matchingFrame(tester);
+        expect(icon, findsNothing);
+        await mouse.removePointer();
 
         // The small cover bypasses the picker and uses the automatic default.
         await tester.runAsync(() async {

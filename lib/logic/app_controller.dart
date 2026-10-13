@@ -26,6 +26,7 @@ import '../domain/collection_filter.dart';
 import '../domain/local_music_results.dart';
 import 'corrected_music_search.dart';
 import 'playback_controller.dart';
+import 'queue_prefetch.dart';
 
 export '../domain/local_music_results.dart' show LocalMusicResults;
 
@@ -97,10 +98,16 @@ class AppController extends ChangeNotifier {
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
+    prefetch = QueuePrefetch(
+      library: library,
+      playback: playback,
+      downloads: downloads,
+    );
   }
   final LibraryRepository library;
   final PlaybackController playback;
   final DownloadRepository downloads;
+  late final QueuePrefetch prefetch;
   final TorrentService torrents;
   final TorrentEngine engine;
   final IndexerService indexer;
@@ -200,6 +207,7 @@ class AppController extends ChangeNotifier {
   Future<void> _shutdownApplication() async {
     // A failed save or service must not prevent the remaining resources from
     // being released, or leave the Windows quit handshake permanently blocked.
+    prefetch.close();
     await _shutdownStep('downloads', downloads.close);
     await _shutdownStep('playback', playback.close);
     await _shutdownStep('torrent engine', engine.stop);
@@ -1887,6 +1895,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    prefetch.close();
     updates.dispose();
     _searchDebounce?.cancel();
     ++_searchId;

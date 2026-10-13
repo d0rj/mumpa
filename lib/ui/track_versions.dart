@@ -2,7 +2,7 @@ part of 'components.dart';
 
 /// A distinct play target sits on the front cover; clicking the rest of a
 /// grouped row opens the version picker without opening the decoder.
-class TrackStackArtwork extends StatelessWidget {
+class TrackStackArtwork extends StatefulWidget {
   const TrackStackArtwork({
     super.key,
     required this.app,
@@ -18,66 +18,104 @@ class TrackStackArtwork extends StatelessWidget {
   final VoidCallback onPlay;
 
   @override
+  State<TrackStackArtwork> createState() => _TrackStackArtworkState();
+}
+
+class _TrackStackArtworkState extends State<TrackStackArtwork> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final behind = variants
+    final app = widget.app;
+    final track = widget.track;
+    final rowId = widget.rowId;
+    final behind = widget.variants
         .where((item) => item.id != track.id)
         .take(2)
         .toList();
-    return SizedBox(
-      width: 52,
-      height: 50,
-      child: Stack(
-        key: ValueKey('track-cover-stack-$rowId'),
-        children: [
-          for (var i = behind.length - 1; i >= 0; i--)
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: SizedBox(
+        width: 52,
+        height: 50,
+        child: Stack(
+          key: ValueKey('track-cover-stack-$rowId'),
+          children: [
+            for (var i = behind.length - 1; i >= 0; i--)
+              Positioned(
+                left: (i + 1) * 4,
+                top: (i + 1) * 4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white24),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  // Existing pixels/fallback suffice behind the front cover;
+                  // a stack never starts artwork requests for hidden versions.
+                  child: CoverArt(
+                    key: ValueKey('track-cover-layer-${behind[i].id}'),
+                    seed: behind[i].album,
+                    path: app.artworkForTrack(behind[i]),
+                    size: 40,
+                    radius: 5,
+                  ),
+                ),
+              ),
             Positioned(
-              left: (i + 1) * 4,
-              top: (i + 1) * 4,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white24),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                // Existing pixels/fallback suffice behind the front cover;
-                // a stack never starts artwork requests for hidden versions.
-                child: CoverArt(
-                  key: ValueKey('track-cover-layer-${behind[i].id}'),
-                  seed: behind[i].album,
-                  path: app.artworkForTrack(behind[i]),
-                  size: 40,
-                  radius: 5,
-                ),
+              left: 0,
+              top: 0,
+              child: TrackArtwork(app: app, track: track, size: 42, radius: 5),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              child: ListenableBuilder(
+                listenable: app.playback.trackState,
+                builder: (context, _) {
+                  final state = app.playback.trackState.value;
+                  final active = widget.variants.any(
+                    (item) => item.id == state.id,
+                  );
+                  final visible =
+                      _hovered ||
+                      (active && (state.playing || state.buffering));
+                  return IconButton(
+                    key: ValueKey('track-cover-play-$rowId'),
+                    onPressed: active && (state.playing || state.buffering)
+                        ? app.playback.toggle
+                        : widget.onPlay,
+                    tooltip: active && (state.playing || state.buffering)
+                        ? 'Пауза'
+                        : 'Слушать ${track.title}',
+                    constraints: const BoxConstraints.tightFor(
+                      width: 44,
+                      height: 44,
+                    ),
+                    padding: EdgeInsets.zero,
+                    icon: visible
+                        ? Container(
+                            key: ValueKey('track-cover-icon-$rowId'),
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Color(0xCC162008),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              active && state.playing
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                              size: 24,
+                              color: accent,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  );
+                },
               ),
             ),
-          Positioned(
-            left: 0,
-            top: 0,
-            child: TrackArtwork(app: app, track: track, size: 42, radius: 5),
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            child: IconButton(
-              key: ValueKey('track-cover-play-$rowId'),
-              onPressed: onPlay,
-              tooltip: 'Слушать ${track.title}',
-              constraints: const BoxConstraints.tightFor(width: 44, height: 44),
-              padding: EdgeInsets.zero,
-              icon: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xCC162008),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  size: 24,
-                  color: accent,
-                ),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

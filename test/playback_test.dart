@@ -36,6 +36,17 @@ class HangingAudioBackend extends FakeAudioBackend {
   }
 }
 
+class SelectiveAudioBackend extends FakeAudioBackend {
+  final rejected = <String>{};
+  final attempts = <String>[];
+  @override
+  Future<void> open(String uri, {bool play = true}) async {
+    attempts.add(uri);
+    if (rejected.any(uri.contains)) throw StateError('Decoder rejected file');
+    await super.open(uri, play: play);
+  }
+}
+
 void main() {
   late Directory root;
   late LibraryRepository library;
@@ -100,6 +111,179 @@ void main() {
   });
 
   test(
+    'missing files are skipped without changing playlist membership',
+    () async {
+      final tracks = List<Track>.of(library.tracks);
+      final playlist = await library.createPlaylist('Skip');
+      await library.addToPlaylist(
+        playlist.id,
+        tracks.map((t) => t.id).toList(),
+      );
+      await File(tracks[0].localPath!).delete();
+      await File(tracks[1].localPath!).delete();
+      player.setRepeat(PlayerRepeatMode.one);
+      await player.playTracks(tracks, contextPlaylistId: playlist.id);
+      expect(player.current!.id, '2');
+      expect(player.playing, isTrue);
+      expect(player.error, isNull);
+      expect(player.queue.map((t) => t.id), ['0', '1', '2']);
+      expect(library.playlists.single.trackIds, ['0', '1', '2']);
+    },
+  );
+
+  test(
+    'all failed files stop after one bounded traversal with repeat all',
+    () async {
+      final backend = SelectiveAudioBackend()..rejected.add('.wav');
+      final controller = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: backend,
+      );
+      try {
+        controller.setRepeat(PlayerRepeatMode.all);
+        await controller.playTracks(library.tracks, index: 1);
+        expect(backend.attempts.length, 3);
+        expect(controller.stopped, isTrue);
+        expect(controller.loading, isFalse);
+        expect(controller.error, contains('Decoder rejected'));
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(backend.attempts.length, 3);
+      } finally {
+        await controller.close();
+      }
+    },
+  );
+
+  test(
+    'decoder rejection and later stream error advance to the next entry',
+    () async {
+      final backend = SelectiveAudioBackend()..rejected.add('0.wav');
+      final controller = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: backend,
+      );
+      try {
+        await controller.playTracks(library.tracks);
+        expect(controller.current!.id, '1');
+        backend.failure.add('Stream disconnected');
+        for (var i = 0; i < 100 && controller.current?.id != '2'; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(controller.current!.id, '2');
+        expect(controller.playing, isTrue);
+        expect(controller.error, isNull);
+      } finally {
+        await controller.close();
+      }
+    },
+  );
+
+  test('decoder startup watchdog skips to a working successor', () async {
+    final backend = FakeAudioBackend();
+    final controller = PlaybackController(
+      library: library,
+      torrents: torrents,
+      backend: backend,
+      decoderStartupTimeout: const Duration(milliseconds: 50),
+    );
+    try {
+      await controller.playTracks(library.tracks);
+      for (var i = 0; i < 100 && controller.current?.id != '1'; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await backend.seek(const Duration(milliseconds: 1));
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(controller.current!.id, '1');
+      expect(controller.playing, isTrue);
+      expect(controller.error, isNull);
+    } finally {
+      await controller.close();
+    }
+  });
+
+  test(
+    'late decoder failures also stop repeat-all after one traversal',
+    () async {
+      final backend = SelectiveAudioBackend();
+      final controller = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: backend,
+        decoderStartupTimeout: const Duration(milliseconds: 25),
+      );
+      try {
+        controller.setRepeat(PlayerRepeatMode.all);
+        await controller.playTracks(library.tracks);
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        expect(backend.attempts.length, 3);
+        expect(controller.stopped, isTrue);
+        expect(controller.error, isNotNull);
+      } finally {
+        await controller.close();
+      }
+    },
+  );
+
+  test(
+    'late stream failure or completion after Pause cannot restart the queue',
+    () async {
+      await player.playTracks(library.tracks);
+      await player.pause();
+      audio.failure.add('Late stream error');
+      audio.completion.add(null);
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(player.current!.id, '0');
+      expect(player.playing, isFalse);
+      await player.play();
+      expect(player.current!.id, '0');
+      expect(player.playing, isTrue);
+    },
+  );
+
+  test(
+    'source metadata deadline advances; Stop cancels the successor attempt',
+    () async {
+      final pending = PendingTorrentService();
+      final controller = PlaybackController(
+        library: library,
+        torrents: pending,
+        backend: FakeAudioBackend(),
+        audioStartupTimeout: const Duration(milliseconds: 30),
+      );
+      final remote = Track(
+        id: 'pending',
+        title: 'Pending',
+        artist: 'Band',
+        album: 'Album',
+        source: TrackSource.torrent,
+        torrentHash: 'hash',
+        torrentIndex: 1,
+      );
+      try {
+        await controller.playTracks([remote, ...library.tracks]);
+        expect(controller.current!.id, '0');
+        expect(controller.playing, isTrue);
+        final opening = controller.playTracks([remote, ...library.tracks]);
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await controller.stop();
+        await opening;
+        pending.ready.complete(Uri.parse('http://localhost/late'));
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        expect(controller.current!.id, 'pending');
+        expect(controller.playing, isFalse);
+        expect(controller.stopped, isTrue);
+      } finally {
+        await controller.close();
+        pending.dispose();
+      }
+    },
+  );
+
+  test(
     'intentional pause before the first position event cancels watchdog',
     () async {
       final controller = PlaybackController(
@@ -152,7 +336,7 @@ void main() {
     },
   );
   test(
-    'liked torrent times out without opening decoder, then retries in place',
+    'liked torrent times out, skips to successor, and can be retried manually',
     () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       var deliver = false;
@@ -206,14 +390,15 @@ void main() {
         final states = <String?>[];
         controller.addListener(() => states.add(controller.connectionStatus));
         await controller.playTracks([track, library.tracks.first]);
-        expect(controller.error, contains('Нет соединения с пирами'));
+        expect(controller.error, isNull);
         expect(controller.loading, isFalse);
         expect(controller.buffering, isFalse);
         expect(controller.connectionStatus, isNull);
-        expect(backend.opened, isNull);
+        expect(controller.current!.id, library.tracks.first.id);
+        expect(controller.playing, isTrue);
         expect(states.whereType<String>(), contains(contains('подключено: 0')));
         deliver = true;
-        await controller.play();
+        await controller.jump(0);
         expect(controller.error, isNull);
         expect(controller.current!.id, track.id);
         expect(controller.queue.length, 2);

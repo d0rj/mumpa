@@ -39,6 +39,7 @@ class DownloadRepository extends ChangeNotifier {
   final Map<_DownloadAttempt, _DownloadReservation> _reservations = {};
   Future<void> _quotaTail = Future.value();
   final Set<String> _priority = {};
+  final Set<String> _prefetch = {};
   int _maxConcurrentDownloads;
   bool _pumping = false;
   bool _disposed = false;
@@ -131,6 +132,8 @@ class DownloadRepository extends ChangeNotifier {
     if (_disposed) return;
     final selected = <String>[];
     for (final track in tracks) {
+      // Explicit downloads and the playing track outlive a prefetch window.
+      _prefetch.remove(track.id);
       final latest = library.byId(track.id) ?? track;
       if (latest.source != TrackSource.torrent ||
           library.localCopiesFor(latest).isNotEmpty) {
@@ -172,8 +175,41 @@ class DownloadRepository extends ChangeNotifier {
     _pump();
   }
 
+  /// Replace only the automatically owned lookahead. Completed files stay;
+  /// interrupted writers retain their .part for a later window or manual retry.
+  /// Callers have checked actual local files, including shared offline copies.
+  void setPrefetchTracks(Iterable<Track> tracks) {
+    if (_disposed) return;
+    final selected = {for (final track in tracks) track.id: track};
+    for (final id in _prefetch.difference(selected.keys.toSet()).toList()) {
+      final job = _jobs[id];
+      if (job == null || !active(id)) continue;
+      _pending.remove(id);
+      _interrupt(job, DownloadState.paused);
+    }
+    for (final track in selected.values) {
+      if (_removals.containsKey(track.id)) continue;
+      final existing = _jobs[track.id];
+      if (existing != null && !_prefetch.contains(track.id)) {
+        // Respect manual transfers, failures and the user's Pause button.
+        if (existing.state != DownloadState.complete) continue;
+      }
+      if (existing?.state == DownloadState.failed) continue;
+      _prefetch.add(track.id);
+      if (active(track.id)) continue;
+      final job = _jobs.putIfAbsent(track.id, () => DownloadJob(track));
+      job.cancelled = false;
+      job.error = null;
+      job.state = DownloadState.queued;
+      if (!_pending.contains(track.id)) _pending.add(track.id);
+    }
+    notifyListeners();
+    _pump();
+  }
+
   void pause(String id) {
     if (_disposed) return;
+    _prefetch.remove(id);
     final job = _jobs[id];
     if (job == null) return;
     if (job.state == DownloadState.complete) return;
@@ -183,6 +219,7 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   void retry(String id) {
+    _prefetch.remove(id);
     final job = _jobs[id];
     if (job == null) return;
     if (_disposed ||

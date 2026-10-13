@@ -551,6 +551,33 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<Widget> _downloadControls() => [
     const SectionTitle('Офлайн и кеш'),
+    DropdownButtonFormField<int>(
+      key: ValueKey('prefetch-tracks-${widget.app.prefetch.count}'),
+      initialValue: widget.app.prefetch.count,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Загружать следующие треки заранее',
+      ),
+      items: [
+        for (var count = 0; count <= 10; count++)
+          DropdownMenuItem(
+            value: count,
+            child: Text(count == 0 ? 'Отключено' : '$count'),
+          ),
+      ],
+      onChanged: (value) {
+        if (value != null) unawaited(widget.app.prefetch.setCount(value));
+      },
+    ),
+    const Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        'По умолчанию 3 следующих незагруженных трека из текущей очереди. '
+        'Офлайн-копии пропускаются. При паузе подготовка приостанавливается; '
+        'готовые файлы сохраняются.',
+        style: TextStyle(color: muted, fontSize: 11),
+      ),
+    ),
     const Text(
       'Лайкнутые и скачанные треки не удаляются автоматически или при удалении альбома. '
       'Офлайн-копию можно удалить только вручную с подтверждением. '

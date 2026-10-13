@@ -287,7 +287,7 @@ void main() {
     expect(find.text('Лимит офлайн-загрузок, МБ'), findsOneWidget);
     expect(find.byKey(const ValueKey('clear-metadata-cache')), findsNothing);
     final dropdown = tester.widget<DropdownButtonFormField<int>>(
-      find.byType(DropdownButtonFormField<int>),
+      find.byKey(const ValueKey('download-concurrency-3')),
     );
     // This callback performs disk I/O. Start it in the real async zone so
     // filesystem completions are not stranded in the widget fake clock.
@@ -301,6 +301,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(app.downloads.maxConcurrentDownloads, 6);
     expect(app.library.settings['downloadConcurrency'], 6);
+    final prefetch = tester.widget<DropdownButtonFormField<int>>(
+      find.byKey(const ValueKey('prefetch-tracks-3')),
+    );
+    await tester.runAsync(() async {
+      prefetch.onChanged!(5);
+      await app.library.flush();
+    });
+    await tester.pumpAndSettle();
+    expect(app.prefetch.count, 5);
+    expect(app.library.settings['prefetchTracks'], 5);
     expect(app.cacheReads, 0);
     expect(app.networkReads, 0);
     expect(fixture.httpRequests, 0);
