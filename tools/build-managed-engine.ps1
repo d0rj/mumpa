@@ -6,10 +6,12 @@ param(
     [string]$LockFile = '',
     [switch]$UpdateLock,
     [switch]$SkipTests,
-    [switch]$TestsOnly
+    [switch]$TestsOnly,
+    [switch]$KeepWorkDirectory
 )
 $ErrorActionPreference = 'Stop'
 $mumpaRoot = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'workspace-maintenance.ps1')
 $mumpaLockPath = if ($LockFile) { [IO.Path]::GetFullPath((Join-Path $mumpaRoot $LockFile)) } else { Join-Path $mumpaRoot 'engine-patches/managed-engine.lock.json' }
 $mumpaLock = Get-Content -LiteralPath $mumpaLockPath -Raw | ConvertFrom-Json
 if (-not (Test-Path -LiteralPath $GoExecutable)) { throw "Go executable missing: $GoExecutable" }
@@ -52,6 +54,7 @@ if (-not (Test-Path -LiteralPath $mumpaSourceZip)) {
 if ((Get-MumpaHash $mumpaSourceZip) -ne $mumpaLock.upstream.sha256) { throw 'Pinned source archive SHA256 mismatch' }
 $mumpaWork = Join-Path $mumpaRoot ('.local/engine-build/run-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $mumpaWork | Out-Null
+try {
 Expand-Archive -LiteralPath $mumpaSourceZip -DestinationPath $mumpaWork
 $mumpaSource = Join-Path $mumpaWork ('TorrServer-' + $mumpaLock.upstream.commit)
 if (-not (Test-Path -LiteralPath (Join-Path $mumpaSource 'server/go.mod'))) { throw 'Unexpected pinned archive root' }
@@ -99,7 +102,11 @@ if ($mumpaLock.torrentOverlay) {
 }
 $mumpaEnvironmentKeys = @('GOTOOLCHAIN','GOMAXPROCS','GOOS','GOARCH','CGO_ENABLED','GOARM','GOARM64','GOAMD64','CC','CXX','GOFLAGS','GOWORK')
 $mumpaEnvironment = @{}
-foreach ($mumpaKey in $mumpaEnvironmentKeys) { $mumpaEnvironment[$mumpaKey] = [Environment]::GetEnvironmentVariable($mumpaKey, 'Process') }
+$mumpaEnvironmentPresent = @{}
+foreach ($mumpaKey in $mumpaEnvironmentKeys) {
+    $mumpaEnvironment[$mumpaKey] = [Environment]::GetEnvironmentVariable($mumpaKey, 'Process')
+    $mumpaEnvironmentPresent[$mumpaKey] = Test-Path -LiteralPath "Env:$mumpaKey"
+}
 try {
     $env:GOMAXPROCS = '2'
     $env:GOFLAGS = ''
@@ -181,7 +188,7 @@ try {
     } finally { Pop-Location }
     if ($TestsOnly) {
         Write-Output "Source and regressions verified for $($mumpaLock.version); binaries unchanged"
-        Write-Output "Prepared source: $mumpaSource"
+        if ($KeepWorkDirectory) { Write-Output "Prepared source: $mumpaSource" }
         return
     }
     if ($UpdateLock) {
@@ -191,11 +198,25 @@ try {
     $mumpaBuildFolder = Join-Path $mumpaSource 'mumpa-build'
     New-Item -ItemType Directory -Path $mumpaBuildFolder | Out-Null
     Copy-Item -LiteralPath $PSCommandPath -Destination (Join-Path $mumpaBuildFolder 'build-managed-engine.ps1')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'workspace-maintenance.ps1') -Destination $mumpaBuildFolder
     Copy-Item -LiteralPath $mumpaLockPath -Destination (Join-Path $mumpaBuildFolder 'managed-engine.lock.json')
     Copy-Item -LiteralPath (Join-Path $mumpaRoot 'engine-patches/README.md') -Destination (Join-Path $mumpaBuildFolder 'README.md')
     $mumpaPatchedZip = Join-Path $mumpaRoot ('artifacts/TorrServer-' + $mumpaLock.version + '-source.zip')
     Write-MumpaSourceArchive $mumpaSource $mumpaPatchedZip
     Write-Output "Corresponding source SHA256 $(Get-MumpaHash $mumpaPatchedZip)"
 } finally {
-    foreach ($mumpaKey in $mumpaEnvironmentKeys) { [Environment]::SetEnvironmentVariable($mumpaKey, $mumpaEnvironment[$mumpaKey], 'Process') }
+    foreach ($mumpaKey in $mumpaEnvironmentKeys) {
+        if ($mumpaEnvironmentPresent[$mumpaKey]) {
+            [Environment]::SetEnvironmentVariable($mumpaKey, $mumpaEnvironment[$mumpaKey], 'Process')
+        } else {
+            Remove-Item -LiteralPath "Env:$mumpaKey" -ErrorAction SilentlyContinue
+        }
+    }
+}
+} finally {
+    if ($KeepWorkDirectory) {
+        Write-Output "Kept engine work directory: $mumpaWork"
+    } else {
+        Remove-MumpaGeneratedPath $mumpaRoot $mumpaWork
+    }
 }

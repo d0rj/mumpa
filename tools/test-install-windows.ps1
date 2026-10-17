@@ -1,6 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
+. (Join-Path $PSScriptRoot 'workspace-maintenance.ps1')
 $testRoot = Join-Path $project ('test-output/install-test-' + [Guid]::NewGuid().ToString('N'))
+try {
 $source = Join-Path $testRoot 'source'
 $target = Join-Path $testRoot 'installed'
 New-Item -ItemType Directory -Force -Path (Join-Path $source 'data/flutter_assets') | Out-Null
@@ -36,4 +38,6 @@ foreach ($name in @('install-windows.ps1','uninstall-windows.ps1')) {
     if ((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot $name)).Hash -ne (Get-FileHash -LiteralPath (Join-Path $project "assets/updater/$name")).Hash) { throw 'Bundled updater differs from installer' }
 }
 Write-Output 'PASS: install, update, previous version, rollback, traversal, checksum, bundled helpers.'
-# Keep the isolated fixtures as evidence under test-output; never touch user data.
+} finally {
+    Remove-MumpaGeneratedPath $project $testRoot
+}

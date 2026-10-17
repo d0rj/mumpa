@@ -131,6 +131,13 @@ flutter build windows --release
 ./tools/package-release.ps1
 ```
 
+Упаковка через PowerShell 7 сохраняет только последний успешный локальный выпуск
+в `artifacts/release-<version>` и удаляет кэши сборки. Для отладки с сохранением
+кэша: `./tools/package-release.ps1 -KeepBuildCache`. План ручной уборки:
+`pwsh -File tools/clean-workspace.ps1 -WhatIf`; применение — та же команда без
+`-WhatIf`, после завершения сборок и эмулятора. Подробности и отдельные категории
+очистки — в [CI.md](docs/CI.md#локальное-место-на-диске).
+
 Нативные сборки и integration-запуски выполнять последовательно: Flutter обновляет общие файлы регистрации плагинов. Android-пакет включает только Android-движок соответствующей ABI; Windows-движок и архив Jackett — только Windows assets. Android использует AGP 8.13.2 / Gradle 8.13 для совместимости стабильного WebView-плагина; Kotlin 2.3.20.
 
 Проверка обложек сохранённой дискографии «Ежемесячных» на Windows: `flutter test integration_test/artwork_navigation_test.dart -d windows --dart-define=REAL_ARTWORK_TEST=true`. Перед ней закрыть обычную Mumpa и задать `MUMPA_TEST_PYTHON` полным путём к Python для проверки нативной кнопки мыши «Назад». Тест использует копию библиотеки, загружает и декодирует все 72 обложки и прогревает только кеш картинок пользовательского профиля; аудио и библиотеку не изменяет. Интерфейс появляется перед сетевой проверкой.

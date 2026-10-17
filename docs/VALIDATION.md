@@ -1,4 +1,32 @@
-# Mumpa verification — 2026-10-13
+# Mumpa verification — 2026-10-17
+
+## Workspace cleanup and release retention — 2026-10-17
+
+- Workspace logical size reduced from **64.485 GiB to 2.062 GiB** (about
+  **62.423 GiB** removed). D: free space increased by about **60.6 GiB** during
+  cleanup; logical sizes include sparse emulator images, so these differ.
+- Kept the complete local **1.2.19** release, its sources, Android symbols and
+  manifests. All **63 retained files** match their pre-cleanup sizes/SHA-256.
+  Pinned current engine/helper inputs remain available. Removed older local
+  releases, build/platform caches, scratch project copies/AVD, generated code
+  graph and copied test binaries. Small reports/screenshots remain.
+- Packaging now stages and verifies the new release before replacing the old
+  output, prunes older versions and clears build caches by default. Failed
+  packaging preserves the previous complete release. The engine builder and
+  installer tests remove their own temporary directories in `finally`.
+- **51 maintenance assertions passed** with isolated files, real ZIP/file
+  operations, junctions, injected packaging failure, CI retention, source
+  pruning and a compiler stand-in for engine success/failure cleanup.
+  **28 publisher tests passed**; the existing installer regression passed
+  install/update/rollback, traversal/checksum and bundled-helper checks using
+  the retained Windows executable in an isolated fixture.
+- PowerShell parsing, workflow YAML parsing/test-step wiring and
+  `git diff --check` passed. The new maintenance test is included in Windows CI.
+  These checks do not constitute a new native Flutter/Go build or a hosted run.
+- Local evidence: `test-output/workspace-cleanup-20261017-{before,after}.json`,
+  `workspace-cleanup-20261017.log`, `workspace-maintenance-tests.log`,
+  `workspace-maintenance-installer-tests.log` and
+  `workspace-maintenance-publisher-tests.log`.
 
 ## Personal library and radio candidates — 1.2.19+27
 
