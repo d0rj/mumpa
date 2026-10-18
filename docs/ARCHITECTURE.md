@@ -1,5 +1,17 @@
 # Mumpa architecture
 
+## Shared Windows profile — 1.2.21
+
+`ApplicationProfile` selects `%USERPROFILE%/.mumpa` and holds an exclusive
+process lock until the library is flushed on shutdown. AppData can resolve
+to different physical files under MSIX launch hosts; it is used only to
+discover legacy Mumpa profiles. Valid legacy libraries are merged once,
+internal offline files are copied and SHA-256 checked, and original profiles
+remain untouched. A committed primary/backup/temp snapshot or migration marker
+prevents repeated import of deliberately removed favorites. Android storage
+and explicit isolated test roots keep their existing behavior.
+See [migration and installed-process diagnostics](WINDOWS_PROFILE.md).
+
 ## First run and personal storage — 2026-10-18
 
 New profiles select the public Knaben music API; existing source choices remain

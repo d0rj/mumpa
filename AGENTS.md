@@ -1,5 +1,9 @@
 # Workspace storage
 
+- Production Windows data lives in `%USERPROFILE%\.mumpa`, shared by Codex, pi, Explorer and portable builds. Do not change production storage back to `getApplicationSupportDirectory`/AppData: MSIX launch hosts can redirect it. Legacy profiles are imported once without deleting originals.
+- Verify an installed app using its own `--profile-report=<new-json-path>` startup argument. Inspect the reported `physicalProfile` and favorite counts, not just an AppData file visible to the installing shell. Never use PowerShell's automatic `$PROFILE` variable for parsed library JSON; use a task-specific variable name.
+- Build installable Windows binaries with `flutter build windows --release --target lib/main.dart`; integration-test entrypoints are not user releases. Do not change unrelated pi-session edits while fixing storage.
+
 - Keep one complete local release under `artifacts/release-<version>`. Package with `pwsh -File tools/package-release.ps1`; it validates the new files before pruning older local versions and build caches. Preserve source archives and matching symbols/manifests. Do not delete hosted GitHub releases.
 - Use `pwsh -File tools/clean-workspace.ps1 -WhatIf` to inspect a cleanup plan and omit `-WhatIf` to apply it when no build, emulator, or app is using this checkout. `-BuildCaches`, `-Temporary`, and `-Releases` select individual scopes. Cleanup refuses any target containing a Mumpa library or Jackett profile, including `.local`; never store durable work or credentials there. Remove your own disposable test profiles in `finally`.
 - Avoid full scratch copies of this project. If a temporary clone, emulator, extracted archive, or test fixture is needed, remove it in `finally` after the check. Keep small reports/screenshots in `test-output`, not copied runtimes or build trees.

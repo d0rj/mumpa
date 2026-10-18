@@ -1,5 +1,32 @@
 # Mumpa verification — 2026-10-18
 
+## Shared Windows profile across launchers — 1.2.21
+
+- A handle-level filesystem probe confirmed that the old AppData library path
+  read from Codex resolved inside its Windows package's `LocalCache/Roaming`.
+  A home-directory probe resolved to its literal path. Production now uses
+  `%USERPROFILE%/.mumpa`; see [the migration design](WINDOWS_PROFILE.md).
+- The actual migration retained **9,861 tracks, 45 favorite tracks, 3 favorite
+  albums, 4 favorite collections and 39 verified offline files**. Hashes of
+  original legacy libraries were unchanged. Originals and imported snapshots
+  remain in the user's profile, outside the repository.
+- Installed **1.2.21+29** reported the same physical profile and all these
+  counts both when launched from Codex and when launched through Explorer by
+  an ordinary Windows process (no package identity). The first instance was
+  shut down gracefully before the second launch. This checks the running
+  application's own state, beyond the installing shell's AppData view.
+- **473 unit/widget tests passed, 4 opt-in skipped**; analyzer: no issues.
+  New tests cover profile locking, merge/reload, offline copies, virtualized
+  serialized paths, original preservation and refusal of corrupt legacy data.
+  The Windows install/update/rollback/checksum/traversal suite passed.
+- Windows release and three Android ABI releases build. Physical Android was
+  not checked. Existing pi changes to the playlist picker were retained in
+  the working tree and installed binary; they are separate from this fix.
+- Evidence in `test-output/`: `profile-unification-full-tests.log`,
+  `profile-unification-analyze.log`, `profile-unification-installer.log`,
+  `profile-unification-migration.json`, `profile-unification-launch-codex.json`,
+  `profile-unification-host-normal.json`, `profile-unification-launch-normal.json`.
+
 ## First run without Jackett and profile protection — 2026-10-18
 
 - The complete unit/widget suite passed **468 tests**, 3 opt-in skipped,

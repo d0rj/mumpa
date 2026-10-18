@@ -56,6 +56,7 @@ class AppController extends ChangeNotifier {
     required this.downloads,
     required this.torrents,
     required this.engine,
+    this.profileClose,
     IndexerService? indexer,
     RuTrackerService? catalog,
     JackettService? jackett,
@@ -111,6 +112,17 @@ class AppController extends ChangeNotifier {
   late final QueuePrefetch prefetch;
   final TorrentService torrents;
   final TorrentEngine engine;
+  final Future<void> Function()? profileClose;
+  Future<void>? _profileClosing;
+  Future<void> _closeProfile() => _profileClosing ??= () async {
+    final close = profileClose;
+    if (close == null) return;
+    try {
+      await library.flush();
+    } finally {
+      await close();
+    }
+  }();
   final IndexerService indexer;
   final RuTrackerService catalog;
   final JackettService jackett;
@@ -216,6 +228,7 @@ class AppController extends ChangeNotifier {
     await _stopFlareSolverr();
     await _disposeCatalog();
     await _shutdownStep('library flush', library.flush);
+    await _shutdownStep('profile lock', _closeProfile);
     dispose();
     _disposeStep('torrent client', torrents.dispose);
   }
@@ -1955,6 +1968,7 @@ class AppController extends ChangeNotifier {
     unawaited(_disposeCatalog());
     unawaited(_stopJackett());
     unawaited(_stopFlareSolverr());
+    unawaited(_closeProfile());
     super.dispose();
   }
 }

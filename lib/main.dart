@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'data/download_repository.dart';
 import 'data/library_repository.dart';
+import 'data/application_profile.dart';
 import 'data/jackett_service.dart';
 import 'data/flaresolverr_service.dart';
 import 'data/rutracker_service.dart';
@@ -26,6 +28,40 @@ Future<AppController> createApplication({
   bool demo = false,
   bool catalogEnabled = true,
   bool desktopIntegration = false,
+}) async {
+  ApplicationProfile? profile;
+  if (dataDirectory == null && Platform.isWindows) {
+    final home = Platform.environment['USERPROFILE'] ?? '';
+    profile = await ApplicationProfile.open(
+      home: home,
+      legacyRoots: await ApplicationProfile.legacyWindowsRoots(
+        home,
+        Directory(
+          p.join((await getApplicationSupportDirectory()).path, 'Mumpa'),
+        ),
+      ),
+    );
+  }
+  try {
+    return await _createApplication(
+      dataDirectory: dataDirectory ?? profile?.root,
+      demo: demo,
+      catalogEnabled: catalogEnabled,
+      desktopIntegration: desktopIntegration,
+      profileClose: profile?.close,
+    );
+  } catch (_) {
+    await profile?.close();
+    rethrow;
+  }
+}
+
+Future<AppController> _createApplication({
+  Directory? dataDirectory,
+  required bool demo,
+  required bool catalogEnabled,
+  required bool desktopIntegration,
+  Future<void> Function()? profileClose,
 }) async {
   final root =
       dataDirectory ??
@@ -46,9 +82,19 @@ Future<AppController> createApplication({
   // A stable executable identity prevents repeated Windows Firewall prompts
   // when tests use isolated library/state folders.
   final support = await getApplicationSupportDirectory();
+  final runtime = Directory(
+    p.join(
+      Platform.isWindows
+          ? ApplicationProfile.windowsRoot(
+              Platform.environment['USERPROFILE'] ?? '',
+            ).path
+          : p.join(support.path, 'Mumpa'),
+      'runtime',
+    ),
+  );
   final engine = TorrentEngine(
     root,
-    binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
+    binaryDirectory: runtime,
     networkInterface: () => library.settings['torrentInterface'] as String?,
   );
   final torrents = TorrentService(
@@ -107,20 +153,15 @@ Future<AppController> createApplication({
     transport: BrowserCatalogTransport(Directory(p.join(root.path, 'catalog'))),
   );
   final controller = AppController(
+    profileClose: profileClose,
     library: library,
     playback: playback,
     downloads: downloads,
     torrents: torrents,
     engine: engine,
     catalog: catalog,
-    jackett: JackettService(
-      root,
-      binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
-    ),
-    flaresolverr: FlareSolverrService(
-      root,
-      binaryDirectory: Directory(p.join(support.path, 'Mumpa', 'runtime')),
-    ),
+    jackett: JackettService(root, binaryDirectory: runtime),
+    flaresolverr: FlareSolverrService(root, binaryDirectory: runtime),
   );
   if (desktopIntegration && Platform.isWindows) {
     final shell = WindowsPlayerService(
@@ -137,7 +178,10 @@ Future<AppController> createApplication({
   return controller;
 }
 
-void main() {
+List<String> _startupArguments = const [];
+
+void main(List<String> arguments) {
+  _startupArguments = arguments;
   WidgetsFlutterBinding.ensureInitialized();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
@@ -180,6 +224,33 @@ class _BootstrapState extends State<_Bootstrap> {
     await Future<void>.delayed(Duration.zero);
     MediaKit.ensureInitialized();
     final app = await createApplication(desktopIntegration: true);
+    final report = _startupArguments
+        .where((argument) => argument.startsWith('--profile-report='))
+        .firstOrNull;
+    if (report != null) {
+      try {
+        final output = File(report.substring('--profile-report='.length));
+        if (await output.exists()) {
+          throw const FileSystemException('Файл диагностики уже существует.');
+        }
+        await output.writeAsString(
+          jsonEncode({
+            'pid': pid,
+            'profile': app.library.root.path,
+            'physicalProfile': await app.library.root.resolveSymbolicLinks(),
+            'tracks': app.library.tracks.length,
+            'favoriteTracks': app.library.favoriteTracks.length,
+            'favoriteAlbums': app.library.favoriteAlbums.length,
+            'favoritePlaylists': app.library.favoritePlaylists.length,
+            'offlineTracks': app.library.offlineTracks.length,
+          }),
+          flush: true,
+        );
+      } catch (_) {
+        await app.shutdown();
+        rethrow;
+      }
+    }
     if (app.library.settings['checkAppUpdates'] != false) {
       unawaited(app.updates.check());
     } else {
