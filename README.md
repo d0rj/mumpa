@@ -5,7 +5,6 @@
 <h1 align="center">Mumpa</h1>
 
 <p align="center">
-  <strong>Твои файлы. Твой ритм.</strong><br>
   Музыкальный плеер для Windows и Android.<br>
   Локальные альбомы, торрент-стриминг и офлайн — в одной медиатеке.
 </p>
