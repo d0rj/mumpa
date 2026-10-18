@@ -276,7 +276,10 @@ void main() {
       try {
         controller.setRepeat(PlayerRepeatMode.all);
         await controller.playTracks(library.tracks);
-        await Future<void>.delayed(const Duration(milliseconds: 250));
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (!controller.stopped && DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
         expect(backend.attempts.length, 3);
         expect(controller.stopped, isTrue);
         expect(controller.error, isNotNull);

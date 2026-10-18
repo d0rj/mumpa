@@ -30,6 +30,41 @@ void main() {
   });
 
   test(
+    'playlist ranking includes a source played through another offline version',
+    () async {
+      final remote = Track(
+        id: 'remote',
+        title: 'Song',
+        artist: 'Band',
+        album: 'Remote',
+        source: TrackSource.torrent,
+        torrentHash: 'source',
+        torrentPath: 'Song.wav',
+        albumSource: TrackAlbumSource.directory,
+      );
+      final source = MusicPlaylist(
+        id: 'source-playlist',
+        name: 'Source collection',
+        sourceHash: 'source',
+        trackIds: ['remote'],
+      );
+      await File('${root.path}/library.json').writeAsString(
+        jsonEncode({
+          'tracks': [
+            remote.toJson(),
+            _track('offline', title: 'Song').toJson(),
+          ],
+          'playlists': [source.toJson()],
+        }),
+      );
+      await library.load();
+      expect(library.mediaPlaylists, isEmpty);
+      await library.recordListen('offline', playlistId: source.id);
+      expect(library.frequentPlaylists.single.id, source.id);
+    },
+  );
+
+  test(
     'legacy history does not invent counts; track and playlist counts persist',
     () async {
       await library.upsert([_track('a'), _track('b')]);

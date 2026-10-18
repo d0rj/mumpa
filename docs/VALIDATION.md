@@ -2,10 +2,11 @@
 
 ## Offline usage, Home shelves and device listening statistics — 1.2.23
 
-- **93 focused regression tests passed; one unrelated platform case skipped.**
+- **94 focused regression tests passed; one unrelated platform case skipped.**
   Coverage includes completed-file size accounting, imported-file exclusion,
   alias deduplication, missing/partial files, persistent counts, variant grouping,
-  the top-50 cap, playlist context, radio, pause/resume, failed playback, library
+  the top-50 cap, playlist context across shared offline versions, radio,
+  pause/resume, failed playback, library
   search, profile recovery, download safety and saved-playlist reordering.
 - UI checks at **320 px and 1200 px** verify horizontal scrolling, the system
   playlist's read-only actions, actual temporary files, quota changes and size

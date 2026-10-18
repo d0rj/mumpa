@@ -139,9 +139,7 @@ class LibraryRepository extends ChangeNotifier {
   int playlistPlayCount(String id) => _playlistPlayCounts[id] ?? 0;
 
   List<MusicPlaylist> get frequentPlaylists {
-    final items = mediaPlaylists
-        .where((p) => playlistPlayCount(p.id) > 0)
-        .toList();
+    final items = playlists.where((p) => playlistPlayCount(p.id) > 0).toList();
     items.sort((a, b) {
       final count = playlistPlayCount(b.id).compareTo(playlistPlayCount(a.id));
       return count != 0 ? count : a.id.compareTo(b.id);
