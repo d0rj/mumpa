@@ -506,12 +506,14 @@ Future<void> choosePlaylist(
     builder: (context) => SimpleDialog(
       title: const Text('Добавить в плейлист'),
       children: [
-        ...app.library.playlists.map(
-          (l) => SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, l.id),
-            child: Text(l.name),
-          ),
-        ),
+        ...app.library.playlists
+            .where((playlist) => playlist.sourceHash == null)
+            .map(
+              (playlist) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, playlist.id),
+                child: Text(playlist.name),
+              ),
+            ),
         SimpleDialogOption(
           onPressed: () => Navigator.pop(context, '__new__'),
           child: const Text(
