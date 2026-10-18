@@ -18,6 +18,7 @@ import '../domain/models.dart';
 import '../domain/torrent_album_layout.dart';
 import 'source_operation.dart';
 import 'public_music_catalog.dart';
+import 'automatic_music_catalog.dart';
 import 'torrent_network.dart';
 
 Future<bool> _validBinaryHash(String path, String expected) => Isolate.run(
@@ -884,7 +885,7 @@ class IndexerService {
     SourceOperation? operation,
   }) async {
     if (endpoint == PublicMusicCatalog.endpoint) {
-      return PublicMusicCatalog.search(client, query, operation: operation);
+      return AutomaticMusicCatalog.search(client, query, operation: operation);
     }
     final uri = Uri.parse(endpoint);
     if (!{'http', 'https'}.contains(uri.scheme) || uri.host.isEmpty) {

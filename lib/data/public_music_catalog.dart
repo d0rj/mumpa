@@ -18,6 +18,20 @@ class PublicMusicCatalog {
     String query, {
     SourceOperation? operation,
   }) async {
+    final results = await _request(client, query, operation: operation);
+    if (results.isNotEmpty || query.trim().isEmpty) return results;
+    // Knaben's combined age/risk filter also hides active music releases with
+    // a zero risk score. A bounded second lookup admits only explicit zeroes;
+    // unknown and nonzero scores stay excluded, as do nonmusic categories.
+    return _request(client, query, operation: operation, zeroRiskOnly: true);
+  }
+
+  static Future<List<SearchRelease>> _request(
+    http.Client client,
+    String query, {
+    SourceOperation? operation,
+    bool zeroRiskOnly = false,
+  }) async {
     operation?.check();
     final request =
         http.AbortableRequest(
@@ -35,7 +49,7 @@ class PublicMusicCatalog {
             'order_by': 'seeders',
             'order_direction': 'desc',
             'size': 60,
-            'hide_unsafe': true,
+            'hide_unsafe': !zeroRiskOnly,
             'hide_xxx': true,
           });
     try {
@@ -51,7 +65,10 @@ class PublicMusicCatalog {
               : 'Музыкальный каталог недоступен (HTTP ${response.statusCode}). Повтори поиск или выбери другой источник.',
         );
       }
-      return parse(jsonDecode(utf8.decode(response.bodyBytes)));
+      return parse(
+        jsonDecode(utf8.decode(response.bodyBytes)),
+        zeroRiskOnly: zeroRiskOnly,
+      );
     } on http.ClientException {
       operation?.check();
       throw const HttpException(
@@ -68,7 +85,7 @@ class PublicMusicCatalog {
     }
   }
 
-  static List<SearchRelease> parse(dynamic value) {
+  static List<SearchRelease> parse(dynamic value, {bool zeroRiskOnly = false}) {
     if (value is! Map || value['hits'] is! List) {
       throw const FormatException('Invalid catalog response');
     }
@@ -76,6 +93,7 @@ class PublicMusicCatalog {
     final result = <SearchRelease>[];
     for (final hit in value['hits'] as List) {
       if (hit is! Map || hit['title'] is! String) continue;
+      if (zeroRiskOnly && hit['virusDetection'] != 0) continue;
       final categories = hit['categoryId'];
       if (categories is! List || !categories.any(musicCategories.contains)) {
         continue;

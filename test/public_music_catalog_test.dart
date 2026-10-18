@@ -29,6 +29,13 @@ void main() {
     'automatic source needs no key, sends only music categories and preserves Cyrillic',
     () async {
       final client = MockClient((request) async {
+        if (request.url.host == 'rutor.info') {
+          expect(request.method, 'GET');
+          expect(request.url.pathSegments, contains('Кино'));
+          expect(request.headers, isNot(contains('authorization')));
+          expect(request.url.queryParameters, isNot(contains('apikey')));
+          return http.Response('<div id="index"></div>', 200);
+        }
         expect(request.method, 'POST');
         expect(request.url.toString(), PublicMusicCatalog.endpoint);
         expect(request.headers, isNot(contains('authorization')));
@@ -77,6 +84,70 @@ void main() {
     });
     expect(result.length, 1);
     expect(result.single.bytes, 123456);
+  });
+
+  test(
+    'empty strict search retries music with an explicit zero risk score',
+    () async {
+      final filters = <bool>[];
+      final client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map;
+        filters.add(body['hide_unsafe'] as bool);
+        expect(body['query'], 'Ежемесячные');
+        expect(body['categories'], [1001000, 1002000]);
+        expect(body['hide_xxx'], isTrue);
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode({
+              'hits': body['hide_unsafe'] == true
+                  ? []
+                  : [
+                      {
+                        ...hit(name: 'Ежемесячные — Альбом'),
+                        'virusDetection': 0.0,
+                      },
+                      {
+                        ...hit(),
+                        'hash': '1111111111111111111111111111111111111111',
+                        'virusDetection': 0.1,
+                      },
+                      {
+                        ...hit(),
+                        'hash': '2222222222222222222222222222222222222222',
+                      },
+                      {
+                        ...hit(categories: [2000000]),
+                        'virusDetection': 0,
+                      },
+                    ],
+            }),
+          ),
+          200,
+        );
+      });
+      try {
+        final result = await PublicMusicCatalog.search(client, 'Ежемесячные');
+        expect(filters, [true, false]);
+        expect(result.single.title, 'Ежемесячные — Альбом');
+      } finally {
+        client.close();
+      }
+    },
+  );
+
+  test('fresh empty feed does not run a broad second lookup', () async {
+    var requests = 0;
+    final client = MockClient((request) async {
+      requests++;
+      expect((jsonDecode(request.body) as Map)['hide_unsafe'], isTrue);
+      return http.Response('{"hits":[]}', 200);
+    });
+    try {
+      expect(await PublicMusicCatalog.search(client, ''), isEmpty);
+      expect(requests, 1);
+    } finally {
+      client.close();
+    }
   });
 
   test('cancelled searches and rate limits have bounded failures', () async {

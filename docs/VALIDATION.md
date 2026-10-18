@@ -1,5 +1,39 @@
 # Mumpa verification — 2026-10-18
 
+## Russian automatic search — 1.2.22
+
+- Corrected the earlier diagnosis of missing catalogue coverage: a direct
+  Knaben lookup for `Ежемесячные` returned no hits with `hide_unsafe: true`,
+  but returned the album **ДУШЕВНО И КРЕПКО** with **5 advertised seeders**
+  and an explicit **zero** `virusDetection` when the combined filter was off.
+  Production now retries an empty query once, music-only, admitting explicit
+  zero scores locally. Nonzero/unknown risk scores remain excluded; this is
+  the provider's signal, not proof of antivirus safety or peer availability.
+- Added anonymous music-category **RuTor** search to automatic mode on both
+  platforms. Live combined `Кино` search returned **61** releases across
+  providers; a direct RuTor torrent file parsed into **35 files** with a
+  valid BTIH. Concert videos are excluded locally. Duplicate hashes prefer
+  direct metainfo; one failed provider does not discard another's results.
+- **484 unit/widget tests passed, 4 opt-in skipped**; analyzer: no issues.
+  Checks include Cyrillic request encoding, constrained fallback, music/video
+  filtering, fixed mirrors, untrusted links, cross-source hash deduplication,
+  partial failures, cancellation and preservation of custom credentials.
+  One first full run hit a transient Windows file-rename conflict in the
+  existing restart test; the restart reader now explicitly waits for flush.
+  The focused repeat and final complete suite passed.
+- A fresh **API-35 Android tablet emulator** ran the real application,
+  displayed the requested album in its search UI and passed with **no keys,
+  account, Jackett or FlareSolverr profiles**. No physical tablet was attached.
+- A separate public streaming attempt found the album but timed out obtaining
+  magnet metadata from peers on the emulator's host network. Audio playback
+  of this release is **not verified**. The search result's seeder count is
+  advertised catalogue data. Do not present it as evidence that peers served
+  audio. `RUSSIAN_STREAM_TEST=true` enables this separate, stricter check.
+- Evidence: `test-output/russian-automatic-live.json`,
+  `russian-source-full-tests-release.log`, `russian-source-analyze-release.log`,
+  `russian-source-android-search.log` (pass),
+  `russian-source-android-native.log` (public peer metadata failure).
+
 ## Shared Windows profile across launchers — 1.2.21
 
 - A handle-level filesystem probe confirmed that the old AppData library path

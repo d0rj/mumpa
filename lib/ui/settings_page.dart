@@ -325,8 +325,8 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Widget> _sourceControls() => [
     const SectionTitle('Музыка сразу после установки'),
     const Text(
-      '«Автоматически» ищет музыку в публичном каталоге Knaben без аккаунта, '
-      'Jackett и FlareSolverr. Запросы отправляются в Knaben. '
+      '«Автоматически» ищет музыку в Knaben и RuTor без аккаунта, '
+      'Jackett и FlareSolverr. Поисковые запросы отправляются этим каталогам. '
       'Наличие раздачи в поиске не гарантирует доступных пиров.',
       style: TextStyle(color: muted, fontSize: 12),
     ),

@@ -48,7 +48,10 @@ void main() {
         expect(app.error, isNull);
         expect(app.releases, isNotEmpty);
         expect(
-          app.releases.every((release) => release.link.startsWith('magnet:')),
+          app.releases.every(
+            (release) =>
+                {'magnet', 'https'}.contains(Uri.parse(release.link).scheme),
+          ),
           isTrue,
         );
         final boundary = GlobalKey();

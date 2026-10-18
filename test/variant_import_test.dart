@@ -170,6 +170,7 @@ void main() {
         app.library.tracks.every((track) => track.torrentLink == magnet),
         isTrue,
       );
+      await app.library.flush();
       final restarted = LibraryRepository(root);
       await restarted.load();
       expect(

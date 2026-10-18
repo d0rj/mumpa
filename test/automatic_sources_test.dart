@@ -42,6 +42,9 @@ void main() {
       indexer: IndexerService(
         client: MockClient((request) async {
           requests.add(request);
+          if (request.url.host == 'rutor.info') {
+            return http.Response('<div id="index"></div>', 200);
+          }
           if (request.url.toString() == PublicMusicCatalog.endpoint) {
             return http.Response(
               jsonEncode({
@@ -83,7 +86,24 @@ void main() {
       app.query = 'Artist';
       await app.searchSources();
       expect(app.releases.single.title, 'Artist — Ready');
-      expect(requests.every((r) => r.method == 'POST'), isTrue);
+      expect(
+        requests
+            .where((r) => r.url.host == 'api.knaben.org')
+            .every((r) => r.method == 'POST'),
+        isTrue,
+      );
+      expect(
+        requests.any((r) => r.url.host == 'rutor.info' && r.method == 'GET'),
+        isTrue,
+      );
+      expect(
+        requests.every(
+          (r) =>
+              !r.url.queryParameters.containsKey('apikey') &&
+              !r.headers.containsKey('authorization'),
+        ),
+        isTrue,
+      );
       expect(app.library.settings.containsKey('indexerKey'), isFalse);
       expect(app.jackettConnection, isNull);
       expect(await Directory('${root.path}/jackett').exists(), isFalse);

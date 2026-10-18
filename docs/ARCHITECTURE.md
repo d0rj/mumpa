@@ -1,5 +1,22 @@
 # Mumpa architecture
 
+## Russian automatic search — 1.2.22
+
+`AutomaticMusicCatalog` runs the Knaben API and anonymous, music-category RuTor
+search concurrently through the same cancellable `IndexerService` interface.
+Album search, recording variants and radio therefore share the added provider.
+BTIH duplicates collapse with direct metainfo preferred over a magnet wait.
+RuTor HTML is parsed as data, bounded to 2 MiB, audio-format checked, and uses
+only fixed official origins; source account/API keys are never attached.
+
+Knaben's `hide_unsafe` combines recency and risk and hid the requested artist
+even where a result reported `virusDetection: 0`. After an empty filtered search,
+one additional music-only lookup admits explicit zero scores locally; unknown
+and nonzero values remain excluded. The unqueried home feed keeps its original
+filter. Provider failure with no results produces an availability error rather
+than a false absent-artist result. No credentials, helper server or platform-
+specific dependency was added.
+
 ## Shared Windows profile — 1.2.21
 
 `ApplicationProfile` selects `%USERPROFILE%/.mumpa` and holds an exclusive

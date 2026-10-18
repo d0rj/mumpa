@@ -143,7 +143,7 @@ List<Widget> sourceContent(BuildContext context, AppController app) => [
   SectionTitle(
     app.usesAutomaticSource ? 'Музыка без настройки' : 'Музыка через Jackett',
     subtitle: app.usesAutomaticSource
-        ? 'Публичный каталог Knaben · MP3 и FLAC · выбери альбом или найди исполнителя'
+        ? 'Knaben и RuTor · MP3 и FLAC · выбери альбом или найди исполнителя'
         : 'RuTracker и другие подключённые музыкальные трекеры',
     action: IconButton(
       onPressed: app.indexerLoading ? null : app.refreshSourceFeed,
