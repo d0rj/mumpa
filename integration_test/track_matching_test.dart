@@ -352,10 +352,18 @@ void main() {
     expect(library.playlists.single.trackIds, ['clean', 'next']);
     final explicitDuration = playback.duration.inMilliseconds;
     expect(explicitDuration, inInclusiveRange(20900, 21100));
-    await tester.tap(find.byKey(const ValueKey('track-cover-play-clean')));
-    await waitForAudio('clean');
-    final cleanDuration = playback.duration.inMilliseconds;
-    expect(cleanDuration, inInclusiveRange(19900, 20100));
+    final cover = find.byKey(const ValueKey('track-cover-play-clean'));
+    await tester.tap(cover);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(playback.playing, isFalse);
+    final pausedPosition = playback.position.inMilliseconds;
+    await tester.tap(cover);
+    await waitForAudio('explicit');
+    expect(
+      playback.position.inMilliseconds,
+      greaterThanOrEqualTo(pausedPosition),
+    );
+    expect(playback.duration.inMilliseconds, explicitDuration);
     expect(networkCalls, 0);
     expect(tester.takeException(), isNull);
 
@@ -363,8 +371,9 @@ void main() {
       'nativeDecoder': 'libmpv',
       'chosenVariant': 'explicit',
       'explicitDurationMs': explicitDuration,
-      'coverPlayVariant': 'clean',
-      'cleanDurationMs': cleanDuration,
+      'coverResumeVariant': 'explicit',
+      'pausedPositionMs': pausedPosition,
+      'resumedPositionMs': playback.position.inMilliseconds,
       'queueGroups': playback.queue.length,
       'originalPlaylistIds': library.playlists.single.trackIds,
       'networkCalls': networkCalls,

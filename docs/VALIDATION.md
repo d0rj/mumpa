@@ -1,5 +1,22 @@
 # Mumpa verification — 2026-10-19
 
+## Small-cover alignment and Pause/Resume
+
+- **66 focused unit/widget tests passed; Dart analysis clean.** Ten new
+  regressions first failed on the previous implementation: the icon was offset
+  3 px right/down, Resume reset 13 seconds to zero, and a selected FLAC
+  alternative was replaced by the default MP3.
+- Android and Windows themes at 320, 800 and 1280 px now assert the icon shares
+  the front artwork's exact center and retains a 48 px touch target. Repeated
+  touch Pause/Resume preserves position, file, queue revision and playlist
+  context for both single-file and grouped tracks. Existing hover visibility,
+  version picker, navigation, artwork and playback checks pass.
+- The opt-in native track-matching scenario now expects the same selected
+  alternative after cover Pause/Resume. It was not run in this change; runtime
+  playback evidence here uses a fake backend. Physical tablet testing and a
+  release build remain unverified. Logs: `test-output/cover-controls-before.log`,
+  `cover-controls-tests.log`, and `cover-controls-analyze.log`.
+
 ## Windows installer handoff — 1.2.27
 
 - The user's installed 1.2.22 downloaded the complete 1.2.26 Windows ZIP but

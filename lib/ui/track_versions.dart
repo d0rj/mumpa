@@ -22,6 +22,9 @@ class TrackStackArtwork extends StatefulWidget {
 }
 
 class _TrackStackArtworkState extends State<TrackStackArtwork> {
+  static const _coverSize = 42.0;
+  static const _playSize = 48.0;
+  static const _coverInset = (_playSize - _coverSize) / 2;
   bool _hovered = false;
 
   @override
@@ -38,14 +41,14 @@ class _TrackStackArtworkState extends State<TrackStackArtwork> {
       onExit: (_) => setState(() => _hovered = false),
       child: SizedBox(
         width: 52,
-        height: 50,
+        height: 52,
         child: Stack(
           key: ValueKey('track-cover-stack-$rowId'),
           children: [
             for (var i = behind.length - 1; i >= 0; i--)
               Positioned(
-                left: (i + 1) * 4,
-                top: (i + 1) * 4,
+                left: _coverInset + (i + 1) * 4,
+                top: _coverInset + (i + 1) * 4,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.white24),
@@ -63,9 +66,14 @@ class _TrackStackArtworkState extends State<TrackStackArtwork> {
                 ),
               ),
             Positioned(
-              left: 0,
-              top: 0,
-              child: TrackArtwork(app: app, track: track, size: 42, radius: 5),
+              left: _coverInset,
+              top: _coverInset,
+              child: TrackArtwork(
+                app: app,
+                track: track,
+                size: _coverSize,
+                radius: 5,
+              ),
             ),
             Positioned(
               left: 0,
@@ -82,17 +90,21 @@ class _TrackStackArtworkState extends State<TrackStackArtwork> {
                       (active && (state.playing || state.buffering));
                   return IconButton(
                     key: ValueKey('track-cover-play-$rowId'),
-                    onPressed: active && (state.playing || state.buffering)
-                        ? app.playback.toggle
-                        : widget.onPlay,
-                    tooltip: active && (state.playing || state.buffering)
-                        ? 'Пауза'
+                    // A paused alternative is still the selected queue file.
+                    onPressed: active ? app.playback.toggle : widget.onPlay,
+                    tooltip: active
+                        ? state.playing || state.buffering
+                              ? 'Пауза'
+                              : 'Продолжить'
                         : 'Слушать ${track.title}',
-                    constraints: const BoxConstraints.tightFor(
-                      width: 44,
-                      height: 44,
+                    // Center the touch target on the front artwork regardless
+                    // of the platform's Material density/tap-target defaults.
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(_playSize),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.standard,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    padding: EdgeInsets.zero,
                     icon: visible
                         ? Container(
                             key: ValueKey('track-cover-icon-$rowId'),

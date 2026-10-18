@@ -30,6 +30,10 @@ Small cover controls are invisible while idle. Hovering shows Play; an active
 playing track shows Pause, including a selected alternative in a grouped row.
 The cover remains tappable without hover on touch devices. Clicking the rest of
 a grouped row retains the version picker.
+Tapping the current track's cover toggles Pause/Resume, preserving its position,
+queue and selected alternative even when paused. Only another track starts a new
+collection. The 48 px tap target and its icon share the front artwork's center
+on both Android and desktop, independently of Material tap-target defaults.
 
 ## Evidence
 

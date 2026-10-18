@@ -141,6 +141,121 @@ Future<void> closeMatchingFixture(
 }
 
 void runMatchingUiTests() {
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    for (final width in [320.0, 800.0, 1280.0]) {
+      testWidgets('cover control stays centered on $platform at $width px', (
+        tester,
+      ) async {
+        final f = (await tester.runAsync(MatchingFixture.create))!;
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await closeMatchingFixture(tester, f);
+        });
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: mumpaTheme().copyWith(platform: platform),
+            home: Scaffold(
+              body: CustomScrollView(
+                slivers: [TrackList(app: f.app, tracks: f.tracks)],
+              ),
+            ),
+          ),
+        );
+        await matchingFrame(tester);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        for (final id in ['mp3', 'next']) {
+          final stack = find.byKey(ValueKey('track-cover-stack-$id'));
+          final artwork = find.descendant(
+            of: stack,
+            matching: find.byType(TrackArtwork),
+          );
+          final cover = find.byKey(ValueKey('track-cover-play-$id'));
+          await mouse.moveTo(tester.getCenter(artwork));
+          await matchingFrame(tester);
+          final icon = find.byKey(ValueKey('track-cover-icon-$id'));
+          expect(icon, findsOneWidget);
+          expect(
+            (tester.getCenter(icon) - tester.getCenter(artwork)).distance,
+            lessThan(.01),
+            reason: 'The icon must share the front artwork center',
+          );
+          expect(tester.getSize(cover).shortestSide, greaterThanOrEqualTo(48));
+        }
+        await mouse.removePointer();
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    for (final grouped in [false, true]) {
+      testWidgets('cover resumes the same file on $platform grouped=$grouped', (
+        tester,
+      ) async {
+        final f = (await tester.runAsync(MatchingFixture.create))!;
+        tester.view.physicalSize = const Size(800, 1280);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox());
+          await closeMatchingFixture(tester, f);
+        });
+        final anchor = f.tracks[grouped ? 0 : 2];
+        final selected = f.tracks[grouped ? 1 : 2];
+        final collection = [anchor, f.tracks[3]];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: mumpaTheme().copyWith(platform: platform),
+            home: Scaffold(
+              body: CustomScrollView(
+                slivers: [
+                  TrackList(
+                    app: f.app,
+                    tracks: collection,
+                    playlistId: f.playlist.id,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.runAsync(() async {
+          await f.app.playCollection(
+            collection,
+            playlistId: f.playlist.id,
+            selectedVariant: selected,
+          );
+          await f.app.playback.seek(const Duration(seconds: 13));
+        });
+        await matchingFrame(tester);
+        final player = f.app.playback;
+        final queue = player.queue.map((track) => track.id).toList();
+        final revision = player.queueRevision;
+        final cover = find.byKey(ValueKey('track-cover-play-${anchor.id}'));
+        for (final playing in [false, true, false, true]) {
+          await tester.runAsync(() async {
+            await tester.tap(cover);
+            await Future<void>.delayed(const Duration(milliseconds: 50));
+          });
+          await matchingFrame(tester);
+          expect(player.playing, playing);
+          expect(player.current?.id, selected.id);
+          expect(player.position, const Duration(seconds: 13));
+          expect(player.queue.map((track) => track.id), queue);
+          expect(player.queueRevision, revision);
+          expect(player.contextPlaylistId, f.playlist.id);
+        }
+        expect(find.text('Выбрать версию'), findsNothing);
+        expect(f.networkRequests, isEmpty);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets(
     'offline deletion requires confirmation and preserves the heart',
     (tester) async {
@@ -306,14 +421,15 @@ void runMatchingUiTests() {
         expect(icon, findsNothing);
         await mouse.removePointer();
 
-        // The small cover bypasses the picker and uses the automatic default.
+        // The small cover resumes the selected alternative without a picker.
         await tester.runAsync(() async {
           await tester.tap(find.byKey(const ValueKey('track-cover-play-mp3')));
           await Future<void>.delayed(const Duration(milliseconds: 50));
         });
         await matchingFrame(tester);
         expect(find.text('Выбрать версию'), findsNothing);
-        expect(f.app.playback.current?.id, 'mp3');
+        expect(f.app.playback.current?.id, 'flac');
+        expect(f.app.playback.playing, isTrue);
         expect(f.networkRequests, isEmpty);
         expect(tester.takeException(), isNull);
       },
