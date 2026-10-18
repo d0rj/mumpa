@@ -6,15 +6,19 @@ import { pathToFileURL } from 'node:url';
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const parseJson = (bytes) => JSON.parse(bytes.toString().replace(/^\uFEFF/, ''));
 
-export function prepareRelease(directory, expectedCommit, expectedRunId) {
+export function prepareRelease(directory, expectedCommit, expectedRunId, { local = false } = {}) {
   if (!/^[a-f0-9]{40}$/.test(expectedCommit ?? '')) throw new Error('Invalid source commit');
-  if (!/^\d+$/.test(String(expectedRunId ?? ''))) throw new Error('Invalid workflow run ID');
+  if (local ? expectedRunId != null : !/^\d+$/.test(String(expectedRunId ?? ''))) {
+    throw new Error('Invalid workflow run ID');
+  }
   const root = realpathSync(directory);
   const buildData = readFileSync(resolve(root, 'BUILD.json'));
   const build = parseJson(buildData);
   const match = /^(\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?)\+(\d+)$/.exec(build.version ?? '');
   if (!match) throw new Error('Expected version+build in BUILD.json');
-  if (build.commit !== expectedCommit || String(build.githubRun) !== String(expectedRunId)) {
+  if (build.commit !== expectedCommit || (local
+    ? build.buildSource !== 'local' || build.githubRun != null
+    : build.buildSource === 'local' || String(build.githubRun) !== String(expectedRunId))) {
     throw new Error('Build commit or workflow run does not match this release');
   }
   if (!/^[A-Za-z0-9._-]+$/.test(build.engine ?? '')) throw new Error('Invalid engine version');
@@ -67,21 +71,26 @@ export function prepareRelease(directory, expectedCommit, expectedRunId) {
   }
   const signing = build.androidSigning === 'release-keystore'
     ? 'APK подписаны постоянным ключом релиза.'
+    : build.androidSigning === 'local-debug-key'
+    ? 'APK подписаны локальным debug-ключом; обновление поверх прежней установки возможно только при совпадении сертификатов.'
     : 'APK подписаны временным debug-ключом CI; для обновлений поверх прежней установки нужен тот же постоянный ключ.';
+  const provenance = local
+    ? `Локальная сборка Windows и Android, без GitHub Actions. [Исходный commit](https://github.com/REPOSITORY/commit/${build.commit}).`
+    : `Commit: \`${build.commit}\`. [Проверки и сборка](https://github.com/REPOSITORY/actions/runs/${build.githubRun}).`;
   return {
     version: build.version, tag: `v${version}`, files, prerelease: version.includes('-'),
     notes: `Mumpa **${build.version}**\n\n` +
       `Windows: распакуйте Mumpa-${version}-windows-x64.zip и откройте Mumpa/Install Mumpa.cmd для установки в меню «Пуск». Переносной запуск: Mumpa/mumpa.exe.\n\n` +
       `Android: Mumpa-${version}-android-arm64.apk для большинства телефонов; также доступны ARMv7 и x86_64. ${signing}\n\n` +
       `Исходники приложения и помощников приложены. SHA256.json использует имена файлов этой страницы.\n\n` +
-      `Commit: \`${build.commit}\`. [Проверки и сборка](https://github.com/REPOSITORY/actions/runs/${build.githubRun}).\n`,
+      `${provenance}\n`,
   };
 }
 
-export async function publishRelease({ directory, repository, commit, runId, token, expectedVersion, request = fetch }) {
+export async function publishRelease({ directory, repository, commit, runId, token, expectedVersion, local = false, request = fetch }) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? '')) throw new Error('Invalid repository');
   if (!token) throw new Error('GH_TOKEN is required');
-  const plan = prepareRelease(directory, commit, runId);
+  const plan = prepareRelease(directory, commit, runId, { local });
   if (expectedVersion && plan.version !== expectedVersion) throw new Error('Build version does not match this release');
   const api = `https://api.github.com/repos/${repository}`;
   const headers = {

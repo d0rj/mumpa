@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory)][string]$GoExecutable,
-    [Parameter(Mandatory)][string]$AndroidNdk
+    [Parameter(Mandatory)][string]$AndroidNdk,
+    [switch]$Local
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,6 +12,13 @@ function Invoke-CiCommand([string]$Executable, [string[]]$Arguments) {
     & $Executable @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Executable failed with exit code $LASTEXITCODE" }
 }
+
+if ($Local) {
+    $mumpaChanges = & git status --porcelain --untracked-files=normal
+    if ($LASTEXITCODE -ne 0 -or $mumpaChanges) { throw 'Commit all source changes before building a local release.' }
+}
+$mumpaCommit = (& git rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit' }
 
 $mumpaVersionLine = Get-Content -LiteralPath 'pubspec.yaml' | Where-Object { $_ -match '^version:\s*' }
 $mumpaVersion = ($mumpaVersionLine -replace '^version:\s*', '').Trim()
@@ -27,15 +35,15 @@ Invoke-CiCommand 'flutter' @('pub', 'get', '--enforce-lockfile')
 # Each build must refresh native plugin registration for its own release mode.
 # --no-pub can retain integration_test in GeneratedPluginRegistrant.java even
 # after an ordinary pub get, while Gradle excludes that plugin from release.
-Invoke-CiCommand 'flutter' @('build', 'windows', '--release')
+Invoke-CiCommand 'flutter' @('build', 'windows', '--release', '--target', 'lib/main.dart')
 & ./tools/test-install-windows.ps1
 & ./tools/build-android.ps1
 Invoke-CiCommand 'git' @('diff', '--exit-code', '--', 'pubspec.lock')
 
-$mumpaOutput = Join-Path $mumpaRoot 'artifacts/ci-release'
+$mumpaOutput = Join-Path $mumpaRoot $(if ($Local) { "artifacts/release-$mumpaBuildName" } else { 'artifacts/ci-release' })
 $mumpaSourceOutput = Join-Path $mumpaOutput 'sources'
 New-Item -ItemType Directory -Path $mumpaSourceOutput -Force | Out-Null
-Invoke-CiCommand 'git' @('archive', '--format=zip', "--prefix=Mumpa-$mumpaBuildName/", "--output=$mumpaSourceOutput/Mumpa-$mumpaBuildName-source.zip", 'HEAD')
+Invoke-CiCommand 'git' @('archive', '--format=zip', "--prefix=Mumpa-$mumpaBuildName/", "--output=$mumpaSourceOutput/Mumpa-$mumpaBuildName-source.zip", $mumpaCommit)
 foreach ($mumpaSource in @(
     $mumpaLock.upstream.archive,
     "artifacts/TorrServer-$($mumpaLock.version)-source.zip",
@@ -45,16 +53,20 @@ foreach ($mumpaSource in @(
     Copy-Item -LiteralPath $mumpaSource -Destination $mumpaSourceOutput -Force
 }
 & ./tools/package-release.ps1 -Version $mumpaBuildName -OutputDirectory $mumpaOutput
-$mumpaCommit = (& git rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit' }
+if ((& git rev-parse HEAD).Trim() -ne $mumpaCommit -or (& git status --porcelain --untracked-files=normal)) {
+    throw 'Source changed during the build; release metadata was not written.'
+}
+$mumpaFlutter = (& flutter --version --machine | ConvertFrom-Json).frameworkVersion
+if ($LASTEXITCODE -ne 0 -or -not $mumpaFlutter) { throw 'Cannot determine Flutter version' }
 [ordered]@{
     version = $mumpaVersion
     commit = $mumpaCommit
     engine = $mumpaLock.version
     toolchains = $mumpaLock.toolchains
-    flutter = '3.44.4'
-    androidSigning = if ($env:MUMPA_KEYSTORE_PATH) { 'release-keystore' } else { 'ephemeral-debug-key' }
-    githubRun = $env:GITHUB_RUN_ID
+    flutter = $mumpaFlutter
+    androidSigning = if ($env:MUMPA_KEYSTORE_PATH) { 'release-keystore' } elseif ($Local) { 'local-debug-key' } else { 'ephemeral-debug-key' }
+    buildSource = if ($Local) { 'local' } else { 'github-actions' }
+    githubRun = if ($Local) { $null } else { $env:GITHUB_RUN_ID }
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $mumpaOutput 'BUILD.json') -Encoding utf8
 if ($env:GITHUB_OUTPUT) {
     "version=$mumpaBuildName" | Add-Content -LiteralPath $env:GITHUB_OUTPUT

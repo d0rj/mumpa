@@ -349,6 +349,48 @@ test('preflight validates all packages and emits a flat checksummed release mani
     current.manifest);
 });
 
+test('local release uses explicit local provenance without a fabricated workflow run', async (t) => {
+  const current = await fixture(t);
+  current.build.buildSource = 'local';
+  current.build.githubRun = null;
+  current.build.androidSigning = 'local-debug-key';
+  await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify(current.build));
+  const prepared = prepareRelease(current.directory, COMMIT, undefined, { local: true });
+  assert.match(prepared.notes, /Локальная сборка/);
+  assert.match(prepared.notes, /локальным debug-ключом/);
+  assert.ok(prepared.notes.includes(`/commit/${COMMIT}`));
+  assert.ok(!prepared.notes.includes('/actions/runs/'));
+  assert.equal(prepared.files.length, 12);
+  const mock = githubMock(await preparedBytes(prepared));
+  const result = await publishRelease({ ...publishOptions(current, mock.request), local: true, runId: undefined });
+  assert.equal(result.alreadyPublished, false);
+  assert.equal(mock.state.uploaded.size, 12);
+  assert.equal(mock.state.publishCount, 1);
+});
+
+test('local mode cannot bypass CI run provenance, or silently accept an Actions build', async (t) => {
+  const current = await fixture(t);
+  await rejectedBeforeHttp(current, { local: true, runId: undefined });
+  current.build.buildSource = 'local';
+  await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify(current.build));
+  await rejectedBeforeHttp(current, { local: true, runId: undefined });
+  await rejectedBeforeHttp(current);
+  current.build.githubRun = null;
+  await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify(current.build));
+  await rejectedBeforeHttp(current, { local: true });
+  await rejectedBeforeHttp(current, { local: true, runId: undefined, commit: OTHER_COMMIT });
+  await rejectedBeforeHttp(current, { local: true, runId: undefined, expectedVersion: '1.2.8+16' });
+});
+
+test('local packages still require their original sizes and SHA256 before HTTP', async (t) => {
+  const current = await fixture(t);
+  current.build.buildSource = 'local';
+  current.build.githubRun = null;
+  await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify(current.build));
+  await writeFile(join(current.directory, PACKAGE_PATHS[1]), 'Corrupted local APK');
+  await rejectedBeforeHttp(current, { local: true, runId: undefined });
+});
+
 test('corrupt package fails preflight before any HTTP', async (t) => {
   const current = await fixture(t);
   await writeFile(join(current.directory, PACKAGE_PATHS[0]), Buffer.from('Corrupted fixture'));
