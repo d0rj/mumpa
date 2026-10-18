@@ -290,9 +290,10 @@ class PlayerBar extends StatelessWidget {
 bool _hasLyrics(Track? track) => track?.lyrics?.trim().isNotEmpty == true;
 
 class _Transport extends StatelessWidget {
-  const _Transport(this.p, {this.large = false});
+  const _Transport(this.p, {this.large = false, this.compact = false});
   final PlaybackController p;
   final bool large;
+  final bool compact;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisAlignment: MainAxisAlignment.center,
@@ -313,8 +314,8 @@ class _Transport extends StatelessWidget {
       ),
       const SizedBox(width: 8),
       SizedBox(
-        width: large ? 62 : 38,
-        height: large ? 62 : 38,
+        width: large ? (compact ? 48 : 62) : 38,
+        height: large ? (compact ? 48 : 62) : 38,
         child: IconButton.filled(
           key: const Key('transport-toggle'),
           onPressed: p.current == null ? null : p.toggle,
@@ -340,7 +341,7 @@ class _Transport extends StatelessWidget {
                 )
               : Icon(
                   p.playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: large ? 38 : 27,
+                  size: large ? (compact ? 32 : 38) : 27,
                 ),
         ),
       ),
@@ -370,9 +371,14 @@ class _Transport extends StatelessWidget {
 }
 
 class _SeekBar extends StatefulWidget {
-  const _SeekBar(this.player, {this.expanded = false});
+  const _SeekBar(
+    this.player, {
+    this.expanded = false,
+    this.inlineTimes = false,
+  });
   final PlaybackController player;
   final bool expanded;
+  final bool inlineTimes;
   @override
   State<_SeekBar> createState() => _SeekBarState();
 }
@@ -418,7 +424,7 @@ class _SeekBarState extends State<_SeekBar> {
         ),
       ),
     );
-    if (widget.expanded) {
+    if (widget.expanded && !widget.inlineTimes) {
       return Column(
         children: [
           slider,
@@ -528,54 +534,71 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: MediaQuery.sizeOf(context).height * .94,
-    child: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-          child: Row(
-            children: [
-              const Icon(Icons.graphic_eq_rounded, color: accent, size: 19),
-              const SizedBox(width: 8),
-              const Text(
-                'СЕЙЧАС ИГРАЕТ',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.keyboard_arrow_down_rounded),
-              ),
-            ],
-          ),
-        ),
-        TabBar(
-          controller: _tabs,
-          tabs: [
-            const Tab(text: 'Плеер'),
-            const Tab(text: 'Очередь'),
-            if (_lyrics) const Tab(text: 'Текст'),
-          ],
-        ),
-        Expanded(
-          child: TabBarView(
-            key: ValueKey(_lyrics),
-            controller: _tabs,
-            children: [
-              _NowPlaying(widget.app),
-              _Queue(widget.app),
-              if (_lyrics) _Lyrics(widget.app),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).height < 600;
+    final tabBar = TabBar(
+      controller: _tabs,
+      tabs: [
+        const Tab(text: 'Плеер'),
+        const Tab(text: 'Очередь'),
+        if (_lyrics) const Tab(text: 'Текст'),
       ],
-    ),
-  );
+    );
+    final close = IconButton(
+      tooltip: 'Закрыть плеер',
+      onPressed: () => Navigator.pop(context),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded),
+    );
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * .94,
+      child: Column(
+        children: [
+          if (compact)
+            Row(
+              children: [
+                const SizedBox(width: 12),
+                const Icon(Icons.graphic_eq_rounded, color: accent, size: 19),
+                Expanded(child: tabBar),
+                close,
+              ],
+            )
+          else ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.graphic_eq_rounded, color: accent, size: 19),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'СЕЙЧАС ИГРАЕТ',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const Spacer(),
+                  close,
+                ],
+              ),
+            ),
+            tabBar,
+          ],
+          Expanded(
+            child: TabBarView(
+              key: ValueKey(_lyrics),
+              controller: _tabs,
+              children: [
+                _NowPlaying(widget.app),
+                _Queue(widget.app),
+                if (_lyrics) _Lyrics(widget.app),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Queue extends StatelessWidget {

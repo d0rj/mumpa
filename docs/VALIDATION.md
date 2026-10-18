@@ -1,5 +1,26 @@
 # Mumpa verification — 2026-10-18
 
+## Player controls without scrolling and phone orientation — 1.2.26
+
+- **128 focused unit/widget tests passed; Dart analysis clean.** The player
+  reserves the controls' natural height and gives only the remainder to artwork.
+  Its tab has no vertical scrollable; queue and lyrics retain their scrolling.
+- Fourteen viewport sizes include 1200×500, 1000×420, 700×400, 600×360 and
+  320×480, as well as portrait/landscape tablet sizes. Each asserts every link,
+  transport button, menu, sleep/mute control and both sliders lies completely
+  inside the player viewport and can receive a hit without scrolling.
+- Resizing an already open player with text scale 1.8, long metadata, lyrics
+  and 24 px system insets preserves visible controls, decoder and position.
+  Existing search focus, queue, playlist, album navigation and playback checks pass.
+- Seven platform-channel tests cover Android phone portrait/landscape, tablets
+  including a 600 dp boundary and narrow windows, folding/unfolding and Windows.
+  The policy reads the actual display, accounting for density; it requests
+  portrait below 600 dp on its shortest side and leaves tablets to the OS.
+- Widget screenshots include `test-output/now-playing-1200x500.png` and the
+  portrait tablet image `now-playing-800x1280.png`. These are Flutter renderings;
+  physical rotation on the user's device remains separately unverified.
+  [Behavior contract](NOW_PLAYING.md).
+
 ## Automatic full discographies and public metainfo — 1.2.25
 
 - **512 unit/widget tests passed, 4 opt-in/platform checks skipped; Dart analysis

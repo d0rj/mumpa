@@ -192,6 +192,49 @@ void _viewport(WidgetTester tester, double width) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+void _allControlsVisible(WidgetTester tester) {
+  final viewport = find.byKey(const ValueKey('now-playing-viewport'));
+  final bounds = tester.getRect(viewport);
+  expect(
+    find.descendant(of: viewport, matching: find.byType(Scrollable)),
+    findsNothing,
+  );
+  final controls = [
+    find.byKey(const ValueKey('now-playing-artist')),
+    find.byKey(const ValueKey('now-playing-album')),
+    find.byKey(const ValueKey('now-playing-seek')),
+    find.byKey(const ValueKey('now-playing-volume')),
+    find.byKey(const ValueKey('now-playing-actions')),
+    find.byKey(const Key('transport-toggle')).last,
+    find.byTooltip('Предыдущий трек').last,
+    find.byTooltip('Следующий трек').last,
+    find.byTooltip('Перемешать').last,
+    find.byTooltip('Повтор выключен').last,
+    find.byTooltip('Таймер сна'),
+    find.byTooltip('Без звука').last,
+  ];
+  for (final control in controls) {
+    final rect = tester.getRect(control);
+    expect(
+      rect.left,
+      greaterThanOrEqualTo(bounds.left - .1),
+      reason: '$control',
+    );
+    expect(rect.top, greaterThanOrEqualTo(bounds.top - .1), reason: '$control');
+    expect(
+      rect.right,
+      lessThanOrEqualTo(bounds.right + .1),
+      reason: '$control',
+    );
+    expect(
+      rect.bottom,
+      lessThanOrEqualTo(bounds.bottom + .1),
+      reason: '$control',
+    );
+    expect(control.hitTestable(), findsOneWidget, reason: '$control');
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   for (final compact in [false, true]) {
@@ -364,6 +407,14 @@ void main() {
     const Size(800, 1280),
     const Size(1280, 800),
     const Size(844, 390),
+    const Size(1200, 600),
+    const Size(1200, 500),
+    const Size(1000, 420),
+    const Size(800, 500),
+    const Size(700, 400),
+    const Size(600, 360),
+    const Size(560, 600),
+    const Size(320, 480),
   ]) {
     testWidgets('now-playing uses the viewport and readable controls at $size', (
       tester,
@@ -408,7 +459,8 @@ void main() {
         final cover = find.byKey(const ValueKey('now-playing-cover'));
         final artist = find.byKey(const ValueKey('now-playing-artist'));
         final album = find.byKey(const ValueKey('now-playing-album'));
-        final viewport = find.byKey(const ValueKey('now-playing-scroll'));
+        final viewport = find.byKey(const ValueKey('now-playing-viewport'));
+        _allControlsVisible(tester);
         expect(
           tester.getSize(cover).width,
           closeTo(tester.getSize(cover).height, .1),
@@ -452,7 +504,10 @@ void main() {
           expect(tester.getSize(cover).width, greaterThan(440));
         }
         expect(tester.takeException(), isNull);
-        if (size.width == 390 || size.width == 800 || size.width == 1280) {
+        if (size.width == 390 ||
+            size.width == 800 ||
+            size.width == 1280 ||
+            size == const Size(1200, 500)) {
           await tester.runAsync(() async {
             final pixels =
                 await (boundary.currentContext!.findRenderObject()!
@@ -466,7 +521,6 @@ void main() {
             pixels.dispose();
           });
         }
-        await tester.ensureVisible(volume);
         await tester.runAsync(() async {
           tester.widget<Slider>(volume).onChanged!(.3);
           await f.library.flush();
@@ -475,7 +529,6 @@ void main() {
         expect(f.playback.volume, .3);
         expect(f.playback.position, const Duration(seconds: 36));
         expect(find.text('30%'), findsOneWidget);
-        await tester.ensureVisible(seek);
         tester.widget<Slider>(seek).onChanged!(60000);
         await tester.pump();
         await tester.runAsync(() async {
@@ -517,7 +570,6 @@ void main() {
         await tester.pumpAndSettle();
         Future<void> menu() async {
           final actions = find.byKey(const ValueKey('now-playing-actions'));
-          await tester.ensureVisible(actions);
           await tester.tap(actions);
           await tester.pumpAndSettle();
         }
@@ -538,13 +590,13 @@ void main() {
         expect(f.library.isTrackLiked(track.id), isTrue);
         expect(f.playback.queue.map((t) => t.id), queue);
         expect((f.playback.backend as FakeAudioBackend).opened, opened);
-      await menu();
-      await tester.tap(find.text('В конец очереди'));
-      await tester.pumpAndSettle();
-      await tester.runAsync(f.library.flush);
-      queue.add(track.id);
-      expect(f.playback.queue.map((t) => t.id), queue);
-      expect(f.playback.current!.id, track.id);
+        await menu();
+        await tester.tap(find.text('В конец очереди'));
+        await tester.pumpAndSettle();
+        await tester.runAsync(f.library.flush);
+        queue.add(track.id);
+        expect(f.playback.queue.map((t) => t.id), queue);
+        expect(f.playback.current!.id, track.id);
         await menu();
         await tester.tap(find.text('Перейти к альбому'));
         await tester.pumpAndSettle();
@@ -560,7 +612,70 @@ void main() {
   );
 
   testWidgets(
-    'now-playing scrolls long metadata at large text size without overflow',
+    'resizing the open player keeps controls visible with large text and system insets',
+    (tester) async {
+      final f = await _fixture(tester, backend: _LongAudioBackend());
+      _viewport(tester, 1000);
+      try {
+        await tester.runAsync(() async {
+          await f.select(
+            f
+                .track('resizing', offline: true)
+                .copyWith(
+                  title:
+                      'Очень длинное название для проверки изменения размера окна',
+                  artist:
+                      'Исполнитель с длинным именем и приглашённые участники',
+                  album: 'Альбом с дополнительным длинным описанием',
+                  lyrics: 'Текст песни',
+                ),
+          );
+          await f.playback.playTracks(f.library.tracks);
+          await f.playback.pause();
+          await f.playback.seek(const Duration(seconds: 36));
+        });
+        final opened = (f.playback.backend as FakeAudioBackend).opened;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: mumpaTheme(),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: const TextScaler.linear(1.8),
+                padding: const EdgeInsets.only(top: 24, bottom: 24),
+              ),
+              child: child!,
+            ),
+            home: Scaffold(body: PlayerBar(app: f.app, compact: true)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        unawaited(
+          showNowPlaying(tester.element(find.byType(PlayerBar)), f.app),
+        );
+        await tester.pumpAndSettle();
+        for (final size in [
+          const Size(1000, 700),
+          const Size(1000, 420),
+          const Size(800, 1280),
+          const Size(600, 360),
+          const Size(390, 568),
+          const Size(320, 568),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          _allControlsVisible(tester);
+          expect(f.playback.position, const Duration(seconds: 36));
+          expect((f.playback.backend as FakeAudioBackend).opened, opened);
+          expect(tester.takeException(), isNull, reason: '$size');
+        }
+      } finally {
+        await f.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'now-playing fits long metadata at large text size without scrolling',
     (tester) async {
       final f = await _fixture(tester);
       _viewport(tester, 390);
@@ -594,10 +709,7 @@ void main() {
           showNowPlaying(tester.element(find.byType(PlayerBar)), f.app),
         );
         await tester.pumpAndSettle();
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('now-playing-volume')),
-        );
-        await tester.pumpAndSettle();
+        _allControlsVisible(tester);
         expect(
           tester
               .getSize(find.byKey(const ValueKey('now-playing-artist')))

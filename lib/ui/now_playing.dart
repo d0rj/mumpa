@@ -5,106 +5,151 @@ class _NowPlaying extends StatelessWidget {
   final AppController app;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final availableHeight = math.max(0.0, constraints.maxHeight - 24);
-      final wide =
-          constraints.maxWidth >= 620 &&
-          constraints.maxWidth > constraints.maxHeight * 1.25;
-      final width = math.min(620.0, constraints.maxWidth - 32);
-      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-      final coverSize = wide
-          ? math.min(
-              availableHeight,
-              math.min(340.0, (constraints.maxWidth - 56) * .4),
-            )
-          : math.min(width, math.max(144.0, availableHeight - 400 * scale));
-      final controls = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _SeekBar(app.playback, expanded: true),
-          const SizedBox(height: 8),
-          _Transport(app.playback, large: true),
-        ],
-      );
-      final footer = Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _NowPlayingVolume(app.playback),
-          const SizedBox(height: 4),
-          _NowPlayingStatus(app),
-          if (app.playback.error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                app.playback.error!,
-                style: const TextStyle(color: Color(0xFFFF9292), fontSize: 12),
-              ),
-            ),
-        ],
-      );
-      return SingleChildScrollView(
-        key: const ValueKey('now-playing-scroll'),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: availableHeight),
-          child: wide
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: Center(child: _NowPlayingCover(app, coverSize)),
-                    ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      flex: 6,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _NowPlayingInfo(app),
-                          const SizedBox(height: 12),
-                          controls,
-                          const SizedBox(height: 12),
-                          footer,
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              : Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: width),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: availableHeight),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _NowPlayingCover(app, coverSize),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: _NowPlayingInfo(app),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: controls,
-                          ),
-                          footer,
-                        ],
-                      ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final compact =
+            constraints.maxHeight < 560 ||
+            (scale > 1.4 && constraints.maxHeight < 700);
+        final wide =
+            constraints.maxWidth >= 560 &&
+            constraints.maxWidth > constraints.maxHeight * 1.25;
+        final gap = compact ? 6.0 : 12.0;
+        final info = _NowPlayingInfo(app, compact: compact);
+        final status = _NowPlayingStatus(app);
+        final volume = _NowPlayingVolume(app.playback, compact: compact);
+        final error = app.playback.error;
+        final errorMessage = error == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Tooltip(
+                  message: error,
+                  child: Text(
+                    error,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFFF9292),
+                      fontSize: 12,
                     ),
                   ),
                 ),
-        ),
-      );
-    },
+              );
+        Widget artwork() => LayoutBuilder(
+          builder: (_, space) => Center(
+            child: _NowPlayingCover(
+              app,
+              math.min(
+                620.0,
+                math.max(0.0, math.min(space.maxWidth, space.maxHeight)),
+              ),
+              showActions: !compact,
+            ),
+          ),
+        );
+        final controls = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _SeekBar(app.playback, expanded: true),
+            SizedBox(height: compact ? 2 : 8),
+            _Transport(app.playback, large: true, compact: compact),
+          ],
+        );
+        if (wide) {
+          // Leave the controls their natural height. Artwork gets the remainder,
+          // including on a short desktop window or a tablet in landscape.
+          final coverWidth = math.max(
+            0.0,
+            math.min(
+              (constraints.maxWidth - 16) * (compact ? .32 : .4),
+              constraints.maxWidth - 16 - (compact ? 460 : 380),
+            ),
+          );
+          return Row(
+            key: const ValueKey('now-playing-viewport'),
+            children: [
+              SizedBox(
+                width: coverWidth,
+                child: Column(
+                  children: [
+                    Expanded(child: artwork()),
+                    if (compact) status,
+                    if (compact && errorMessage != null) errorMessage,
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    info,
+                    SizedBox(height: gap),
+                    if (compact) ...[
+                      _SeekBar(app.playback, expanded: true, inlineTimes: true),
+                      SizedBox(height: gap),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 256,
+                            child: _Transport(
+                              app.playback,
+                              large: true,
+                              compact: true,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: volume),
+                        ],
+                      ),
+                    ] else ...[
+                      controls,
+                      SizedBox(height: gap),
+                      volume,
+                      const SizedBox(height: 4),
+                      status,
+                      ?errorMessage,
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Column(
+              key: const ValueKey('now-playing-viewport'),
+              children: [
+                Expanded(child: artwork()),
+                SizedBox(height: gap),
+                info,
+                SizedBox(height: gap),
+                controls,
+                SizedBox(height: gap),
+                volume,
+                const SizedBox(height: 4),
+                status,
+                ?errorMessage,
+              ],
+            ),
+          ),
+        );
+      },
+    ),
   );
 }
 
 class _NowPlayingCover extends StatelessWidget {
-  const _NowPlayingCover(this.app, this.size);
+  const _NowPlayingCover(this.app, this.size, {this.showActions = true});
   final AppController app;
   final double size;
+  final bool showActions;
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
@@ -118,7 +163,7 @@ class _NowPlayingCover extends StatelessWidget {
           size: size,
           radius: 20,
         ),
-        if (app.playback.current != null)
+        if (showActions && app.playback.current != null)
           Positioned(
             top: 8,
             right: 8,
@@ -136,8 +181,9 @@ class _NowPlayingCover extends StatelessWidget {
 }
 
 class _NowPlayingInfo extends StatelessWidget {
-  const _NowPlayingInfo(this.app);
+  const _NowPlayingInfo(this.app, {this.compact = false});
   final AppController app;
+  final bool compact;
 
   void _open(BuildContext context, VoidCallback navigate) {
     Navigator.pop(context);
@@ -149,6 +195,7 @@ class _NowPlayingInfo extends StatelessWidget {
     final track = app.playback.current;
     final artist = _NowPlayingLink(
       key: const ValueKey('now-playing-artist'),
+      compact: compact,
       label: 'Исполнитель',
       title: track?.artist ?? 'Музыка всегда рядом',
       leading: const Icon(
@@ -161,6 +208,7 @@ class _NowPlayingInfo extends StatelessWidget {
     );
     final album = _NowPlayingLink(
       key: const ValueKey('now-playing-album'),
+      compact: compact,
       label: 'Альбом',
       title: track?.album ?? 'Выбери музыку',
       leading: _DiscArtwork(app: app, track: track),
@@ -169,6 +217,7 @@ class _NowPlayingInfo extends StatelessWidget {
           : () => _open(context, () => app.openTrackAlbum(track)),
     );
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -177,7 +226,7 @@ class _NowPlayingInfo extends StatelessWidget {
               child: Text(
                 track?.title ?? 'Выбери трек',
                 key: const ValueKey('now-playing-title'),
-                maxLines: 2,
+                maxLines: compact ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
@@ -195,13 +244,16 @@ class _NowPlayingInfo extends StatelessWidget {
                   color: accent,
                 ),
               ),
+            if (track != null && compact)
+              _NowPlayingMenu(app: app, track: track),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: compact ? 4 : 8),
         LayoutBuilder(
           builder: (_, constraints) {
-            if (constraints.maxWidth >= 340 &&
-                MediaQuery.textScalerOf(context).scale(14) <= 19) {
+            if (compact ||
+                (constraints.maxWidth >= 340 &&
+                    MediaQuery.textScalerOf(context).scale(14) <= 19)) {
               return Row(
                 children: [
                   Expanded(child: artist),
@@ -225,10 +277,12 @@ class _NowPlayingLink extends StatelessWidget {
     required this.title,
     required this.leading,
     required this.onTap,
+    this.compact = false,
   });
   final String label, title;
   final Widget leading;
   final VoidCallback? onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -243,11 +297,17 @@ class _NowPlayingLink extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 8 : 10,
+              vertical: compact ? 4 : 8,
+            ),
             child: Row(
               children: [
-                SizedBox.square(dimension: 32, child: Center(child: leading)),
-                const SizedBox(width: 10),
+                SizedBox.square(
+                  dimension: compact ? 24 : 32,
+                  child: Center(child: leading),
+                ),
+                SizedBox(width: compact ? 6 : 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,7 +318,7 @@ class _NowPlayingLink extends StatelessWidget {
                       ),
                       Text(
                         title,
-                        maxLines: 2,
+                        maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
@@ -268,7 +328,7 @@ class _NowPlayingLink extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (onTap != null)
+                if (onTap != null && !compact)
                   const Icon(
                     Icons.chevron_right_rounded,
                     size: 16,
@@ -324,81 +384,118 @@ class _DiscArtwork extends StatelessWidget {
 const _volumeBlue = Color(0xFF8FCBFF);
 
 class _NowPlayingVolume extends StatelessWidget {
-  const _NowPlayingVolume(this.player);
+  const _NowPlayingVolume(this.player, {this.compact = false});
   final PlaybackController player;
+  final bool compact;
 
   @override
-  Widget build(BuildContext context) => Container(
-    key: const ValueKey('now-playing-volume-panel'),
-    padding: const EdgeInsets.fromLTRB(4, 8, 8, 4),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1B2935),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFF3C5365)),
-    ),
-    child: Row(
-      children: [
-        IconButton(
-          tooltip: player.volume == 0 ? 'Включить звук' : 'Без звука',
-          onPressed: () => player.setVolume(player.volume == 0 ? .8 : 0),
-          icon: Icon(
-            player.volume == 0
-                ? Icons.volume_off_rounded
-                : Icons.volume_up_rounded,
-            color: _volumeBlue,
-          ),
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Container(
+        key: const ValueKey('now-playing-volume-panel'),
+        padding: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1B2935),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF3C5365)),
         ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Громкость',
-                      style: TextStyle(color: _volumeBlue, fontSize: 11),
-                    ),
-                    Text(
-                      '${(player.volume * 100).round()}%',
-                      key: const ValueKey('now-playing-volume-percent'),
-                      style: const TextStyle(
-                        color: _volumeBlue,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: player.volume == 0 ? 'Включить звук' : 'Без звука',
+              onPressed: () => player.setVolume(player.volume == 0 ? .8 : 0),
+              icon: Icon(
+                player.volume == 0
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
+                color: _volumeBlue,
+              ),
+            ),
+            Expanded(child: _slider(context)),
+            Text(
+              '${(player.volume * 100).round()}%',
+              key: const ValueKey('now-playing-volume-percent'),
+              style: const TextStyle(
+                color: _volumeBlue,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      key: const ValueKey('now-playing-volume-panel'),
+      padding: const EdgeInsets.fromLTRB(4, 8, 8, 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B2935),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF3C5365)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: player.volume == 0 ? 'Включить звук' : 'Без звука',
+            onPressed: () => player.setVolume(player.volume == 0 ? .8 : 0),
+            icon: Icon(
+              player.volume == 0
+                  ? Icons.volume_off_rounded
+                  : Icons.volume_up_rounded,
+              color: _volumeBlue,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Громкость',
+                        style: TextStyle(color: _volumeBlue, fontSize: 11),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: _volumeBlue,
-                  inactiveTrackColor: const Color(0xFF536E83),
-                  thumbColor: _volumeBlue,
-                  overlayColor: _volumeBlue.withValues(alpha: .15),
-                  trackHeight: 4,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 5,
+                      Text(
+                        '${(player.volume * 100).round()}%',
+                        key: const ValueKey('now-playing-volume-percent'),
+                        style: const TextStyle(
+                          color: _volumeBlue,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Semantics(
-                  label: 'Громкость',
-                  child: Slider(
-                    key: const ValueKey('now-playing-volume'),
-                    value: player.volume.clamp(0, 1),
-                    semanticFormatterCallback: (value) =>
-                        '${(value * 100).round()}%',
-                    onChanged: player.setVolume,
-                  ),
-                ),
-              ),
-            ],
+                _slider(context),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _slider(BuildContext context) => SliderTheme(
+    data: SliderTheme.of(context).copyWith(
+      activeTrackColor: _volumeBlue,
+      inactiveTrackColor: const Color(0xFF536E83),
+      thumbColor: _volumeBlue,
+      overlayColor: _volumeBlue.withValues(alpha: .15),
+      trackHeight: 4,
+      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+    ),
+    child: Semantics(
+      label: 'Громкость',
+      child: Slider(
+        key: const ValueKey('now-playing-volume'),
+        value: player.volume.clamp(0, 1),
+        semanticFormatterCallback: (value) => '${(value * 100).round()}%',
+        onChanged: player.setVolume,
+      ),
     ),
   );
 }

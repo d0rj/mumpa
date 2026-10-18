@@ -22,6 +22,7 @@ import 'logic/app_controller.dart';
 import 'logic/playback_controller.dart';
 import 'ui/app_screen.dart';
 import 'ui/theme.dart';
+import 'ui/device_orientation.dart';
 
 Future<AppController> createApplication({
   Directory? dataDirectory,
@@ -199,7 +200,7 @@ void main(List<String> arguments) {
       'https://musicbrainz.org/doc/Cover_Art_Archive',
     );
   });
-  runApp(const _Bootstrap());
+  runApp(const PhoneOrientation(child: _Bootstrap()));
 }
 
 class _Bootstrap extends StatefulWidget {
