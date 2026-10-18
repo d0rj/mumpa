@@ -1,4 +1,31 @@
-# Mumpa verification — 2026-10-18
+# Mumpa verification — 2026-10-19
+
+## Windows installer handoff — 1.2.27
+
+- The user's installed 1.2.22 downloaded the complete 1.2.26 Windows ZIP but
+  never created an installer status. Its extracted script had no UTF-8 BOM.
+  Windows PowerShell 5.1 on the Russian CP1251 system fails to parse this file;
+  the same file parses in PowerShell 7. The resource decoder removes the BOM
+  before `writeAsString`, so having a BOM in the source asset was insufficient.
+- A standalone Dart probe also reproduced silent failure of both detached
+  PowerShell modes on this PC; normal mode executed the same marker script.
+  The update service now restores BOMs and launches a short normal PowerShell
+  broker, which starts an independent hidden worker through `Start-Process`.
+  A one-line PID acknowledgement avoids waiting for pipe EOF held by the worker.
+- **535 unit/widget/native tests passed, 4 opt-in checks skipped; Dart analysis
+  clean.** Five new regressions cover written BOM bytes, broker failure, a real
+  Windows PowerShell parser failure, the first-status deadline, and complete
+  native handoff. The last uses a compiled fixture application, a ZIP, paths
+  with Cyrillic/spaces/apostrophes, a managed installation and a data sentinel.
+  Files stay unchanged until the parent exits; the worker then installs the new
+  generation, retains `previous`, and preserves the sentinel byte for byte.
+- Error receipts and `install.log` now expose script failures; missing startup
+  is detected after 15 seconds rather than the old three-minute generic error.
+  These native regressions use isolated fixtures and do not by themselves prove
+  a successful update of the user's installed application. Evidence:
+  `test-output/windows-updater-ps51-parse.json`,
+  `windows-updater-process-modes.log`, `windows-updater-native-tests-final.log`,
+  `windows-updater-all-tests.log`, and `windows-updater-analyze-final.log`.
 
 ## Player controls without scrolling and phone orientation — 1.2.26
 

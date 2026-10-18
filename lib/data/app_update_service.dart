@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 
+import 'windows_update_installer.dart';
+
 const _releaseRoot = 'https://github.com/d0rj/mumpa/releases';
 const _updateChannel = MethodChannel('app.mumpa/updates');
 
@@ -430,66 +432,18 @@ class AppUpdateService extends ChangeNotifier {
       if (!Platform.isWindows) {
         throw const FormatException('Установка не поддерживается.');
       }
-      final helper = Directory(p.join(directory.path, 'helper'));
-      await helper.create(recursive: true);
-      for (final name in ['install-windows.ps1', 'uninstall-windows.ps1']) {
-        await File(
-          p.join(helper.path, name),
-        ).writeAsString(await rootBundle.loadString('assets/updater/$name'));
-      }
-      final receipt = File(p.join(directory.path, 'install-status.json'));
-      if (await receipt.exists()) await receipt.delete();
-      final executable = p.join(
-        Platform.environment['SystemRoot'] ?? r'C:\Windows',
-        'System32',
-        'WindowsPowerShell',
-        'v1.0',
-        'powershell.exe',
+      final installer = WindowsUpdateInstaller(directory);
+      final ready = await installer.startAndWait(
+        package: package,
+        sha256: update.sha256,
+        version: update.version,
+        parentProcessId: pid,
+        cancelled: () => _disposed,
       );
-      final process = await Process.start(executable, [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-WindowStyle',
-        'Hidden',
-        '-File',
-        p.join(helper.path, 'install-windows.ps1'),
-        '-ZipPath',
-        package.path,
-        '-Sha256',
-        update.sha256,
-        '-Version',
-        update.version,
-        '-WaitForProcessId',
-        '$pid',
-        '-StatusPath',
-        receipt.path,
-        '-Launch',
-      ], mode: ProcessStartMode.detached);
-      // The helper extracts and validates before asking the app to shut down.
-      final deadline = DateTime.now().add(const Duration(minutes: 3));
-      while (DateTime.now().isBefore(deadline)) {
-        await Future<void>.delayed(const Duration(milliseconds: 250));
-        if (_disposed) return;
-        if (!await receipt.exists()) continue;
-        final result =
-            jsonDecode(
-                  (await receipt.readAsString()).replaceFirst('\uFEFF', ''),
-                )
-                as Map;
-        if (result['state'] == 'failed') {
-          throw FormatException(result['message'] as String);
-        }
-        if (result['state'] == 'ready') {
-          status = 'Перезапускаем Mumpa для установки…';
-          _changed();
-          await quit();
-          return;
-        }
-      }
-      process.kill();
-      throw const FormatException('Установщик не ответил. Повтори установку.');
+      if (!ready || _disposed) return;
+      status = 'Перезапускаем Mumpa для установки…';
+      _changed();
+      await quit();
     } catch (e) {
       error = _message(e);
       status = 'Не удалось установить обновление.';
