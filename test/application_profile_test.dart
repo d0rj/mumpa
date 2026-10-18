@@ -6,6 +6,21 @@ import 'package:mumpa/data/application_profile.dart';
 import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/domain/models.dart';
 
+/// Models a launch host spelling a directory through a short/virtualized alias,
+/// while the filesystem resolves it to its canonical location.
+class _ResolvedDirectory implements Directory {
+  _ResolvedDirectory(this.path, this.actual);
+  @override
+  final String path;
+  final Directory actual;
+  @override
+  Future<bool> exists() => actual.exists();
+  @override
+  Future<String> resolveSymbolicLinks() => actual.resolveSymbolicLinks();
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   late Directory temporary, home;
   setUp(() async {
@@ -39,28 +54,34 @@ void main() {
     return directory;
   }
 
+  test('different launch hosts share one profile and can reopen it', () async {
+    final one = await ApplicationProfile.open(home: home.path, legacyRoots: []);
+    expect(one.root.path, '${home.path}${Platform.pathSeparator}.mumpa');
+    await one.close();
+    final two = await ApplicationProfile.open(home: home.path, legacyRoots: []);
+    expect(two.root.path, one.root.path);
+    await two.close();
+  });
+
   test(
-    'different launch hosts share one profile and cannot write concurrently',
+    'Windows profile rejects concurrent writers within the same process',
     () async {
-      final one = await ApplicationProfile.open(
+      final profile = await ApplicationProfile.open(
         home: home.path,
         legacyRoots: [],
       );
-      expect(one.root.path, '${home.path}${Platform.pathSeparator}.mumpa');
       try {
         await expectLater(
           ApplicationProfile.open(home: home.path, legacyRoots: []),
           throwsA(isA<FileSystemException>()),
         );
       } finally {
-        await one.close();
+        await profile.close();
       }
-      final two = await ApplicationProfile.open(
-        home: home.path,
-        legacyRoots: [],
-      );
-      await two.close();
     },
+    // Dart's Unix advisory locks are process-wide and permit this second handle.
+    // ApplicationProfile is the Windows launch-host storage boundary.
+    skip: !Platform.isWindows,
   );
 
   test(
@@ -199,6 +220,54 @@ void main() {
         await File('${source.path}/library.json').readAsString(),
         '{broken',
       );
+    },
+  );
+
+  test(
+    'virtualized logical aliases survive canonical and short path differences',
+    () async {
+      final actual = await Directory(
+        '${temporary.path}/canonical-user/AppData/Local/Packages/Host/LocalCache/Roaming/app.mumpa/mumpa/Mumpa',
+      ).create(recursive: true);
+      final source = File('${actual.path}/downloads/song.mp3');
+      await source.parent.create(recursive: true);
+      await source.writeAsBytes([5, 4, 3]);
+      final logicalUser = '${temporary.path}/SHORT~1';
+      final logicalSource =
+          '$logicalUser/appdata/LOCAL/packages/Host/LocalCache/Roaming/app.mumpa/mumpa/Mumpa';
+      final serialized =
+          '$logicalUser/AppData/Roaming/app.mumpa/mumpa/Mumpa/downloads/song.mp3';
+      final track = Track(
+        id: 'aliased',
+        title: 'Aliased',
+        artist: 'Artist',
+        album: 'Album',
+        source: TrackSource.torrent,
+        cachedPath: serialized,
+      );
+      await File('${actual.path}/library.json').writeAsString(
+        jsonEncode({
+          'tracks': [track.toJson()],
+          'liked': ['aliased'],
+          'settings': {},
+        }),
+      );
+      final profile = await ApplicationProfile.open(
+        home: home.path,
+        legacyRoots: [_ResolvedDirectory(logicalSource, actual)],
+      );
+      final library = LibraryRepository(profile.root);
+      try {
+        await library.load();
+        final migrated = library.favoriteTracks.single;
+        expect(migrated.offline, isTrue);
+        expect(migrated.cachedPath, startsWith(profile.root.path));
+        expect(await File(migrated.cachedPath!).readAsBytes(), [5, 4, 3]);
+        expect(await source.readAsBytes(), [5, 4, 3]);
+      } finally {
+        library.dispose();
+        await profile.close();
+      }
     },
   );
 }

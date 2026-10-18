@@ -319,10 +319,14 @@ class _LegacyProfile {
   Iterable<String> get aliases sync* {
     final marker =
         '${p.separator}AppData${p.separator}Local${p.separator}Packages${p.separator}';
-    final index = root.path.indexOf(marker);
-    if (index >= 0) {
+    final virtualized = RegExp(RegExp.escape(marker), caseSensitive: false);
+    // Windows temp/launch hosts can use an 8.3 path while resolving the same
+    // profile returns its long name. Preserve Roaming aliases for both forms.
+    for (final path in {p.normalize(root.path), p.normalize(logical.path)}) {
+      final match = virtualized.firstMatch(path);
+      if (match == null) continue;
       yield p.join(
-        root.path.substring(0, index),
+        path.substring(0, match.start),
         'AppData',
         'Roaming',
         'app.mumpa',

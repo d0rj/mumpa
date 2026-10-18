@@ -2,6 +2,16 @@
 
 ## Player controls without scrolling and phone orientation — 1.2.26
 
+- Release CI exposed a platform assumption in the Windows profile test: Unix
+  advisory locks allow a second handle within the same process. The shared-path
+  and reopen check remains cross-platform; the strict same-process lock check
+  runs on Windows. The storage root and lock implementation are unchanged.
+- Windows CI also exposed differing short/long launch-path spellings during
+  legacy offline-file migration. Roaming aliases now retain both canonical and
+  logical roots, normalize separators and match the AppData marker without case
+  sensitivity. A real-file regression first reproduced the lost offline path
+  and then verified copied bytes and preserved originals after the fix.
+
 - **128 focused unit/widget tests passed; Dart analysis clean.** The player
   reserves the controls' natural height and gives only the remainder to artwork.
   Its tab has no vertical scrollable; queue and lyrics retain their scrolling.
