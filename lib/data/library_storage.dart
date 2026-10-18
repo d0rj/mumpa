@@ -38,6 +38,12 @@ class LibraryStorage {
       List<String>.from(album as List);
     }
     Map<String, dynamic>.from(json['settings'] as Map? ?? {});
+    for (final key in ['trackPlayCounts', 'playlistPlayCounts']) {
+      final counts = Map<String, int>.from(json[key] as Map? ?? {});
+      if (counts.values.any((count) => count < 0)) {
+        throw FormatException('Invalid $key');
+      }
+    }
     return json;
   }
 

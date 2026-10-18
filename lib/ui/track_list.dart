@@ -410,7 +410,9 @@ class TrackList extends SliverContent {
                           value: 'revealFile',
                           child: Text('Показать в проводнике'),
                         ),
-                      if (playlistId != null)
+                      if (playlistId != null &&
+                          app.library.playlistById(playlistId)?.isSystem !=
+                              true)
                         const PopupMenuItem(
                           value: 'removePlaylist',
                           child: Text('Убрать из плейлиста'),

@@ -426,6 +426,7 @@ class PlaybackController extends ChangeNotifier {
 
   Duration? _restorePosition;
   String? _openedId;
+  int? _countedListenRequest;
   Future<void> _decoderOpening = Future.value();
   void _onBackend() {
     if (_openedId == current?.id &&
@@ -433,6 +434,17 @@ class PlaybackController extends ChangeNotifier {
         backend.playing &&
         !backend.buffering &&
         backend.position != _initialPlaybackPosition) {
+      if (_wantsPlayback &&
+          error == null &&
+          _countedListenRequest != _request) {
+        _countedListenRequest = _request;
+        unawaited(
+          library.recordListen(
+            current!.id,
+            playlistId: currentIsRadio ? null : _contextPlaylistId,
+          ),
+        );
+      }
       _failedEntries.clear();
       _decoderTimer?.cancel();
       _decoderTimer = null;

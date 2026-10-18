@@ -89,6 +89,34 @@ void main() {
     torrents.dispose();
     await root.delete(recursive: true);
   });
+  test(
+    'restoring a paused session does not count; failed files do not count',
+    () async {
+      await player.playTracks([library.byId('0')!]);
+      await player.pause();
+      await player.saveSession();
+      await player.close();
+      audio = FakeAudioBackend();
+      player = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: audio,
+      );
+      await player.initialize(platformAudio: false);
+      expect(library.trackPlayCount('0'), 0);
+      await player.play();
+      await audio.seek(const Duration(seconds: 1));
+      await library.flush();
+      expect(library.trackPlayCount('0'), 1);
+      await File(library.byId('1')!.localPath!).delete();
+      await player.playTracks([library.byId('1')!, library.byId('2')!]);
+      await audio.seek(const Duration(seconds: 1));
+      await library.flush();
+      expect(library.trackPlayCount('1'), 0);
+      expect(library.trackPlayCount('2'), 1);
+    },
+  );
+
   test('queue controls shuffle without losing the current track', () async {
     await player.playTracks(library.tracks, index: 1);
     expect(player.current!.id, '1');
@@ -109,6 +137,36 @@ void main() {
     await player.next(automatic: true);
     expect(player.current!.id, '0');
   });
+
+  test(
+    'counts advancing audio once per occurrence, preserving playlist context',
+    () async {
+      final playlist = await library.createPlaylist('Listening');
+      await library.addToPlaylist(playlist.id, ['0', '1']);
+      await player.playTracks(
+        library.tracks.take(2).toList(),
+        contextPlaylistId: playlist.id,
+      );
+      expect(library.trackPlayCount('0'), 0);
+      await audio.seek(const Duration(seconds: 1));
+      await library.flush();
+      expect(library.trackPlayCount('0'), 1);
+      await player.pause();
+      await player.play();
+      await audio.seek(const Duration(seconds: 2));
+      expect(library.trackPlayCount('0'), 1);
+      await player.next();
+      await audio.seek(const Duration(seconds: 1));
+      await library.flush();
+      expect(library.trackPlayCount('1'), 1);
+      expect(library.playlistPlayCount(playlist.id), 2);
+      await player.playTracks([library.byId('0')!]);
+      await audio.seek(const Duration(seconds: 1));
+      await library.flush();
+      expect(library.trackPlayCount('0'), 2);
+      expect(library.playlistPlayCount(playlist.id), 2);
+    },
+  );
 
   test(
     'missing files are skipped without changing playlist membership',

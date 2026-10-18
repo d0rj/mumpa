@@ -44,7 +44,11 @@ class ContentPage extends StatelessWidget {
     AppPage.playlist => _TrackCollection(
       app: app,
       title: app.playlist?.name ?? 'Плейлист',
-      eyebrow: app.playlist?.sourceHash != null ? 'КОЛЛЕКЦИЯ' : 'ПЛЕЙЛИСТ',
+      eyebrow: app.playlist?.isSystem == true
+          ? 'НА ЭТОМ УСТРОЙСТВЕ'
+          : app.playlist?.sourceHash != null
+          ? 'КОЛЛЕКЦИЯ'
+          : 'ПЛЕЙЛИСТ',
       tracks: app.playlistTracks,
       icon: Icons.queue_music_rounded,
       playlistId: app.playlist?.id,

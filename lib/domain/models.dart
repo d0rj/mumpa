@@ -215,6 +215,7 @@ List<Album> groupAlbums(Iterable<Track> tracks) {
 }
 
 class MusicPlaylist {
+  static const deviceTop50Id = 'system:device-top-50';
   const MusicPlaylist({
     required this.id,
     required this.name,
@@ -224,6 +225,7 @@ class MusicPlaylist {
   final String id, name;
   final List<String> trackIds;
   final String? sourceHash;
+  bool get isSystem => id == deviceTop50Id;
   MusicPlaylist copyWith({String? name, List<String>? trackIds}) =>
       MusicPlaylist(
         id: id,

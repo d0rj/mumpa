@@ -479,9 +479,10 @@ class AppController extends ChangeNotifier {
     final source = library.mediaTracks;
     final grouped = albums;
     final playlists = library.mediaPlaylists;
+    final top = library.topTracksPlaylist;
     final query = localQuery('library');
     return _libraryResults.resolve(
-      key: (source, grouped, playlists, filter, query),
+      key: (source, grouped, playlists, top, filter, query),
       query: query,
       tracks: () => source
           .where(
@@ -493,7 +494,7 @@ class AppController extends ChangeNotifier {
           )
           .toList(),
       albums: grouped,
-      playlists: playlists,
+      playlists: [top, ...playlists],
     );
   }
 
@@ -698,11 +699,9 @@ class AppController extends ChangeNotifier {
     return _selectedAlbumView;
   }
 
-  MusicPlaylist? get playlist =>
-      library.playlists.where((l) => l.id == selectedPlaylist).firstOrNull;
-  MusicPlaylist? get currentPlaylist => library.playlists
-      .where((l) => l.id == playback.contextPlaylistId)
-      .firstOrNull;
+  MusicPlaylist? get playlist => library.playlistById(selectedPlaylist);
+  MusicPlaylist? get currentPlaylist =>
+      library.playlistById(playback.contextPlaylistId);
   List<Track> get playlistTracks =>
       playlist?.trackIds.map(library.byId).whereType<Track>().toList() ?? [];
   List<Track> get likedTracks => library.favoriteTracks;

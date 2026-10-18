@@ -13,6 +13,50 @@ part 'artwork.dart';
 part 'track_list.dart';
 part 'track_versions.dart';
 
+class HorizontalMusicShelf extends StatefulWidget {
+  const HorizontalMusicShelf({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.height = 268,
+    this.itemWidth = 224,
+  });
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final double height, itemWidth;
+  @override
+  State<HorizontalMusicShelf> createState() => _HorizontalMusicShelfState();
+}
+
+class _HorizontalMusicShelfState extends State<HorizontalMusicShelf> {
+  final _scroll = ScrollController();
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: widget.height,
+    child: Scrollbar(
+      controller: _scroll,
+      thumbVisibility: true,
+      child: ListView.separated(
+        controller: _scroll,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.only(bottom: 16),
+        itemCount: widget.itemCount,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, index) => SizedBox(
+          width: widget.itemWidth,
+          child: widget.itemBuilder(context, index),
+        ),
+      ),
+    ),
+  );
+}
+
 class AlbumCard extends StatefulWidget {
   const AlbumCard({
     super.key,

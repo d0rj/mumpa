@@ -219,6 +219,14 @@ class _TrackCollection extends StatelessWidget {
         app.library.trackCountLabel(tracks),
         style: const TextStyle(color: muted),
       ),
+      if (app.playlist?.isSystem == true) ...[
+        const SizedBox(height: 8),
+        const Text(
+          'До 50 треков по числу прослушиваний в Mumpa на этом устройстве. '
+          'Статистика накапливается с этого обновления.',
+          style: TextStyle(color: muted),
+        ),
+      ],
       const SizedBox(height: 24),
       Wrap(
         spacing: 14,
@@ -244,13 +252,13 @@ class _TrackCollection extends StatelessWidget {
               icon: const Icon(Icons.download_rounded),
               label: const Text('Скачать коллекцию'),
             ),
-          if (playlistId != null)
+          if (playlistId != null && app.playlist?.isSystem != true)
             PlaylistFavoriteButton(
               app: app,
               playlistId: playlistId!,
               label: true,
             ),
-          if (playlistId != null)
+          if (playlistId != null && app.playlist?.isSystem != true)
             PopupMenuButton<String>(
               onSelected: (value) async {
                 if (value == 'rename') {
@@ -280,8 +288,12 @@ class _TrackCollection extends StatelessWidget {
       if (tracks.isEmpty)
         EmptyState(
           icon: icon,
-          title: 'Добавь первые треки',
-          description: 'Нажми на сердечко или добавь музыку через меню трека.',
+          title: app.playlist?.isSystem == true
+              ? 'Твой топ пока пуст'
+              : 'Добавь первые треки',
+          description: app.playlist?.isSystem == true
+              ? 'Слушай музыку в Mumpa — самые частые треки появятся здесь автоматически.'
+              : 'Нажми на сердечко или добавь музыку через меню трека.',
         )
       else
         _CollectionTracks(
@@ -392,7 +404,9 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
     final section = widget.section;
     final tracks = section.tracks;
     final reorderable =
-        section.playlistId != null && section.scope.startsWith('playlist:');
+        section.playlistId != null &&
+        section.scope.startsWith('playlist:') &&
+        section.app.library.playlistById(section.playlistId)?.isSystem != true;
     final filtered = filterCollectionTracks(tracks, _search.text);
     final searching = _search.text.trim().isNotEmpty;
     final groups = section.groupByAlbum ? groupAlbums(tracks) : const <Album>[];

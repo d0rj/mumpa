@@ -1,5 +1,26 @@
 # Mumpa verification — 2026-10-18
 
+## Offline usage, Home shelves and device listening statistics — 1.2.23
+
+- **93 focused regression tests passed; one unrelated platform case skipped.**
+  Coverage includes completed-file size accounting, imported-file exclusion,
+  alias deduplication, missing/partial files, persistent counts, variant grouping,
+  the top-50 cap, playlist context, radio, pause/resume, failed playback, library
+  search, profile recovery, download safety and saved-playlist reordering.
+- UI checks at **320 px and 1200 px** verify horizontal scrolling, the system
+  playlist's read-only actions, actual temporary files, quota changes and size
+  refresh after removing a download. Screenshots are retained locally in
+  `test-output/home-listening.png`, `home-listening-catalog.png` and
+  `offline-storage-usage.png`.
+- The opt-in **Windows/libmpv integration passed** with a temporary profile and
+  silent PCM: one played track counted, unavailable track count zero, pause/resume
+  did not duplicate the count, and track/playlist rankings survived reload.
+  Evidence: `test-output/listening-stats-native.json`. This checks real Windows
+  decoding; physical Android verification is separate.
+- Older profiles begin with zero counters. Their bounded unique-ID history cannot
+  reconstruct previous play counts. The feature uses first advancing playback,
+  with no listening-duration threshold. [Contract](LISTENING_STATS.md).
+
 ## Persistent Android signing for local builds and Actions
 
 - Preserved the certificate used by the published local **1.2.22+30** APKs

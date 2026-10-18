@@ -11,6 +11,11 @@ import 'torrent_service.dart';
 
 enum DownloadState { queued, downloading, paused, complete, failed }
 
+class OfflineStorageUsage {
+  const OfflineStorageUsage({required this.bytes, required this.files});
+  final int bytes, files;
+}
+
 class DownloadJob {
   DownloadJob(this.track, {this.state = DownloadState.queued});
   final Track track;
@@ -49,6 +54,41 @@ class DownloadRepository extends ChangeNotifier {
       : 3;
 
   int get maxConcurrentDownloads => _maxConcurrentDownloads;
+  int get limitBytes =>
+      ((library.settings['cacheLimitMb'] as num?)?.toInt() ?? 4096) *
+      1024 *
+      1024;
+
+  /// Only completed app downloads count here. Imports and shared aliases must
+  /// not inflate the displayed usage; use current file sizes, not torrent tags.
+  Future<OfflineStorageUsage> storageUsage() async {
+    final paths = <String>{};
+    var bytes = 0, files = 0;
+    for (final track in library.offlineTracks) {
+      final path = track.cachedPath;
+      if (track.source != TrackSource.torrent ||
+          path == null ||
+          !p.isWithin(library.downloads.path, path) ||
+          p.extension(path).toLowerCase() == '.part' ||
+          !paths.add(_restorePathKey(path))) {
+        continue;
+      }
+      try {
+        if (await FileSystemEntity.type(path, followLinks: false) !=
+            FileSystemEntityType.file) {
+          continue;
+        }
+        final stat = await File(path).stat();
+        if (stat.type == FileSystemEntityType.file) {
+          bytes += stat.size;
+          files++;
+        }
+      } on FileSystemException {
+        // A concurrent deletion is reflected on the next refresh.
+      }
+    }
+    return OfflineStorageUsage(bytes: bytes, files: files);
+  }
 
   Future<void> setMaxConcurrentDownloads(int value) async {
     RangeError.checkValueInInterval(value, 1, 6, 'maxConcurrentDownloads');
@@ -515,10 +555,8 @@ class DownloadRepository extends ChangeNotifier {
       0,
       (sum, reservation) => sum + reservation.bytes,
     );
-    final limit = (library.settings['cacheLimitMb'] as num?)?.toInt() ?? 4096;
     attempt.check();
-    if (used + reserved - (previous?.bytes ?? 0) + bytes >
-        limit * 1024 * 1024) {
+    if (used + reserved - (previous?.bytes ?? 0) + bytes > limitBytes) {
       throw const FileSystemException(
         'Лимит офлайн-кеша достигнут. Увеличьте лимит в настройках или удалите скачанные треки.',
       );

@@ -43,6 +43,95 @@ enum _SettingsSection {
   final IconData icon;
 }
 
+class _OfflineUsage extends StatefulWidget {
+  const _OfflineUsage({required this.app});
+  final AppController app;
+  @override
+  State<_OfflineUsage> createState() => _OfflineUsageState();
+}
+
+class _OfflineUsageState extends State<_OfflineUsage> {
+  late Future<OfflineStorageUsage> _usage;
+  Set<String> _paths = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    widget.app.library.addListener(_libraryChanged);
+  }
+
+  void _refresh() {
+    _paths = widget.app.library.offlineTracks.map((t) => t.cachedPath!).toSet();
+    _usage = widget.app.downloads.storageUsage();
+  }
+
+  void _libraryChanged() {
+    final paths = widget.app.library.offlineTracks
+        .map((t) => t.cachedPath!)
+        .toSet();
+    if (paths.length != _paths.length || !paths.containsAll(_paths)) {
+      setState(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.app.library.removeListener(_libraryChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<OfflineStorageUsage>(
+    future: _usage,
+    builder: (context, snapshot) {
+      final usage = snapshot.data;
+      final limit = widget.app.downloads.limitBytes;
+      final fraction = usage == null || limit <= 0 ? 0.0 : usage.bytes / limit;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  usage == null
+                      ? snapshot.hasError
+                            ? 'Не удалось прочитать размер загрузок'
+                            : 'Подсчитываем скачанные треки…'
+                      : 'Скачанные треки: ${formatBytes(usage.bytes)} из ${formatBytes(limit)} · ${(fraction * 100).toStringAsFixed(1)}%',
+                  key: const ValueKey('offline-storage-usage'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Обновить размер загрузок',
+                onPressed: () => setState(_refresh),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+              ),
+            ],
+          ),
+          LinearProgressIndicator(
+            value: fraction.clamp(0.0, 1.0),
+            backgroundColor: const Color(0xFF2E3A2C),
+            color: fraction > 1 ? Colors.orangeAccent : accent,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${usage == null ? '' : 'Файлов: ${usage.files} · '}Только треки, скачанные Mumpa. Добавленная с диска музыка не учитывается. Незавершённые загрузки также используют лимит.',
+            style: const TextStyle(color: muted, fontSize: 11),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.app});
   final AppController app;
@@ -663,6 +752,8 @@ class _SettingsPageState extends State<SettingsPage> {
         hintText: '4096',
       ),
     ),
+    const SizedBox(height: 14),
+    _OfflineUsage(app: widget.app),
     const SizedBox(height: 12),
     TextButton(
       onPressed: () async {

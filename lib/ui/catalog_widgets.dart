@@ -139,7 +139,11 @@ class SearchProviderPicker extends StatelessWidget {
   );
 }
 
-List<Widget> sourceContent(BuildContext context, AppController app) => [
+List<Widget> sourceContent(
+  BuildContext context,
+  AppController app, {
+  bool home = false,
+}) => [
   SectionTitle(
     app.usesAutomaticSource ? 'Музыка без настройки' : 'Музыка через Jackett',
     subtitle: app.usesAutomaticSource
@@ -222,7 +226,9 @@ List<Widget> sourceContent(BuildContext context, AppController app) => [
         ),
       ),
     if (app.sourceFeed.isNotEmpty)
-      ReleaseRows(app: app, releases: app.sourceFeed)
+      home
+          ? ReleaseShelf(app: app, releases: app.sourceFeed)
+          : ReleaseRows(app: app, releases: app.sourceFeed)
     else if (!app.indexerLoading && app.indexerError == null)
       EmptyState(
         icon: Icons.album_outlined,
@@ -419,6 +425,77 @@ class _SectionGrid extends SliverContent {
         );
       },
     ),
+  );
+}
+
+class ReleaseShelf extends StatelessWidget {
+  const ReleaseShelf({super.key, required this.app, required this.releases});
+  final AppController app;
+  final List<SearchRelease> releases;
+
+  @override
+  Widget build(BuildContext context) => HorizontalMusicShelf(
+    key: const ValueKey('home-release-shelf'),
+    itemCount: releases.length,
+    itemBuilder: (context, index) {
+      final item = releases[index];
+      final artist = inferredReleaseArtist(item.title);
+      final formats = describeReleaseFormats(item.title);
+      return Material(
+        color: const Color(0xFF202B25),
+        borderRadius: BorderRadius.circular(14),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: app.busy == null ? () => app.openRelease(item) : null,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    AsyncCoverArt(
+                      key: ValueKey('release-art-${item.link}'),
+                      requestKey:
+                          '${app.metadata.cache.generation}:${item.title}',
+                      load: () => app.metadata.coverForReleaseTitle(item.title),
+                      seed: item.title,
+                      size: 88,
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.arrow_forward_rounded, color: accent),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  item.title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                const Spacer(),
+                if (artist != null)
+                  ArtistLink(
+                    artist: artist,
+                    onOpen: () => app.openArtist(artist),
+                    style: const TextStyle(color: muted, fontSize: 11),
+                  ),
+                const SizedBox(height: 4),
+                Text(
+                  '${formats.isEmpty ? 'Альбом / коллекция' : formats}${item.bytes > 0 ? ' · ${formatBytes(item.bytes)}' : ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
   );
 }
 

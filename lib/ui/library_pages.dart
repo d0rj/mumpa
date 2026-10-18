@@ -39,8 +39,56 @@ class _HomePage extends StatelessWidget {
         ],
       ),
       SearchOptionsPanel(app: app),
+      const SectionTitle(
+        'Твой топ на устройстве',
+        subtitle: 'Любимые по числу прослушиваний',
+      ),
+      _DeviceTopCard(app),
+      if (app.library.frequentPlaylists.isNotEmpty) ...[
+        const SectionTitle(
+          'Часто слушаешь',
+          subtitle: 'Плейлисты и коллекции по числу прослушиваний треков',
+        ),
+        HorizontalMusicShelf(
+          key: const ValueKey('home-frequent-playlists'),
+          height: 164,
+          itemCount: app.library.frequentPlaylists.length,
+          itemBuilder: (_, index) {
+            final list = app.library.frequentPlaylists[index];
+            return Material(
+              color: const Color(0xFF202621),
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () => app.openPlaylist(list),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.queue_music_rounded, color: accent),
+                      const Spacer(),
+                      Text(
+                        list.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Прослушиваний треков: ${app.library.playlistPlayCount(list.id)}',
+                        style: const TextStyle(color: muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
       if (app.usesIndexer)
-        ...sourceContent(context, app)
+        ...sourceContent(context, app, home: true)
       else
         ...catalogContent(context, app, home: true),
       if (app.recentAlbums.isNotEmpty) ...[
@@ -68,9 +116,36 @@ class _HomePage extends StatelessWidget {
         ),
       if (app.library.mediaPlaylists.isNotEmpty) ...[
         const SectionTitle('Плейлисты'),
-        _PlaylistGrid(app),
+        _PlaylistGrid(app, playlists: app.library.mediaPlaylists),
       ],
     ],
+  );
+}
+
+class _DeviceTopCard extends StatelessWidget {
+  const _DeviceTopCard(this.app);
+  final AppController app;
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFF304535),
+    borderRadius: BorderRadius.circular(14),
+    child: ListTile(
+      key: const ValueKey('device-top-50'),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      leading: const Icon(Icons.bar_chart_rounded, size: 40, color: accent),
+      title: Text(
+        app.library.topTracksPlaylist.name,
+        style: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      subtitle: Text(
+        app.library.topTracksPlaylist.trackIds.isEmpty
+            ? 'Начни слушать — топ соберётся автоматически'
+            : '${app.library.topTracksPlaylist.trackIds.length} треков · обновляется автоматически',
+        style: const TextStyle(color: muted, fontSize: 12),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => app.openPlaylist(app.library.topTracksPlaylist),
+    ),
   );
 }
 
@@ -278,9 +353,14 @@ class _PlaylistGrid extends SliverContent {
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
     ),
-    itemCount: (playlists ?? app.library.mediaPlaylists).length,
+    itemCount:
+        (playlists ??
+                [app.library.topTracksPlaylist, ...app.library.mediaPlaylists])
+            .length,
     itemBuilder: (_, i) {
-      final list = (playlists ?? app.library.mediaPlaylists)[i];
+      final list =
+          (playlists ??
+          [app.library.topTracksPlaylist, ...app.library.mediaPlaylists])[i];
       return Material(
         color: const Color(0xFF202621),
         borderRadius: BorderRadius.circular(12),
@@ -305,13 +385,20 @@ class _PlaylistGrid extends SliverContent {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${list.sourceHash == null ? 'Плейлист' : 'Коллекция'} · ${list.trackIds.length} треков',
+                        '${list.isSystem
+                            ? 'На этом устройстве'
+                            : list.sourceHash == null
+                            ? 'Плейлист'
+                            : 'Коллекция'} · ${list.trackIds.length} треков',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: muted, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
-                PlaylistFavoriteButton(app: app, playlistId: list.id),
+                if (!list.isSystem)
+                  PlaylistFavoriteButton(app: app, playlistId: list.id),
               ],
             ),
           ),

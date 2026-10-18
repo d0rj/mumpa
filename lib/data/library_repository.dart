@@ -89,11 +89,13 @@ class LibraryRepository extends ChangeNotifier {
   @override
   void notifyListeners() {
     _views = null;
+    _topTracksPlaylist = null;
     super.notifyListeners();
   }
 
   List<Track> get _tracks => _trackItems;
   set _tracks(List<Track> value) {
+    _topTracksPlaylist = null;
     _trackItems = value;
     _trackSnapshot = null;
     _trackIndex = null;
@@ -111,6 +113,8 @@ class LibraryRepository extends ChangeNotifier {
   Set<String> _likedPlaylists = {};
   List<Set<String>> _likedAlbums = [];
   List<String> _recent = [];
+  Map<String, int> _trackPlayCounts = {}, _playlistPlayCounts = {};
+  MusicPlaylist? _topTracksPlaylist;
   // Playback/library membership outlives the bounded recent-history list.
   Set<String> _retainedTrackIds = {};
   Map<String, dynamic> _settings = {};
@@ -130,6 +134,44 @@ class LibraryRepository extends ChangeNotifier {
   List<Track> get favoriteTracks => _currentViews.favoriteTracks;
   List<Track> get offlineTracks => _currentViews.offlineTracks;
   List<MusicPlaylist> get favoritePlaylists => _currentViews.favoritePlaylists;
+
+  int trackPlayCount(String id) => _trackPlayCounts[id] ?? 0;
+  int playlistPlayCount(String id) => _playlistPlayCounts[id] ?? 0;
+
+  List<MusicPlaylist> get frequentPlaylists {
+    final items = mediaPlaylists
+        .where((p) => playlistPlayCount(p.id) > 0)
+        .toList();
+    items.sort((a, b) {
+      final count = playlistPlayCount(b.id).compareTo(playlistPlayCount(a.id));
+      return count != 0 ? count : a.id.compareTo(b.id);
+    });
+    return List.unmodifiable(items.take(6));
+  }
+
+  MusicPlaylist get topTracksPlaylist =>
+      _topTracksPlaylist ??= _buildTopTracks();
+
+  MusicPlaylist _buildTopTracks() {
+    final rows = matchedTracks(
+      tracks.where((t) => trackPlayCount(t.id) > 0).toList(),
+    ).toList();
+    int count(MatchedTrack row) =>
+        row.group.ids.fold(0, (sum, id) => sum + trackPlayCount(id));
+    rows.sort((a, b) {
+      final plays = count(b).compareTo(count(a));
+      return plays != 0 ? plays : a.anchor.id.compareTo(b.anchor.id);
+    });
+    return MusicPlaylist(
+      id: MusicPlaylist.deviceTop50Id,
+      name: 'Топ-50 на этом устройстве',
+      trackIds: List.unmodifiable(rows.take(50).map((row) => row.anchor.id)),
+    );
+  }
+
+  MusicPlaylist? playlistById(String? id) => id == MusicPlaylist.deviceTop50Id
+      ? topTracksPlaylist
+      : playlists.where((p) => p.id == id).firstOrNull;
 
   bool isPlaylistLiked(String id) => _likedPlaylists.contains(id);
 
@@ -234,6 +276,12 @@ class LibraryRepository extends ChangeNotifier {
           .where((ids) => ids.isNotEmpty)
           .toList();
       _recent = List<String>.from((j['recent'] as List?) ?? []);
+      _trackPlayCounts = Map<String, int>.from(
+        j['trackPlayCounts'] as Map? ?? {},
+      )..removeWhere((id, count) => !trackIds.contains(id) || count <= 0);
+      _playlistPlayCounts = Map<String, int>.from(
+        j['playlistPlayCounts'] as Map? ?? {},
+      )..removeWhere((id, count) => !playlistIds.contains(id) || count <= 0);
       _retainedTrackIds = Set<String>.from(
         (j['retainedTrackIds'] as List?) ?? _recent,
       )..retainAll(trackIds);
@@ -347,6 +395,7 @@ class LibraryRepository extends ChangeNotifier {
   Future<void> _save() {
     // markPlayed/settings mutate before awaiting disk I/O and notifying.
     _views = null;
+    _topTracksPlaylist = null;
     final snapshot = <String, dynamic>{
       'version': 1,
       'tracks': _tracks.map((t) => t.toJson()).toList(),
@@ -355,6 +404,8 @@ class LibraryRepository extends ChangeNotifier {
       'likedPlaylists': _likedPlaylists.toList(),
       'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
       'recent': List<String>.of(_recent),
+      'trackPlayCounts': Map<String, int>.of(_trackPlayCounts),
+      'playlistPlayCounts': Map<String, int>.of(_playlistPlayCounts),
       'retainedTrackIds': _retainedTrackIds.toList(),
       'settings': Map<String, dynamic>.of(_settings),
       'trackMatchExcluded': _matchExcluded.toList(),
@@ -420,6 +471,7 @@ class LibraryRepository extends ChangeNotifier {
     }
     _likedAlbums.removeWhere((ids) => ids.isEmpty);
     _recent.removeWhere(removed.contains);
+    _trackPlayCounts.removeWhere((id, _) => removed.contains(id));
     _retainedTrackIds.removeAll(removed);
     _playlists = _playlists
         .map(
@@ -520,6 +572,18 @@ class LibraryRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Called once when audio advances in a queue occurrence. Pauses, session
+  /// restoration and failed opens do not create extra listens.
+  Future<void> recordListen(String id, {String? playlistId}) async {
+    if (byId(id) == null) return;
+    _trackPlayCounts[id] = trackPlayCount(id) + 1;
+    if (_playlists.any((p) => p.id == playlistId)) {
+      _playlistPlayCounts[playlistId!] = playlistPlayCount(playlistId) + 1;
+    }
+    await _save();
+    notifyListeners();
+  }
+
   Future<MusicPlaylist> createPlaylist(String name) async {
     final playlist = MusicPlaylist(
       id: stableId(DateTime.now().toIso8601String()),
@@ -566,6 +630,7 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   Future<void> deletePlaylist(String id) async {
+    _playlistPlayCounts.remove(id);
     _playlists.removeWhere((l) => l.id == id);
     _likedPlaylists.remove(id);
     _trackMatches = null;

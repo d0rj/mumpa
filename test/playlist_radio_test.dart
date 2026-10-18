@@ -138,6 +138,25 @@ void main() {
   });
 
   test(
+    'radio counts the track without inflating the originating playlist',
+    () async {
+      final playlist = await library.createPlaylist('Seed playlist');
+      await library.addToPlaylist(playlist.id, [tracks.first.id]);
+      await player.setRadioEnabled(true);
+      await player.playTracks([tracks.first], contextPlaylistId: playlist.id);
+      await audio.seek(const Duration(seconds: 1));
+      await until(() => player.radio.readyCount == 6);
+      await player.next(automatic: true);
+      final radioId = player.current!.id;
+      expect(player.currentIsRadio, isTrue);
+      await audio.seek(const Duration(seconds: 1));
+      await library.flush();
+      expect(library.trackPlayCount(radioId), 1);
+      expect(library.playlistPlayCount(playlist.id), 1);
+    },
+  );
+
+  test(
     'prepares before the end, continues without modifying the playlist',
     () async {
       final playlist = await library.createPlaylist('Manual');
