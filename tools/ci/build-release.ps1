@@ -19,6 +19,9 @@ if ($Local) {
 }
 $mumpaCommit = (& git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Cannot determine source commit' }
+. (Join-Path $mumpaRoot 'tools/android-signing.ps1')
+# Fail before expensive native builds when the permanent key is unavailable.
+$mumpaSigning = Get-MumpaAndroidSigning
 
 $mumpaVersionLine = Get-Content -LiteralPath 'pubspec.yaml' | Where-Object { $_ -match '^version:\s*' }
 $mumpaVersion = ($mumpaVersionLine -replace '^version:\s*', '').Trim()
@@ -69,7 +72,7 @@ foreach ($mumpaSource in @(
     Copy-Item -LiteralPath $mumpaSource -Destination $mumpaSourceOutput -Force
 }
 & ./tools/package-release.ps1 -Version $mumpaBuildName -OutputDirectory $mumpaOutput
-if ((& git rev-parse HEAD).Trim() -ne $mumpaCommit -or (& git status --porcelain --untracked-files=normal)) {
+if ((& git rev-parse HEAD).Trim() -ne $mumpaCommit -or ($Local -and (& git status --porcelain --untracked-files=normal))) {
     throw 'Source changed during the build; release metadata was not written.'
 }
 $mumpaFlutter = (& flutter --version --machine | ConvertFrom-Json).frameworkVersion
@@ -80,7 +83,8 @@ if ($LASTEXITCODE -ne 0 -or -not $mumpaFlutter) { throw 'Cannot determine Flutte
     engine = $mumpaLock.version
     toolchains = $mumpaLock.toolchains
     flutter = $mumpaFlutter
-    androidSigning = if ($env:MUMPA_KEYSTORE_PATH) { 'release-keystore' } elseif ($Local) { 'local-debug-key' } else { 'ephemeral-debug-key' }
+    androidSigning = 'release-keystore'
+    androidCertificateSha256 = Get-MumpaSigningFingerprint
     buildSource = if ($Local) { 'local' } else { 'github-actions' }
     githubRun = if ($Local) { $null } else { $env:GITHUB_RUN_ID }
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $mumpaOutput 'BUILD.json') -Encoding utf8

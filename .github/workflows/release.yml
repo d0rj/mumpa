@@ -89,7 +89,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Flutter JDK configuration failed' }
           Add-Content android/gradle.properties "`norg.gradle.jvmargs=-Xmx3G -XX:MaxMetaspaceSize=1G -XX:ReservedCodeCacheSize=256m"
           Add-Content android/gradle.properties 'org.gradle.workers.max=2'
-      - name: Configure optional persistent Android signing
+      - name: Configure required persistent Android signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -98,12 +98,10 @@ jobs:
         run: |
           $values = @($env:ANDROID_KEYSTORE_BASE64, $env:ANDROID_KEYSTORE_PASSWORD, $env:ANDROID_KEY_ALIAS, $env:ANDROID_KEY_PASSWORD)
           $configured = @($values | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }).Count
-          if ($configured -eq 0) {
-            Write-Output '::warning::Android APKs will use an ephemeral debug key. Configure the four ANDROID signing secrets for installable updates.'
-          } elseif ($configured -ne 4) {
-            throw 'Configure all four Android signing secrets, or none.'
+          if ($configured -ne 4) {
+            throw 'All four persistent Android signing secrets are required. Debug fallback is disabled.'
           } else {
-            $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.jks'
+            $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.p12'
             [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
             "MUMPA_KEYSTORE_PATH=$keystore" | Add-Content $env:GITHUB_ENV
           }
@@ -133,7 +131,7 @@ jobs:
       - name: Remove temporary signing key
         if: always()
         run: |
-          $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.jks'
+          $keystore = Join-Path $env:RUNNER_TEMP 'mumpa-release.p12'
           if (Test-Path -LiteralPath $keystore) { Remove-Item -LiteralPath $keystore -Force }
 
   publish:

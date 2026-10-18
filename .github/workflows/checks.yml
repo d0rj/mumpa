@@ -110,6 +110,9 @@ jobs:
       - name: Test workspace cleanup and release retention with isolated files
         run: ./tools/test-workspace-maintenance.ps1
 
+      - name: Test persistent Android signing guards without production keys
+        run: ./tools/test-android-signing.ps1
+
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:

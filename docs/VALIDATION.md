@@ -1,5 +1,44 @@
 # Mumpa verification — 2026-10-18
 
+## Persistent Android signing for local builds and Actions
+
+- Preserved the certificate used by the published local **1.2.22+30** APKs
+  (`8a570fa3…6b67a1c`). Its private key was imported into an independent PKCS12
+  outside the checkout, with a random password, Windows DPAPI settings and
+  restricted NTFS permissions. The original debug keystore was preserved.
+  This preserves signing identity; it does not create a new Play Store certificate.
+- Configured all four encrypted GitHub Actions signing secrets. The workflow,
+  Gradle, local wrapper and publisher now refuse missing or changed release
+  signing. All three built APKs must match the committed certificate fingerprint.
+- **13 isolated signing assertions passed; 32 publisher tests passed.**
+  Cases cover missing/partial settings, prohibited CI fallback, DPAPI loading,
+  mismatched certificates/passwords, environment restoration and publication
+  refusal before HTTP. PowerShell parsing and workflow actionlint passed.
+- Real APK builds passed for ARM64, ARMv7 and x86_64 both with local DPAPI
+  settings (**test 1.2.23+31**) and a decoded temporary PKCS12 plus the four
+  Actions environment variables (**test 1.2.23+32**). All six APK signatures
+  match the published 1.2.22 certificate. Test build overrides do not change
+  `pubspec.yaml` or publish another release.
+- An isolated **API-35 x86_64 emulator** installed the published 1.2.22 APK
+  (4030), updated with `adb install -r` to the local-key build (4031), then
+  updated again to the CI-environment build (4032). The application UID and
+  SHA-256 of a sentinel file inside private application data remained identical
+  after each update. No uninstall or data clearing occurred. The disposable
+  emulator, copied APK and temporary signing material were removed in `finally`.
+- Direct Gradle release and aggregate `build` commands without signing are
+  refused; `validateSigningRelease` accepts the pinned permanent key. The
+  portable encrypted recovery export was exercised with a temporary password,
+  its certificate verified, and the test export removed. Local protected
+  backup hashes match their originals and NTFS inheritance is disabled.
+- This is a real emulator package-update test and a local reproduction of CI
+  signing inputs. Hosted Actions and physical Android hardware were not run.
+  APKs from old Actions **v1.2.19** retain their different certificate and
+  cannot be made compatible by this configuration.
+- Evidence in `test-output/`: `permanent-signing-{guard-tests,publisher-tests}.log`,
+  `permanent-signing-{local,ci}-build.log`, `permanent-signing-ci-complete.json`,
+  `permanent-signing-upgrade.json`, `permanent-signing-github-secrets.json`
+  (names/timestamps only), and `permanent-signing-gradle-refusal.log`.
+
 ## Russian automatic search — 1.2.22
 
 - Corrected the earlier diagnosis of missing catalogue coverage: a direct

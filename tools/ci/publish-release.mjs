@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const parseJson = (bytes) => JSON.parse(bytes.toString().replace(/^\uFEFF/, ''));
+const androidCertificate = readFileSync(new URL('../../android/release-signing.sha256', import.meta.url), 'utf8').trim();
 
 export function prepareRelease(directory, expectedCommit, expectedRunId, { local = false } = {}) {
   if (!/^[a-f0-9]{40}$/.test(expectedCommit ?? '')) throw new Error('Invalid source commit');
@@ -22,6 +23,10 @@ export function prepareRelease(directory, expectedCommit, expectedRunId, { local
     throw new Error('Build commit or workflow run does not match this release');
   }
   if (!/^[A-Za-z0-9._-]+$/.test(build.engine ?? '')) throw new Error('Invalid engine version');
+  if (build.androidSigning !== 'release-keystore' || !/^[a-f0-9]{64}$/.test(androidCertificate) ||
+      build.androidCertificateSha256 !== androidCertificate) {
+    throw new Error('Build must use the pinned persistent Android signing certificate');
+  }
   const version = match[1];
   const required = [
     `Mumpa-${version}-windows-x64.zip`,
@@ -69,11 +74,7 @@ export function prepareRelease(directory, expectedCommit, expectedRunId, { local
   for (const [name, data] of [['BUILD.json', buildData], ['SHA256.json', sums]]) {
     files.push({ name, data, bytes: data.length, sha256: digest(data) });
   }
-  const signing = build.androidSigning === 'release-keystore'
-    ? 'APK подписаны постоянным ключом релиза.'
-    : build.androidSigning === 'local-debug-key'
-    ? 'APK подписаны локальным debug-ключом; обновление поверх прежней установки возможно только при совпадении сертификатов.'
-    : 'APK подписаны временным debug-ключом CI; для обновлений поверх прежней установки нужен тот же постоянный ключ.';
+  const signing = 'APK подписаны постоянным ключом релиза, совместимым с локальным выпуском v1.2.22.';
   const provenance = local
     ? `Локальная сборка Windows и Android, без GitHub Actions. [Исходный commit](https://github.com/REPOSITORY/commit/${build.commit}).`
     : `Commit: \`${build.commit}\`. [Проверки и сборка](https://github.com/REPOSITORY/actions/runs/${build.githubRun}).`;

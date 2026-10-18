@@ -1,4 +1,10 @@
 # Miscellaneous
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.dpapi
+**/key.properties
 assets/engine/*.exe
 assets/jackett/*.zip
 assets/flaresolverr/*.zip

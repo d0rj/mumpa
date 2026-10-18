@@ -11,6 +11,7 @@ import { prepareRelease, publishRelease } from './publish-release.mjs';
 const COMMIT = 'a'.repeat(40);
 const OTHER_COMMIT = 'b'.repeat(40);
 const RUN_ID = '123';
+const CERTIFICATE = (await readFile(new URL('../../android/release-signing.sha256', import.meta.url), 'utf8')).trim();
 const VERSION = '1.2.7+15';
 const TAG = 'v1.2.7';
 const REPOSITORY = 'fixture-owner/mumpa';
@@ -69,7 +70,8 @@ async function fixture(t, {
     commit,
     engine: 'MatriX.145.2-mumpa4',
     githubRun: runId,
-    androidSigning: 'ephemeral-debug-key',
+    androidSigning: 'release-keystore',
+    androidCertificateSha256: CERTIFICATE,
   };
   await writeFile(join(directory, 'BUILD.json'), `${JSON.stringify(build, null, 2)}\n`);
   await writeFile(join(directory, 'SHA256.json'), `${JSON.stringify(manifest, null, 2)}\n`);
@@ -353,11 +355,10 @@ test('local release uses explicit local provenance without a fabricated workflow
   const current = await fixture(t);
   current.build.buildSource = 'local';
   current.build.githubRun = null;
-  current.build.androidSigning = 'local-debug-key';
   await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify(current.build));
   const prepared = prepareRelease(current.directory, COMMIT, undefined, { local: true });
   assert.match(prepared.notes, /Локальная сборка/);
-  assert.match(prepared.notes, /локальным debug-ключом/);
+  assert.match(prepared.notes, /постоянным ключом релиза/);
   assert.ok(prepared.notes.includes(`/commit/${COMMIT}`));
   assert.ok(!prepared.notes.includes('/actions/runs/'));
   assert.equal(prepared.files.length, 12);
@@ -389,6 +390,19 @@ test('local packages still require their original sizes and SHA256 before HTTP',
   await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify(current.build));
   await writeFile(join(current.directory, PACKAGE_PATHS[1]), 'Corrupted local APK');
   await rejectedBeforeHttp(current, { local: true, runId: undefined });
+});
+
+test('missing, debug, or changed signing identity is rejected before any GitHub request', async (t) => {
+  for (const change of [
+    { androidSigning: 'ephemeral-debug-key' },
+    { androidSigning: 'local-debug-key' },
+    { androidCertificateSha256: undefined },
+    { androidCertificateSha256: '0'.repeat(64) },
+  ]) {
+    const current = await fixture(t);
+    await writeFile(join(current.directory, 'BUILD.json'), JSON.stringify({ ...current.build, ...change }));
+    await rejectedBeforeHttp(current);
+  }
 });
 
 test('corrupt package fails preflight before any HTTP', async (t) => {
