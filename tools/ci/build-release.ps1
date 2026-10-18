@@ -26,6 +26,22 @@ if ($mumpaVersion -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?\+\d+$') { throw 
 $mumpaBuildName = $mumpaVersion.Split('+')[0]
 $mumpaLock = Get-Content -LiteralPath 'engine-patches/managed-engine.lock.json' -Raw | ConvertFrom-Json
 
+# A clean local checkout may have no NuGet on PATH. Keep the pinned Microsoft
+# CLI inside build/, so ordinary package cleanup removes it with other caches.
+if ($Local -and -not (Get-Command nuget -ErrorAction SilentlyContinue)) {
+    $mumpaNugetDirectory = Join-Path $mumpaRoot 'build/local-tools'
+    $mumpaNuget = Join-Path $mumpaNugetDirectory 'nuget.exe'
+    $mumpaNugetHash = '992d70cac5b06c38efec91806caba64cdcc07e6d963a0959dbbbaf264d33b800'
+    New-Item -ItemType Directory -Path $mumpaNugetDirectory -Force | Out-Null
+    if (-not (Test-Path -LiteralPath $mumpaNuget) -or
+        (Get-FileHash -LiteralPath $mumpaNuget -Algorithm SHA256).Hash.ToLowerInvariant() -ne $mumpaNugetHash) {
+        Invoke-WebRequest 'https://dist.nuget.org/win-x86-commandline/v7.9.0/nuget.exe' -OutFile "$mumpaNuget.download"
+        if ((Get-FileHash -LiteralPath "$mumpaNuget.download" -Algorithm SHA256).Hash.ToLowerInvariant() -ne $mumpaNugetHash) { throw 'NuGet SHA256 mismatch' }
+        Move-Item -LiteralPath "$mumpaNuget.download" -Destination $mumpaNuget -Force
+    }
+    $env:PATH = $mumpaNugetDirectory + [IO.Path]::PathSeparator + $env:PATH
+}
+
 # This runs the engine regressions and verifies all four binary hashes against
 # the lock. Never refresh the lock or upgrade dependencies in a release job.
 & ./tools/build-managed-engine.ps1 -Platform all -GoExecutable $GoExecutable -AndroidNdk $AndroidNdk
