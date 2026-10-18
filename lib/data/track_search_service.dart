@@ -6,6 +6,7 @@ import 'media_cache.dart';
 import 'source_operation.dart';
 import 'torrent_metainfo.dart';
 import 'torrent_service.dart';
+import 'public_music_catalog.dart';
 
 class TrackSearchService {
   TrackSearchService({
@@ -105,6 +106,7 @@ class TrackSearchService {
               release.link,
               temporary,
               operation: operation,
+              preferCachedMetainfo: endpoint == PublicMusicCatalog.endpoint,
             );
             operation.check();
             if (!result.file) {

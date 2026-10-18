@@ -96,6 +96,7 @@ class _Indexer extends IndexerService {
     String link,
     Directory directory, {
     SourceOperation? operation,
+    bool preferCachedMetainfo = false,
   }) async {
     resolves++;
     links.add(link);

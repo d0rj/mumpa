@@ -1208,6 +1208,7 @@ class AppController extends ChangeNotifier {
           final resolved = await indexer.resolve(
             variant.release.link,
             Directory('${library.root.path}/torrents'),
+            preferCachedMetainfo: usesAutomaticSource,
           );
           source = resolved.source;
         }
@@ -1891,6 +1892,7 @@ class AppController extends ChangeNotifier {
         release.link,
         Directory('${library.root.path}/torrents'),
         operation: operation,
+        preferCachedMetainfo: usesAutomaticSource,
       );
       if (resolved.file) {
         return (

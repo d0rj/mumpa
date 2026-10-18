@@ -32,6 +32,7 @@ class FixtureIndexer extends IndexerService {
     String link,
     Directory directory, {
     SourceOperation? operation,
+    bool preferCachedMetainfo = false,
   }) async => (source: 'fixture.torrent', file: true);
 }
 
@@ -167,7 +168,21 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(MumpaApp(controller: app));
-      await tester.ensureVisible(find.text(release.title));
+      await tester.scrollUntilVisible(
+        find.text(release.title),
+        160,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.drag(
+        find.byType(CustomScrollView).first,
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
       await tester.runAsync(() async {
         await tester.tap(find.text(release.title));
         final deadline = DateTime.now().add(const Duration(seconds: 5));

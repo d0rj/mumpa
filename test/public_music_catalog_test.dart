@@ -43,7 +43,8 @@ void main() {
         expect(body['query'], 'Кино');
         expect(body['categories'], [1001000, 1002000]);
         expect(body['hide_xxx'], isTrue);
-        expect(body['hide_unsafe'], isTrue);
+        expect(body['hide_unsafe'], isFalse);
+        expect(body['size'], 300);
         return http.Response.bytes(
           utf8.encode(
             jsonEncode({
@@ -87,7 +88,7 @@ void main() {
   });
 
   test(
-    'empty strict search retries music with an explicit zero risk score',
+    'explicit music search includes nonzero and missing heuristic scores',
     () async {
       final filters = <bool>[];
       final client = MockClient((request) async {
@@ -127,8 +128,9 @@ void main() {
       });
       try {
         final result = await PublicMusicCatalog.search(client, 'Ежемесячные');
-        expect(filters, [true, false]);
-        expect(result.single.title, 'Ежемесячные — Альбом');
+        expect(filters, [false]);
+        expect(result.length, 3);
+        expect(result.first.title, 'Ежемесячные — Альбом');
       } finally {
         client.close();
       }

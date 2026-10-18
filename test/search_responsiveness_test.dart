@@ -171,7 +171,10 @@ void runSearchResponsivenessTests({bool real = false}) {
       void changed() => transportChanges++;
       app.playback.trackState.addListener(changed);
       for (var i = 1; i <= 10; i++) {
-        await backend.seek(Duration(milliseconds: i * 100));
+        // Advancing playback persists listening statistics using real file I/O.
+        await tester.runAsync(
+          () => backend.seek(Duration(milliseconds: i * 100)),
+        );
         await tester.pump();
       }
       expect(

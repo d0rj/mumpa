@@ -4,6 +4,84 @@ import 'package:crypto/crypto.dart';
 import 'package:enough_convert/windows.dart';
 import '../domain/models.dart';
 
+/// A metadata cache may retain older announce URLs than the search magnet.
+/// Preserve the exact info bytes (and therefore content identity), adding only
+/// the public tracker URLs already supplied by the selected source.
+Uint8List addMagnetTrackers(Uint8List bytes, Uri magnet) {
+  final additions = <String>{};
+  for (final value
+      in (magnet.queryParametersAll['tr'] ?? const <String>[]).take(32)) {
+    final uri = Uri.tryParse(value);
+    if (value.length <= 2048 &&
+        uri != null &&
+        uri.host.isNotEmpty &&
+        {'http', 'https', 'udp', 'wss'}.contains(uri.scheme)) {
+      additions.add(value);
+    }
+  }
+  if (additions.isEmpty) return bytes;
+  // Bounds, safe paths and v1 info are validated before changing the envelope.
+  final original = readTorrentMetainfo(bytes);
+  final reader = _BencodeReader(bytes);
+  final data = Map<String, Object>.from(reader.read() as Map);
+  String? text(Object? value) =>
+      value is Uint8List ? utf8.decode(value, allowMalformed: true) : null;
+  final previous = <String>{
+    if (text(data['announce']) case final String value) value,
+    if (data['announce-list'] case final List tiers)
+      for (final tier in tiers.whereType<List>())
+        for (final value in tier)
+          if (text(value) case final String url) url,
+  };
+  if (additions.every(previous.contains)) return bytes;
+  final trackers = {...additions, ...previous};
+  data['announce'] = trackers.first;
+  data['announce-list'] = trackers.map((url) => [url]).toList();
+  Uint8List encode(Object value) {
+    if (value is int) return Uint8List.fromList(ascii.encode('i${value}e'));
+    if (value is String) return encode(Uint8List.fromList(utf8.encode(value)));
+    if (value is Uint8List) {
+      return Uint8List.fromList([
+        ...ascii.encode('${value.length}:'),
+        ...value,
+      ]);
+    }
+    if (value is List) {
+      return Uint8List.fromList([
+        108,
+        ...value.expand((item) => encode(item as Object)),
+        101,
+      ]);
+    }
+    final map = value as Map<String, Object>;
+    final keys = map.keys.toList()..sort();
+    return Uint8List.fromList([
+      100,
+      ...keys.expand((key) => [...encode(key), ...encode(map[key]!)]),
+      101,
+    ]);
+  }
+
+  final keys = data.keys.toList()..sort();
+  final result = Uint8List.fromList([
+    100,
+    ...keys.expand(
+      (key) => [
+        ...encode(key),
+        if (key == 'info')
+          ...Uint8List.sublistView(bytes, reader.infoStart!, reader.infoEnd!)
+        else
+          ...encode(data[key]!),
+      ],
+    ),
+    101,
+  ]);
+  if (readTorrentMetainfo(result).hash != original.hash) {
+    throw const FormatException('Tracker merge changed content identity');
+  }
+  return result;
+}
+
 /// Reads file names without starting an engine or downloading audio pieces.
 /// IDs are one-based metainfo ordinals, not native TorrServer IDs: the server
 /// sorts its file list. Resolve a selected file by full path after upload and

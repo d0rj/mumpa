@@ -225,6 +225,7 @@ class RadioRepository implements RadioSource {
                         release.link,
                         temporary,
                         operation: child,
+                        preferCachedMetainfo: automatic,
                       ),
                     )
                     .timeout(sourceTimeout);

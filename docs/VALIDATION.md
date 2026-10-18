@@ -1,5 +1,68 @@
 # Mumpa verification — 2026-10-18
 
+## Automatic full discographies and public metainfo — 1.2.25
+
+- **512 unit/widget tests passed, 4 opt-in/platform checks skipped; Dart analysis
+  clean.** Coverage includes broad explicit music queries, unchanged strict feed,
+  content-hash validation, corrupt/nonmusic cache rejection, cancellation,
+  bounded waits, secret minimization, same-service HTTPS CDN redirects and
+  rejection of other hosts/cleartext redirects. Existing UI tests now explicitly
+  tap a dismissed search and scroll source cards above mobile navigation. The
+  responsiveness fixture performs real statistics writes outside fakeAsync,
+  allowing its shutdown to finish; production statistics/focus logic is unchanged.
+- Cached metainfo retains the selected magnet's tracker URLs, including anonymous
+  `?magnet` announce parameters. The existing cached tracker is kept too; exact
+  original `info` bytes are preserved and the content hash is checked again.
+- A fresh **API-35 x86_64 Android tablet emulator** searches `Ежемесячные` and
+  imports a public discography containing **487 audio files / 71 album folders**.
+  No key/account, user metainfo, Jackett, FlareSolverr, local peer or remote
+  TorrServer is supplied. The normal public metainfo download takes about
+  **2 seconds** on the standalone Dart check and preserves the exact infohash.
+- One strict **Windows/libmpv E2E passed** using the user's already selected
+  Wi-Fi interface in an isolated profile: live automatic search, all 487 tracks,
+  advancing native audio beyond 3 seconds, a complete **265,153-byte MP3**,
+  then playback of the completed file with the torrent engine stopped.
+  This is public peer audio, not the demo or a previously cached user file.
+  This successful run precedes preservation of magnet tracker URLs. Later
+  repetitions, including the final tracker-preserving version, fail before
+  first audio. The stricter stop/reset/offline repeat has not reached its
+  offline stage because of that online failure. The latest public-audio E2E
+  therefore does **not** pass; a continuously working vertical slice on the
+  physical tablet remains unfinished.
+- **The Android public-audio E2E fails on the current system/VPN route** after
+  successful import: zero advancing playback and the existing P2P/VPN error.
+  A separate Windows comparison downloads the same complete MP3 over explicitly
+  selected Wi-Fi (SHA-256 `226a92c77e576b5633ca675aad1b52d60b68c7cec38ab740f02b044f7bd6541a`),
+  while Windows system routing and Android system routing time out with no
+  connected peers. Public HTTP announces also time out through the current VPN.
+  This does not prove that every VPN or the physical user's tablet behaves the
+  same way. No VPN, system route or firewall rule is changed or bypassed by default.
+  The user reports **Durev VPN Auto with torrent support**; this specific VPN
+  is not used in the emulator. A subsequent direct Wi-Fi repetition also fails
+  before first audio, so neither VPN blame nor continuous swarm availability
+  is established for the physical tablet.
+- The public cached discography differs from the newer user-only Windows source:
+  **487** public audio files versus **493** artist tracks in the local source.
+  Public catalogue coverage is not a guarantee of every current/private release.
+  User torrent files, accounts and tracker keys are not uploaded or bundled.
+- Windows release uses `lib/main.dart`; Android ARM64/ARMv7/x86_64 release builds
+  pass the persistent-signature check against the existing certificate
+  `8a570fa3…6b67a1c`. No app UI/storage changes from 1.2.23/1.2.24 are reverted.
+- A separate API-35 emulator installs the release **1.2.24+32 (4032)**, then
+  updates to **1.2.25+33 (4033)** with `adb install -r`. The application UID and
+  SHA-256 of a private sentinel file remain identical. No uninstall/data clear
+  occurs. The emulator and copied test APK are removed in `finally`.
+  Evidence: `test-output/discography-android-update.json`.
+- Local evidence: `test-output/discography-all-tests.log`,
+  `discography-final-analysis.log`, `discography-android-import.log`,
+  `discography-android-verified.log`, `discography-windows-final-e2e.log`,
+  `discography-windows-verified.log`, `discography-windows-trackers-e2e.log`,
+  `discography-windows-peer-probe.json`, `discography-windows-system-probe.json`,
+  `discography-android-peer-probe.json`, and `discography-android-release.log`.
+  Physical tablet playback with its VPN remains unverified. This release fixes
+  search breadth and metainfo acquisition; it is not a completed guarantee of
+  zero-configuration Android playback through a VPN that blocks torrent traffic.
+
 ## Adaptive Now Playing and explicit search focus — 1.2.24
 
 - **112 focused unit/widget tests passed; whole-project Dart analysis clean.**

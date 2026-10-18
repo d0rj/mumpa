@@ -143,6 +143,7 @@ void main() {
       await tester.runAsync(app.playback.pause);
       app.navigate(AppPage.search);
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('music-search')));
       await tester.enterText(find.byKey(const Key('music-search')), 'orbit');
       await tester.pumpAndSettle();
       expect(app.searchTracks.length, 6);

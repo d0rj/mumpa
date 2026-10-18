@@ -45,6 +45,16 @@ apply to those services; metadata/artwork are not relicensed by Mumpa. Images
 inside user-added torrent collections retain their respective holders' rights.
 No external catalogue or user cover images are bundled with application builds.
 
+## Public automatic catalogue services
+
+Automatic music search uses the public Knaben API (https://knaben.org/api/v1/)
+and RuTor music pages (https://rutor.info/). Optional magnet metadata lookup
+uses Torrage's anonymous public download links (https://torrage.info/), addressed
+only by infohash. These remote services and their catalogues are not bundled
+with Mumpa. Torrage responses are checked against the requested content hash;
+the page's JavaScript is not executed. Audio is transferred separately by the
+bundled BitTorrent engine. Remote availability can vary independently of Mumpa.
+
 ## Other dependencies
 
 Windows includes the unmodified **Jackett v0.24.2806** binaries as a separate managed process. Jackett is GPL-2.0; its LICENSE remains inside the bundled archive and extracted runtime. Matching source: https://github.com/Jackett/Jackett/tree/v0.24.2806; source archive: https://github.com/Jackett/Jackett/archive/refs/tags/v0.24.2806.zip. Binary provenance and pinned SHA-256 are in `tools/prepare-jackett.ps1`. The release includes the matching Jackett source archive alongside Mumpa and TorrServer sources.

@@ -20,6 +20,7 @@ import 'source_operation.dart';
 import 'public_music_catalog.dart';
 import 'automatic_music_catalog.dart';
 import 'torrent_network.dart';
+import 'magnet_metainfo_cache.dart';
 
 Future<bool> _validBinaryHash(String path, String expected) => Isolate.run(
   () async =>
@@ -770,13 +771,25 @@ class IndexerService {
     String link,
     Directory directory, {
     SourceOperation? operation,
+    bool preferCachedMetainfo = false,
   }) async {
     var uri =
         Uri.tryParse(link) ??
         (throw const FormatException('Некорректная ссылка на раздачу.'));
     for (var hop = 0; hop < 6; hop++) {
       operation?.check();
-      if (uri.scheme == 'magnet') return (source: uri.toString(), file: false);
+      if (uri.scheme == 'magnet') {
+        if (preferCachedMetainfo) {
+          final cached = await MagnetMetainfoCache.resolve(
+            client,
+            uri,
+            directory,
+            operation: operation,
+          );
+          if (cached != null) return (source: cached.path, file: true);
+        }
+        return (source: uri.toString(), file: false);
+      }
       if (!{'http', 'https'}.contains(uri.scheme) || uri.host.isEmpty) {
         throw const FormatException(
           'Источник должен возвращать magnet или torrent-файл.',
