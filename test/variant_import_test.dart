@@ -106,7 +106,10 @@ void main() {
           return http.Response(jsonEncode({'hash': serverData['hash']}), 200);
         }
         expect(request.url.path, '/torrents');
-        expect((jsonDecode(request.body) as Map)['action'], 'get');
+        expect(
+          (jsonDecode(request.body) as Map)['action'],
+          anyOf('get', 'add'),
+        );
         return http.Response(jsonEncode(serverData), 200);
       }),
     );
@@ -148,6 +151,34 @@ void main() {
     app.library.dispose();
     await root.delete(recursive: true);
   });
+
+  test(
+    'public magnet version retains its source after import and restart',
+    () async {
+      final magnet = 'magnet:?xt=urn:btih:${metainfo.hash}';
+      final variant = TrackVariant(
+        release: SearchRelease(title: 'Band - Album', link: magnet),
+        track: selectedVariant.track,
+        info: selectedVariant.info,
+        source: magnet,
+        edition: '',
+      );
+      await app.enqueueTrackVariant(variant);
+      expect(app.error, isNull);
+      expect(app.library.tracks, isNotEmpty);
+      expect(
+        app.library.tracks.every((track) => track.torrentLink == magnet),
+        isTrue,
+      );
+      final restarted = LibraryRepository(root);
+      await restarted.load();
+      expect(
+        restarted.tracks.every((track) => track.torrentLink == magnet),
+        isTrue,
+      );
+      restarted.dispose();
+    },
+  );
 
   test(
     'variant uses sorted server ID while preserving saved queue and favorites',

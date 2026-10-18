@@ -1,5 +1,23 @@
 # Mumpa architecture
 
+## First run and personal storage — 2026-10-18
+
+New profiles select the public Knaben music API; existing source choices remain
+unchanged. `PublicMusicCatalog` uses bounded/cancellable JSON POST requests,
+filters MP3/lossless categories again locally and returns validated BTIH magnets.
+The automatic endpoint is shared by album search, track variants and radio;
+custom Jackett keys are never forwarded to it. A feed generation prevents stale
+responses replacing the selected provider. Managed helpers start only for a
+selected custom source. Direct RuTracker login selects the direct browser source.
+
+Magnet track variants obtain peer metadata under the existing cancellation and
+time limits. Imports retain their magnet link for cold-start restoration.
+`LibraryStorage` validates the whole snapshot before repository publication,
+keeps the previous valid generation and seven daily snapshots, and preserves
+unreadable originals during recovery. Unrecoverable profiles reject writes.
+Workspace maintenance refuses a deletion plan containing library/Jackett state.
+See [first-run behavior and evidence boundaries](FIRST_RUN.md).
+
 ## Download completion order — 2026-10-13
 
 Completed offline tracks carry an optional UTC `downloadedAt` timestamp in

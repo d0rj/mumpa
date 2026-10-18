@@ -13,6 +13,7 @@ import '../domain/torrent_album_layout.dart';
 import '../domain/collection_filter.dart';
 import '../domain/track_matching.dart';
 import 'library_views.dart';
+import 'library_storage.dart';
 
 part 'library_metadata.dart';
 
@@ -27,6 +28,7 @@ Future<String> _encodeLibrarySnapshot(Map<String, dynamic> snapshot) {
 class LibraryRepository extends ChangeNotifier {
   LibraryRepository(this.root);
   final Directory root;
+  late final _storage = LibraryStorage(root);
   List<Track> _trackItems = [];
   List<Track>? _trackSnapshot;
   Map<String, Track>? _trackIndex;
@@ -200,53 +202,42 @@ class LibraryRepository extends ChangeNotifier {
       );
 
   Future<void> load() async {
-    await root.create(recursive: true);
-    for (final name in ['library.json', 'library.json.bak']) {
-      final file = File(p.join(root.path, name));
-      if (!await file.exists()) continue;
-      try {
-        final j = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-        _tracks = ((j['tracks'] as List?) ?? [])
-            .map((e) => Track.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList();
-        _playlists = ((j['playlists'] as List?) ?? [])
-            .map(
-              (e) =>
-                  MusicPlaylist.fromJson(Map<String, dynamic>.from(e as Map)),
-            )
-            .toList();
-        _liked = Set<String>.from((j['liked'] as List?) ?? []);
-        final playlistIds = _playlists.map((playlist) => playlist.id).toSet();
-        _likedPlaylists = Set<String>.from((j['likedPlaylists'] as List?) ?? [])
-          ..removeWhere((id) => !playlistIds.contains(id));
-        final trackIds = _tracks.map((track) => track.id).toSet();
-        _matchExcluded = Set<String>.from(
-          (j['trackMatchExcluded'] as List?) ?? [],
-        )..retainAll(trackIds);
-        _preferredVariants = Set<String>.from(
-          (j['preferredTrackVariants'] as List?) ?? [],
-        )..retainAll(trackIds);
-        _likedAlbums = ((j['likedAlbums'] as List?) ?? [])
-            .map(
-              (ids) =>
-                  Set<String>.from(ids as List)
-                    ..removeWhere((id) => !trackIds.contains(id)),
-            )
-            .where((ids) => ids.isNotEmpty)
-            .toList();
-        _recent = List<String>.from((j['recent'] as List?) ?? []);
-        _retainedTrackIds = Set<String>.from(
-          (j['retainedTrackIds'] as List?) ?? _recent,
-        )..retainAll(trackIds);
-        _settings = Map<String, dynamic>.from((j['settings'] as Map?) ?? {});
-        if (name.endsWith('.bak')) {
-          loadWarning = 'Библиотека восстановлена из резервной копии.';
-        }
-        break;
-      } catch (_) {
-        loadWarning =
-            'Не удалось прочитать библиотеку. Исходный файл сохранён.';
-      }
+    final loaded = await _storage.load();
+    loadWarning = _storage.warning;
+    if (loaded != null) {
+      final j = loaded;
+      _tracks = ((j['tracks'] as List?) ?? [])
+          .map((e) => Track.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+      _playlists = ((j['playlists'] as List?) ?? [])
+          .map(
+            (e) => MusicPlaylist.fromJson(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList();
+      _liked = Set<String>.from((j['liked'] as List?) ?? []);
+      final playlistIds = _playlists.map((playlist) => playlist.id).toSet();
+      _likedPlaylists = Set<String>.from((j['likedPlaylists'] as List?) ?? [])
+        ..removeWhere((id) => !playlistIds.contains(id));
+      final trackIds = _tracks.map((track) => track.id).toSet();
+      _matchExcluded = Set<String>.from(
+        (j['trackMatchExcluded'] as List?) ?? [],
+      )..retainAll(trackIds);
+      _preferredVariants = Set<String>.from(
+        (j['preferredTrackVariants'] as List?) ?? [],
+      )..retainAll(trackIds);
+      _likedAlbums = ((j['likedAlbums'] as List?) ?? [])
+          .map(
+            (ids) =>
+                Set<String>.from(ids as List)
+                  ..removeWhere((id) => !trackIds.contains(id)),
+          )
+          .where((ids) => ids.isNotEmpty)
+          .toList();
+      _recent = List<String>.from((j['recent'] as List?) ?? []);
+      _retainedTrackIds = Set<String>.from(
+        (j['retainedTrackIds'] as List?) ?? _recent,
+      )..retainAll(trackIds);
+      _settings = Map<String, dynamic>.from((j['settings'] as Map?) ?? {});
     }
     // Older profiles lack completion dates. Use the final file's modification
     // time once, then persist it so later tag updates do not change the order.
@@ -365,17 +356,13 @@ class LibraryRepository extends ChangeNotifier {
       'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
       'recent': List<String>.of(_recent),
       'retainedTrackIds': _retainedTrackIds.toList(),
-      'settings': _settings,
+      'settings': Map<String, dynamic>.of(_settings),
       'trackMatchExcluded': _matchExcluded.toList(),
       'preferredTrackVariants': _preferredVariants.toList(),
     };
     final next = _writeTail.catchError((Object _) {}).then((_) async {
       final contents = await _encodeLibrarySnapshot(snapshot);
-      final target = File(p.join(root.path, 'library.json'));
-      final tmp = File('${target.path}.tmp');
-      await tmp.writeAsString(contents, flush: true);
-      if (await target.exists()) await target.copy('${target.path}.bak');
-      await tmp.rename(target.path);
+      await _storage.save(contents);
     });
     _writeTail = next;
     return next;

@@ -1,4 +1,21 @@
 # Shared by packaging and the explicit workspace cleaner. PowerShell 7 is required.
+function Assert-MumpaNoPersonalData([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $mumpaScan = [Collections.Generic.Stack[string]]::new()
+    if (-not (Get-Item -LiteralPath $Path -Force).PSIsContainer) { return }
+    $mumpaScan.Push($Path)
+    while ($mumpaScan.Count) {
+        $mumpaFolder = $mumpaScan.Pop()
+        foreach ($mumpaEntry in Get-ChildItem -LiteralPath $mumpaFolder -Force) {
+            if ($mumpaEntry.Attributes -band [IO.FileAttributes]::ReparsePoint) { continue }
+            if ($mumpaEntry.PSIsContainer) { $mumpaScan.Push($mumpaEntry.FullName) }
+            elseif ($mumpaEntry.Name -match '^library\.json(?:\.bak|\.tmp)?$' -or $mumpaEntry.Name -eq 'ServerConfig.json') {
+                throw "Personal Mumpa/Jackett data found: $($mumpaEntry.FullName). Cleanup stopped. Move the profile to durable application data before cleaning this directory."
+            }
+        }
+    }
+}
+
 function Resolve-MumpaGeneratedPath([string]$WorkspaceRoot, [string]$Path) {
     $mumpaCheckedRoot = [IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
     $mumpaCheckedPath = [IO.Path]::GetFullPath($Path)
@@ -22,6 +39,7 @@ function Resolve-MumpaGeneratedPath([string]$WorkspaceRoot, [string]$Path) {
 function Remove-MumpaGeneratedPath([string]$WorkspaceRoot, [string]$Path) {
     $mumpaCheckedPath = Resolve-MumpaGeneratedPath $WorkspaceRoot $Path
     if (-not (Test-Path -LiteralPath $mumpaCheckedPath)) { return }
+    Assert-MumpaNoPersonalData $mumpaCheckedPath
     # Unlink nested junctions without traversing their targets before recursion.
     $mumpaDirectories = [Collections.Generic.Stack[string]]::new()
     if ((Get-Item -LiteralPath $mumpaCheckedPath -Force).PSIsContainer) { $mumpaDirectories.Push($mumpaCheckedPath) }

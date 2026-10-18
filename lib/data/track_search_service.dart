@@ -97,6 +97,7 @@ class TrackSearchService {
         try {
           final cacheKey = 'torrentmeta:${release.link}';
           var source = await cache.pathFor(cacheKey);
+          TorrentInfo? magnetInfo;
           if (source == null) {
             await workDirectory.create(recursive: true);
             temporary = await workDirectory.createTemp('inspect-');
@@ -107,28 +108,32 @@ class TrackSearchService {
             );
             operation.check();
             if (!result.file) {
-              failed++;
-              continue;
+              source = result.source;
+              magnetInfo = await torrents.add(source, operation: operation);
+            } else {
+              final bytes = await File(result.source).readAsBytes();
+              // Validate before retaining external metainfo.
+              readTorrentMetainfo(bytes);
+              source = await cache.put(
+                cacheKey,
+                bytes,
+                extension: 'torrent',
+                ttl: const Duration(days: 7),
+                expectedGeneration: generation,
+              );
             }
-            final bytes = await File(result.source).readAsBytes();
-            // Validate before retaining external metainfo.
-            readTorrentMetainfo(bytes);
-            source = await cache.put(
-              cacheKey,
-              bytes,
-              extension: 'torrent',
-              ttl: const Duration(days: 7),
-              expectedGeneration: generation,
-            );
           }
           operation.check();
           if (source == null) continue;
-          final info = readTorrentMetainfo(await File(source).readAsBytes());
+          final info =
+              magnetInfo ??
+              readTorrentMetainfo(await File(source).readAsBytes());
           final identity = parseReleaseIdentity(release.title);
           final tracks = torrents.tracks(
             info,
             album: identity?.album ?? release.title,
             artist: artist,
+            link: release.link,
           );
           for (final track in tracks) {
             if (!matchesRecordingFilename(track.torrentPath!, recording)) {

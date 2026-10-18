@@ -193,6 +193,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(app.settingsSection, 'sources');
+    expect(find.text('Автоматически'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text('Дополнительно: свой Jackett / Prowlarr'));
+    await tester.pumpAndSettle();
     expect(find.byType(TextField), findsNWidgets(2));
     expect(find.byKey(const ValueKey('clear-metadata-cache')), findsNothing);
     expect(fixture.app.cacheReads, 0);

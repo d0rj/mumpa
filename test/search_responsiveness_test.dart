@@ -54,6 +54,7 @@ void runSearchResponsivenessTests({bool real = false}) {
         root = await Directory.systemTemp.createTemp('mumpa-ui-perf-');
         library = _CountedLibrary(root);
         await library.load();
+        await library.setSetting('searchProvider', 'torznab');
         final tracks = <Track>[];
         if (real) {
           final saved =

@@ -302,6 +302,7 @@ void main() {
   test(
     'related library tracks work without a configured torrent indexer',
     () async {
+      await library.setSetting('searchProvider', 'torznab');
       await library.upsert([
         const Track(
           id: 'related',
@@ -322,6 +323,7 @@ void main() {
   test(
     'radio ignores inspected albums and uses the played source album',
     () async {
+      await library.setSetting('searchProvider', 'torznab');
       const played = Track(
         id: 'played',
         title: 'Played song',

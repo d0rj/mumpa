@@ -330,6 +330,11 @@ void main() {
       _viewport(tester, width);
       final fixture = await _fixture(tester, configured: false);
       try {
+        // An explicitly selected custom source still requires its endpoint.
+        // Fresh installs now use the ready public catalogue instead.
+        await tester.runAsync(
+          () => fixture.app.library.setSetting('searchProvider', 'torznab'),
+        );
         await tester.pumpWidget(MumpaApp(controller: fixture.app));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(_globalKey));

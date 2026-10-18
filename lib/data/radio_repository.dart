@@ -10,6 +10,7 @@ import 'music_metadata_repository.dart';
 import 'rutracker_service.dart';
 import 'similar_artists_repository.dart';
 import 'source_operation.dart';
+import 'public_music_catalog.dart';
 import 'torrent_metainfo.dart';
 import 'torrent_service.dart';
 
@@ -150,7 +151,13 @@ class RadioRepository implements RadioSource {
     // At most three artist searches and two releases per artist, per refill.
     final settings = library.settings;
     final direct = settings['searchProvider'] == 'rutracker';
-    final endpoint = settings['indexerUrl'] as String? ?? '';
+    final automatic =
+        settings['searchProvider'] == 'automatic' ||
+        (settings['searchProvider'] == null &&
+            (settings['indexerUrl'] as String? ?? '').isEmpty);
+    final endpoint = automatic
+        ? PublicMusicCatalog.endpoint
+        : settings['indexerUrl'] as String? ?? '';
     if (direct || endpoint.isNotEmpty) {
       for (final name in {...recommendations, ...names}.take(3)) {
         operation.check();
@@ -162,7 +169,9 @@ class RadioRepository implements RadioSource {
                     ? catalog.search(name).then((listing) => listing.releases)
                     : indexer.search(
                         endpoint,
-                        settings['indexerKey'] as String? ?? '',
+                        automatic
+                            ? ''
+                            : settings['indexerKey'] as String? ?? '',
                         name,
                         operation: operation,
                       ),

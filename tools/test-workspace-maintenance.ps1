@@ -172,7 +172,24 @@ $global:LASTEXITCODE = 0
     Assert-Maintenance (Test-Path -LiteralPath (Join-Path $mumpaEngineOk 'assets/engine/fixture.exe')) 'Successful engine output disappeared'
     Assert-Maintenance (Test-Path -LiteralPath (Join-Path $mumpaEngineOk 'artifacts/TorrServer-fixture-source.zip')) 'Corresponding source archive disappeared'
     Assert-Maintenance ([Environment]::GetEnvironmentVariable('GOMAXPROCS', 'Process') -eq $mumpaOriginalGoEnvironment) 'Engine environment was not restored'
-    Write-Output "PASS: $mumpaAssertions assertions (real file cleanup, hashes, retention, WhatIf, junctions, transaction failure/repack, engine failure cleanup)."
+    foreach ($mumpaProtectedName in @('library.json','library.json.bak','ServerConfig.json')) {
+        $mumpaProtected = New-TestWorkspace ('protected-' + $mumpaProtectedName.Replace('.','-'))
+        $mumpaPersonal = Join-Path $mumpaProtected ('.local/profile/' + $mumpaProtectedName)
+        try {
+            Write-Fixture $mumpaPersonal 'personal evidence'
+            Write-Fixture (Join-Path $mumpaProtected 'build/cache')
+            $mumpaRefused = $false
+            try { & (Join-Path $mumpaProtected 'tools/clean-workspace.ps1') -Temporary -BuildCaches | Out-Null }
+            catch { $mumpaRefused = $_.Exception.Message -like '*Personal Mumpa/Jackett data*' }
+            Assert-Maintenance $mumpaRefused 'Cleanup did not reject personal profile'
+            Assert-Maintenance ((Get-Content -LiteralPath $mumpaPersonal -Raw) -eq 'personal evidence') 'Cleanup altered personal data'
+            Assert-Maintenance (Test-Path -LiteralPath (Join-Path $mumpaProtected 'build/cache')) 'Cleanup mutated files before validating the whole plan'
+        } finally {
+            # This exact synthetic file belongs to this test, even on failure.
+            if (Test-Path -LiteralPath $mumpaPersonal) { Remove-Item -LiteralPath $mumpaPersonal }
+        }
+    }
+    Write-Output "PASS: $mumpaAssertions assertions (real file cleanup, personal data protection, hashes, retention, WhatIf, junctions, transaction failure/repack, engine failure cleanup)."
 } finally {
     Remove-MumpaGeneratedPath $mumpaProject $mumpaTestBase
 }

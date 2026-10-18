@@ -34,6 +34,7 @@ if ($Temporary) {
 # Validate the entire plan before the first removal; a junction or invalid last
 # release must not leave a half-cleaned workspace. -WhatIf uses this same plan.
 $mumpaTargets = @($mumpaTargets | Select-Object -Unique | ForEach-Object { Resolve-MumpaGeneratedPath $mumpaRoot $_ })
+foreach ($mumpaTarget in $mumpaTargets) { Assert-MumpaNoPersonalData $mumpaTarget }
 foreach ($mumpaTarget in $mumpaTargets) {
     if ((Test-Path -LiteralPath $mumpaTarget) -and $PSCmdlet.ShouldProcess($mumpaTarget, 'Remove generated workspace files')) {
         Remove-MumpaGeneratedPath $mumpaRoot $mumpaTarget

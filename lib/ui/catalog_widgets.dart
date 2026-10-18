@@ -29,7 +29,7 @@ class SearchOptionsPanel extends StatelessWidget {
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          '${app.usesIndexer ? 'Jackett' : 'RuTracker'} · ${app.trackSearchMode ? 'Треки' : 'Альбомы и коллекции'}${app.versionFormat == null ? '' : ' · ${app.versionFormat}'}',
+          '${app.sourceLabel} · ${app.trackSearchMode ? 'Треки' : 'Альбомы и коллекции'}${app.versionFormat == null ? '' : ' · ${app.versionFormat}'}',
           style: const TextStyle(fontSize: 11, color: muted),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -120,8 +120,14 @@ class SearchProviderPicker extends StatelessWidget {
     runSpacing: 8,
     children: [
       ChoiceChip(
+        key: const ValueKey('source-automatic'),
+        label: const Text('Автоматически'),
+        selected: app.usesAutomaticSource,
+        onSelected: (_) => app.setSearchProvider('automatic'),
+      ),
+      ChoiceChip(
         label: const Text('Jackett'),
-        selected: app.usesIndexer,
+        selected: app.searchProvider == 'torznab',
         onSelected: (_) => app.setSearchProvider('torznab'),
       ),
       ChoiceChip(
@@ -135,8 +141,10 @@ class SearchProviderPicker extends StatelessWidget {
 
 List<Widget> sourceContent(BuildContext context, AppController app) => [
   SectionTitle(
-    'Музыка через Jackett',
-    subtitle: 'RuTracker и другие подключённые музыкальные трекеры',
+    app.usesAutomaticSource ? 'Музыка без настройки' : 'Музыка через Jackett',
+    subtitle: app.usesAutomaticSource
+        ? 'Публичный каталог Knaben · MP3 и FLAC · выбери альбом или найди исполнителя'
+        : 'RuTracker и другие подключённые музыкальные трекеры',
     action: IconButton(
       onPressed: app.indexerLoading ? null : app.refreshSourceFeed,
       icon: const Icon(Icons.refresh_rounded),
@@ -187,12 +195,23 @@ List<Widget> sourceContent(BuildContext context, AppController app) => [
               style: const TextStyle(color: Color(0xFFFF9292)),
             ),
             const SizedBox(height: 8),
-            TextButton(
-              onPressed: app.busy == null
-                  ? () => setupJackett(context, app)
-                  : null,
-              child: const Text('Настроить трекеры'),
-            ),
+            if (app.usesAutomaticSource)
+              TextButton(
+                onPressed: app.refreshSourceFeed,
+                child: const Text('Повторить загрузку'),
+              )
+            else
+              TextButton(
+                onPressed: app.busy == null
+                    ? () => setupJackett(context, app)
+                    : null,
+                child: const Text('Настроить трекеры'),
+              ),
+            if (!app.usesAutomaticSource)
+              TextButton(
+                onPressed: () => app.setSearchProvider('automatic'),
+                child: const Text('Слушать без Jackett'),
+              ),
             if (Platform.isWindows &&
                 app.indexerError!.toLowerCase().contains('flaresolverr'))
               TextButton(
@@ -208,11 +227,16 @@ List<Widget> sourceContent(BuildContext context, AppController app) => [
       EmptyState(
         icon: Icons.album_outlined,
         title: 'Музыкальных раздач пока нет',
-        description:
-            'Убедись, что RuTracker.org добавлен и проверка трекера в Jackett проходит. Можно также поискать исполнителя по имени.',
+        description: app.usesAutomaticSource
+            ? 'Попробуй поискать исполнителя или альбом. Каталог доступен без аккаунта; доступность музыки зависит от пиров.'
+            : 'Убедись, что RuTracker.org добавлен и проверка трекера в Jackett проходит. Можно также поискать исполнителя по имени.',
         action: TextButton(
-          onPressed: () => setupJackett(context, app),
-          child: const Text('Настроить трекеры'),
+          onPressed: app.usesAutomaticSource
+              ? app.refreshSourceFeed
+              : () => setupJackett(context, app),
+          child: Text(
+            app.usesAutomaticSource ? 'Обновить' : 'Настроить трекеры',
+          ),
         ),
       ),
   ],

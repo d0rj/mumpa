@@ -8,7 +8,9 @@ class _SearchPage extends StatelessWidget {
     children: [
       SectionTitle(
         'Найди свой звук',
-        subtitle: app.usesIndexer
+        subtitle: app.usesAutomaticSource
+            ? 'Твоя медиатека и готовый музыкальный каталог'
+            : app.usesIndexer
             ? 'Твоя медиатека и музыкальные трекеры Jackett'
             : 'Твоя медиатека и музыкальный каталог RuTracker',
       ),
@@ -30,6 +32,8 @@ class _SearchPage extends StatelessWidget {
             label: Text(
               app.trackSearchMode
                   ? 'Искать треки'
+                  : app.usesAutomaticSource
+                  ? 'Искать музыку'
                   : app.usesIndexer
                   ? 'Искать через Jackett'
                   : 'Искать на RuTracker',
@@ -169,7 +173,11 @@ class _SearchPage extends StatelessWidget {
           ),
         ],
         SectionTitle(
-          app.usesIndexer ? 'В трекерах Jackett' : 'На RuTracker',
+          app.usesAutomaticSource
+              ? 'В музыкальном каталоге'
+              : app.usesIndexer
+              ? 'В трекерах Jackett'
+              : 'На RuTracker',
           subtitle: app.searching
               ? 'Ищем…'
               : app.searchCompleted

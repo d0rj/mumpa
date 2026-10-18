@@ -8,7 +8,7 @@ enum _SettingsSection {
   ),
   sources(
     'Источники музыки',
-    'Jackett, RuTracker и подключение к каталогу',
+    'Готовый каталог, RuTracker и дополнительные источники',
     Icons.travel_explore_rounded,
   ),
   torrent(
@@ -323,86 +323,112 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   List<Widget> _sourceControls() => [
-    ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 680),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionTitle('Jackett · основной каталог'),
-          if (Platform.isWindows)
-            FilledButton.icon(
-              onPressed: widget.app.busy == null
-                  ? () async {
-                      await setupJackett(context, widget.app, embedded: true);
-                      source.text =
-                          widget.app.library.settings['indexerUrl']
-                              as String? ??
-                          '';
-                      apiKey.text =
-                          widget.app.library.settings['indexerKey']
-                              as String? ??
-                          '';
-                    }
-                  : null,
-              icon: const Icon(Icons.settings_rounded, size: 18),
-              label: const Text('Запустить Jackett и настроить RuTracker'),
-            ),
-          if (Platform.isWindows) ...[
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: widget.app.busy == null
-                  ? widget.app.prepareCloudflare
-                  : null,
-              icon: const Icon(Icons.verified_user_outlined, size: 18),
-              label: Text(
-                widget.app.cloudflareEnabled
-                    ? 'FlareSolverr подключён · проверить'
-                    : 'Настроить FlareSolverr для Cloudflare',
+    const SectionTitle('Музыка сразу после установки'),
+    const Text(
+      '«Автоматически» ищет музыку в публичном каталоге Knaben без аккаунта, '
+      'Jackett и FlareSolverr. Запросы отправляются в Knaben. '
+      'Наличие раздачи в поиске не гарантирует доступных пиров.',
+      style: TextStyle(color: muted, fontSize: 12),
+    ),
+    const SizedBox(height: 12),
+    SearchProviderPicker(app: widget.app),
+    const SizedBox(height: 22),
+    ExpansionTile(
+      key: const PageStorageKey('settings-custom-sources'),
+      title: const Text('Дополнительно: свой Jackett / Prowlarr'),
+      subtitle: const Text('Для собственных трекеров и серверов'),
+      tilePadding: EdgeInsets.zero,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionTitle('Jackett · дополнительный каталог'),
+              if (Platform.isWindows)
+                FilledButton.icon(
+                  onPressed: widget.app.busy == null
+                      ? () async {
+                          await setupJackett(
+                            context,
+                            widget.app,
+                            embedded: true,
+                          );
+                          source.text =
+                              widget.app.library.settings['indexerUrl']
+                                  as String? ??
+                              '';
+                          apiKey.text =
+                              widget.app.library.settings['indexerKey']
+                                  as String? ??
+                              '';
+                        }
+                      : null,
+                  icon: const Icon(Icons.settings_rounded, size: 18),
+                  label: const Text('Запустить Jackett и настроить RuTracker'),
+                ),
+              if (Platform.isWindows) ...[
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: widget.app.busy == null
+                      ? widget.app.prepareCloudflare
+                      : null,
+                  icon: const Icon(Icons.verified_user_outlined, size: 18),
+                  label: Text(
+                    widget.app.cloudflareEnabled
+                        ? 'FlareSolverr подключён · проверить'
+                        : 'Настроить FlareSolverr для Cloudflare',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Если Jackett сообщает Empty cookies returned by FlareSolverr, выбери «Автоматически» или войди в RuTracker напрямую ниже. Для поиска через Mumpa не нужно настраивать cookies вручную.',
+                  style: TextStyle(color: muted, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 14),
+              const Text(
+                'Добавь RuTracker.org в Jackett и сохрани аккаунт. Можно использовать встроенный Jackett на Windows или подключить свой сервер Jackett/Prowlarr по адресу и API key.',
+                style: TextStyle(color: muted),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Если Jackett сообщает Challenge detected, подключи проверку Cloudflare и повтори сохранение трекера. Первый запуск может занять около минуты.',
-              style: TextStyle(color: muted, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 14),
-          const Text(
-            'Добавь RuTracker.org в Jackett и сохрани аккаунт. Можно использовать встроенный Jackett на Windows или подключить свой сервер Jackett/Prowlarr по адресу и API key.',
-            style: TextStyle(color: muted),
+              const SizedBox(height: 14),
+              TextField(
+                key: const PageStorageKey('settings-jackett-url'),
+                controller: source,
+                decoration: const InputDecoration(
+                  labelText: 'Адрес Jackett или URL Torznab API',
+                  hintText:
+                      'http://localhost:9117/api/v2.0/indexers/all/results/torznab/api',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const PageStorageKey('settings-jackett-key'),
+                controller: apiKey,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'API key'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () =>
+                    widget.app.saveIndexer(source.text, apiKey.text),
+                child: const Text('Сохранить и проверить подключение'),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Использовать Jackett для поиска',
+                  style: TextStyle(fontSize: 13),
+                ),
+                value: widget.app.searchProvider == 'torznab',
+                onChanged: (value) => widget.app.setSearchProvider(
+                  value ? 'torznab' : 'automatic',
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: source,
-            decoration: const InputDecoration(
-              labelText: 'Адрес Jackett или URL Torznab API',
-              hintText:
-                  'http://localhost:9117/api/v2.0/indexers/all/results/torznab/api',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: apiKey,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'API key'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: () => widget.app.saveIndexer(source.text, apiKey.text),
-            child: const Text('Сохранить и проверить подключение'),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Использовать Jackett для поиска',
-              style: TextStyle(fontSize: 13),
-            ),
-            value: widget.app.usesIndexer,
-            onChanged: (value) =>
-                widget.app.setSearchProvider(value ? 'torznab' : 'rutracker'),
-          ),
-        ],
-      ),
+        ),
+      ],
     ),
     const SectionTitle('Прямой доступ к RuTracker'),
     Text(
@@ -754,6 +780,13 @@ class _SettingsPageState extends State<SettingsPage> {
     SelectableText(
       'Библиотека: ${widget.app.library.root.path}',
       style: const TextStyle(fontSize: 10, color: muted),
+    ),
+    const SizedBox(height: 8),
+    const Text(
+      'Избранное и настройки сохраняются отдельно от приложения. '
+      'Резервные копии за последние 7 дней находятся в подпапке backups. '
+      'Обновление и очистка кеша сохраняют эти данные.',
+      style: TextStyle(fontSize: 11, color: muted),
     ),
     if (Platform.isAndroid)
       const Padding(

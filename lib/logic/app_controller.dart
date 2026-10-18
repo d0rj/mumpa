@@ -12,6 +12,7 @@ import '../data/rutracker_service.dart';
 import '../data/torrent_service.dart';
 import '../data/torrent_network.dart';
 import '../data/source_operation.dart';
+import '../data/public_music_catalog.dart';
 import '../data/media_cache.dart';
 import '../data/music_metadata_repository.dart';
 import '../data/similar_artists_repository.dart';
@@ -398,8 +399,27 @@ class AppController extends ChangeNotifier {
       : null;
   String? indexerError;
   bool indexerLoading = false;
+  int _sourceFeedId = 0;
   bool get indexerConnected =>
+      usesAutomaticSource ||
       (library.settings['indexerUrl'] as String? ?? '').isNotEmpty;
+  String get searchProvider =>
+      library.settings['searchProvider'] as String? ??
+      ((library.settings['indexerUrl'] as String? ?? '').isNotEmpty
+          ? 'torznab'
+          : 'automatic');
+  bool get usesAutomaticSource => searchProvider == 'automatic';
+  String get sourceLabel => usesAutomaticSource
+      ? 'Автоматически'
+      : usesIndexer
+      ? 'Jackett'
+      : 'RuTracker';
+  String get sourceEndpoint => usesAutomaticSource
+      ? PublicMusicCatalog.endpoint
+      : library.settings['indexerUrl'] as String? ?? '';
+  String get sourceKey => usesAutomaticSource
+      ? ''
+      : library.settings['indexerKey'] as String? ?? '';
   bool catalogLoading = false,
       catalogNeedsConnection = false,
       catalogNeedsLogin = false;
@@ -407,7 +427,7 @@ class AppController extends ChangeNotifier {
   List<CatalogSection> catalogSections = [], catalogTrail = [];
   List<SearchRelease> catalogReleases = [];
   int _catalogId = 0;
-  bool get usesIndexer => library.settings['searchProvider'] != 'rutracker';
+  bool get usesIndexer => searchProvider != 'rutracker';
   AppPage page = AppPage.home;
   String? settingsSection;
 
@@ -1118,8 +1138,8 @@ class AppController extends ChangeNotifier {
           .wait(
             service.find(
               recording,
-              endpoint: library.settings['indexerUrl'] as String,
-              key: library.settings['indexerKey'] as String? ?? '',
+              endpoint: sourceEndpoint,
+              key: sourceKey,
               operation: operation,
               onStatus: (status) {
                 if (!_disposed && id == _versionRequest) {
@@ -1172,17 +1192,16 @@ class AppController extends ChangeNotifier {
   _importVariant(TrackVariant variant) =>
       run('Открываем выбранную версию…', () async {
         var source = variant.source;
-        if (!await File(source).exists()) {
+        if (!source.startsWith('magnet:') && !await File(source).exists()) {
           final resolved = await indexer.resolve(
             variant.release.link,
             Directory('${library.root.path}/torrents'),
           );
-          if (!resolved.file) {
-            throw const FormatException('Выбери раздачу с torrent-файлом.');
-          }
           source = resolved.source;
         }
-        final info = await torrents.upload(source);
+        final info = source.startsWith('magnet:')
+            ? await torrents.add(source)
+            : await torrents.upload(source);
         // The metainfo ordinal is not a stream ID: TorrServer sorts its file
         // list. Match immutable content identity, then use its returned ID.
         final readyMatches = info.files
@@ -1203,6 +1222,7 @@ class AppController extends ChangeNotifier {
           info,
           album: variant.track.album,
           artist: variant.track.artist,
+          link: source.startsWith('magnet:') ? source : null,
         );
         final playlist = await library.openSourceCollection(
           hash: info.hash,
@@ -1485,7 +1505,7 @@ class AppController extends ChangeNotifier {
     }
     final operation = SourceOperation();
     _searchOperation = operation;
-    final endpoint = library.settings['indexerUrl'] as String? ?? '';
+    final endpoint = sourceEndpoint;
     if (usesIndexer && endpoint.isEmpty) {
       searching = false;
       searchCompleted = true;
@@ -1506,12 +1526,8 @@ class AppController extends ChangeNotifier {
           query: requestedQuery,
           knownNames: _knownSearchNames(),
           operation: operation,
-          search: (phrase) => indexer.search(
-            endpoint,
-            library.settings['indexerKey'] as String? ?? '',
-            phrase,
-            operation: operation,
-          ),
+          search: (phrase) =>
+              indexer.search(endpoint, sourceKey, phrase, operation: operation),
           suggestArtists: (phrase) =>
               metadata.suggestArtistNames(phrase, operation: operation),
           onCorrectionAttempt: (phrase) {
@@ -1554,7 +1570,10 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> initializeSources() async {
-    if (library.settings['managedJackett'] == true && Platform.isWindows) {
+    if (!usesAutomaticSource &&
+        usesIndexer &&
+        library.settings['managedJackett'] == true &&
+        Platform.isWindows) {
       try {
         await _startJackett();
       } catch (e) {
@@ -1563,7 +1582,7 @@ class AppController extends ChangeNotifier {
         return;
       }
     }
-    if (indexerConnected) await refreshSourceFeed();
+    if (usesIndexer && indexerConnected) await refreshSourceFeed();
   }
 
   Future<JackettConnection> _startJackett() async {
@@ -1577,22 +1596,36 @@ class AppController extends ChangeNotifier {
     await library.setSetting('indexerUrl', connection.torznabUrl);
     await library.setSetting('indexerKey', connection.apiKey);
     await library.setSetting('managedJackett', true);
-    await library.setSetting('searchProvider', 'torznab');
     return connection;
   }
 
   Future<void> setSearchProvider(String provider) async {
+    if (!{'automatic', 'torznab', 'rutracker'}.contains(provider)) return;
     setQuery(query);
     await library.setSetting('searchProvider', provider);
+    ++_sourceFeedId;
+    indexerLoading = false;
+    sourceFeed = [];
+    indexerError = null;
+    configuredIndexers = [];
     if (provider == 'rutracker') {
       if (catalog.sections.isEmpty) await initializeCatalog();
     } else {
+      if (provider == 'torznab' &&
+          library.settings['managedJackett'] == true &&
+          Platform.isWindows) {
+        await run('Запускаем Jackett…', _startJackett);
+      }
       await refreshSourceFeed();
     }
   }
 
   Future<JackettConnection?> prepareJackett() =>
-      run('Запускаем Jackett…', _startJackett);
+      run('Запускаем Jackett…', () async {
+        final connection = await _startJackett();
+        await library.setSetting('searchProvider', 'torznab');
+        return connection;
+      });
 
   Future<void> prepareCloudflare() async {
     await run('Настраиваем проверку Cloudflare…', () async {
@@ -1620,28 +1653,32 @@ class AppController extends ChangeNotifier {
 
   Future<void> refreshSourceFeed() async {
     if (!indexerConnected || indexerLoading) return;
+    final id = ++_sourceFeedId;
+    final endpoint = sourceEndpoint, key = sourceKey;
+    final automatic = usesAutomaticSource;
     indexerLoading = true;
     indexerError = null;
     notifyListeners();
     try {
-      try {
-        configuredIndexers = await indexer.configuredIndexers(
-          library.settings['indexerUrl'] as String,
-          library.settings['indexerKey'] as String? ?? '',
-        );
-      } catch (_) {
-        // Other Torznab implementations may not provide Jackett's inventory.
+      if (!automatic) {
+        try {
+          final configured = await indexer.configuredIndexers(endpoint, key);
+          if (id != _sourceFeedId || _disposed) return;
+          configuredIndexers = configured;
+        } catch (_) {
+          // Other Torznab implementations may not provide Jackett's inventory.
+        }
       }
-      sourceFeed = await indexer.search(
-        library.settings['indexerUrl'] as String,
-        library.settings['indexerKey'] as String? ?? '',
-        '',
-      );
+      final found = await indexer.search(endpoint, key, '');
+      if (id != _sourceFeedId || _disposed) return;
+      sourceFeed = found;
     } catch (e) {
-      indexerError = e.toString();
+      if (id == _sourceFeedId && !_disposed) indexerError = e.toString();
     } finally {
-      indexerLoading = false;
-      notifyListeners();
+      if (id == _sourceFeedId && !_disposed) {
+        indexerLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -1798,6 +1835,8 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> connectCatalog({bool login = true}) async {
+    setQuery(query);
+    await library.setSetting('searchProvider', 'rutracker');
     await run(
       login ? 'Вход в RuTracker' : 'Проверка доступа к RuTracker',
       () async {

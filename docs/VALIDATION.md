@@ -1,4 +1,45 @@
-# Mumpa verification — 2026-10-17
+# Mumpa verification — 2026-10-18
+
+## First run without Jackett and profile protection — 2026-10-18
+
+- The complete unit/widget suite passed **468 tests**, 3 opt-in skipped,
+  including a read-only source audit and reload of an isolated real profile.
+  This includes persistent magnet sources for track variants. Analyzer: no issues.
+- Native Windows fresh-profile check returned **57 music releases** and **12
+  Cyrillic search results** for `Кино`, with no Jackett or FlareSolverr profiles
+  created. The isolated production copy loaded **9,861 tracks, 45 favorite
+  tracks, 3 favorite albums, 4 favorite collections and 17 playlists**. A saved
+  favorite played through real libmpv. The source profile remained byte-identical.
+- A separate strict public-stream test opened a **36-track** collection from
+  the automatic catalogue and advanced actual playback at least **3 seconds**,
+  with no account/API key/local indexer. It used the user's **previously saved
+  network-interface choice**, copied only to the isolated profile. An earlier
+  three-release attempt on the system route failed to obtain peer metadata.
+  This is not proof of public connectivity on every default route or VPN;
+  Mumpa preserves explicit interface choices and never switches around a VPN.
+- **60 maintenance assertions** passed, including rejection of `library.json`,
+  `.bak` and Jackett `ServerConfig.json` in temporary deletion targets before any
+  deletion. Recovery tests cover repeated corruption, independent daily backup,
+  validation before state publication and write blocking on unrecoverable data.
+- Real authenticated RuTracker login/FlareSolverr cookies were not repaired or
+  revalidated. The automatic source removes that dependency; direct browser
+  RuTracker login remains available. Physical Android behavior is separate.
+- Windows **1.2.20+28** release builds and passes the installer regression
+  (install/update/rollback/checksum/traversal/bundled helpers). Installed over
+  the user's old **1.2.17**, preserving every favorite ID, **9,861 tracks**, all
+  **17 playlists**, the chosen network interface and custom indexer settings.
+  Only the selected provider was changed to `automatic`; no helpers were left
+  running. Independent pre-repair snapshots were saved in the user's own
+  `backups/` folder before graceful shutdown. The exact cause of the reported
+  disappearance was not established; the previously saved profile was intact.
+- All three Android release APKs build (ARM64, ARMv7, x86_64), with matching
+  split debug symbols. No physical Android install was performed.
+- Evidence: `first-run-full-tests.log`, `first-run-analyze.log`,
+  `first-run-native.log`, `first-run-native.json`, `first-run-catalog.png`,
+  `first-run-public-playback.log` (system-route failure),
+  `first-run-public-saved-network.log`, `first-run-public-playback.json`,
+  `first-run-magnet-import.log`, `first-run-maintenance.log` in `test-output/`.
+
 
 ## Workspace cleanup and release retention — 2026-10-17
 
