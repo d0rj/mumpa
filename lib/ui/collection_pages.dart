@@ -335,6 +335,7 @@ class _CollectionTracksBody extends StatefulWidget {
 
 class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   final _search = TextEditingController();
+  final _focus = SearchFocusNode(debugLabel: 'collection-search');
   late bool _albums = widget.section.groupByAlbum;
   bool _restored = false;
 
@@ -396,6 +397,7 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
   @override
   void dispose() {
     _search.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -420,6 +422,12 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
+                  focusNode: _focus,
+                  onTap: _focus.activate,
+                  onTapAlwaysCalled: true,
+                  onTapOutside: (_) => _focus.dismiss(),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _focus.dismiss(),
                   key: const ValueKey('collection-search'),
                   controller: _search,
                   onChanged: (_) {

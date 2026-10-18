@@ -110,6 +110,7 @@ void main() {
         await tester.pumpAndSettle();
         final field = find.byKey(const ValueKey('collection-search'));
         await tester.ensureVisible(field);
+        await tester.tap(field);
         await tester.enterText(field, 'елки band');
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('track-row-two')), findsOneWidget);
@@ -136,6 +137,7 @@ void main() {
         expect(app.playback.current!.id, 'two');
         expect(app.playback.contextPlaylistId, playlist.id);
         await tester.ensureVisible(field);
+        await tester.tap(field);
         await tester.enterText(field, 'missing track');
         await tester.pumpAndSettle();
         expect(find.text('Ничего не найдено'), findsOneWidget);

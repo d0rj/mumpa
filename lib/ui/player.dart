@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../data/file_location_service.dart';
 import '../domain/models.dart';
 import '../logic/app_controller.dart';
 import '../logic/playback_controller.dart';
 import 'components.dart';
 import 'theme.dart';
+
+part 'now_playing.dart';
 
 class PlayerBar extends StatelessWidget {
   const PlayerBar({super.key, required this.app, required this.compact});
@@ -365,8 +370,9 @@ class _Transport extends StatelessWidget {
 }
 
 class _SeekBar extends StatefulWidget {
-  const _SeekBar(this.player);
+  const _SeekBar(this.player, {this.expanded = false});
   final PlaybackController player;
+  final bool expanded;
   @override
   State<_SeekBar> createState() => _SeekBarState();
 }
@@ -383,23 +389,65 @@ class _SeekBarState extends State<_SeekBar> {
     final p = widget.player;
     final max = p.duration.inMilliseconds.toDouble();
     final value = drag ?? p.position.inMilliseconds.toDouble().clamp(0, max);
+    final slider = Semantics(
+      label: 'Позиция воспроизведения',
+      child: SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          activeTrackColor: accent,
+          inactiveTrackColor: const Color(0xFF566359),
+          disabledInactiveTrackColor: const Color(0xFF3C4740),
+          trackHeight: widget.expanded ? 6 : 3,
+          thumbColor: accent,
+          thumbShape: RoundSliderThumbShape(
+            enabledThumbRadius: widget.expanded ? 7 : 5,
+          ),
+        ),
+        child: Slider(
+          key: widget.expanded ? const ValueKey('now-playing-seek') : null,
+          value: max > 0 ? value.clamp(0, max) : 0,
+          max: max > 0 ? max : 1,
+          semanticFormatterCallback: (value) =>
+              formatTime(Duration(milliseconds: value.toInt())),
+          onChanged: max > 0 ? (value) => setState(() => drag = value) : null,
+          onChangeEnd: max > 0
+              ? (value) {
+                  p.seek(Duration(milliseconds: value.toInt()));
+                  setState(() => drag = null);
+                }
+              : null,
+        ),
+      ),
+    );
+    if (widget.expanded) {
+      return Column(
+        children: [
+          slider,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  formatTime(Duration(milliseconds: value.toInt())),
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+                Text(
+                  formatTime(p.duration),
+                  style: const TextStyle(color: muted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     return Row(
       children: [
         Text(
           formatTime(Duration(milliseconds: value.toInt())),
           style: const TextStyle(color: muted, fontSize: 10),
         ),
-        Expanded(
-          child: Slider(
-            value: max > 0 ? value.clamp(0, max) : 0,
-            max: max > 0 ? max : 1,
-            onChanged: max > 0 ? (value) => setState(() => drag = value) : null,
-            onChangeEnd: (value) {
-              p.seek(Duration(milliseconds: value.toInt()));
-              setState(() => drag = null);
-            },
-          ),
-        ),
+        Expanded(child: slider),
         Text(
           formatTime(p.duration),
           style: const TextStyle(color: muted, fontSize: 10),
@@ -414,6 +462,7 @@ Future<void> showNowPlaying(
   AppController app, {
   int tab = 0,
 }) async {
+  FocusManager.instance.primaryFocus?.unfocus();
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -527,181 +576,6 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
       ],
     ),
   );
-}
-
-class _NowPlaying extends StatelessWidget {
-  const _NowPlaying(this.app);
-  final AppController app;
-  @override
-  Widget build(BuildContext context) {
-    final p = app.playback;
-    final t = p.current;
-    return LayoutBuilder(
-      builder: (context, c) {
-        final artworkSize = math
-            .min(
-              (c.maxHeight * .5).clamp(150, 340),
-              math.min(420, c.maxWidth - 48).clamp(0, 420),
-            )
-            .toDouble();
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: TrackArtwork(
-                      app: app,
-                      track: t,
-                      size: artworkSize,
-                      radius: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 26),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              t?.title ?? 'Выбери трек',
-                              maxLines: 2,
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 6),
-                            ArtistLink(
-                              artist: t?.artist ?? 'Музыка всегда рядом',
-                              onOpen: t == null
-                                  ? null
-                                  : () {
-                                      Navigator.pop(context);
-                                      app.openArtist(t.artist);
-                                    },
-                              style: const TextStyle(color: muted),
-                            ),
-                            if (t != null) ...[
-                              const SizedBox(height: 6),
-                              AlbumLink(
-                                key: const ValueKey('now-playing-album'),
-                                album: t.album,
-                                onOpen: () {
-                                  Navigator.pop(context);
-                                  app.openTrackAlbum(t);
-                                },
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      if (t != null)
-                        IconButton(
-                          onPressed: () => app.library.toggleLike(t.id),
-                          icon: Icon(
-                            app.library.isTrackLiked(t.id)
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
-                            color: accent,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _SeekBar(p),
-                  const SizedBox(height: 12),
-                  _Transport(p, large: true),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => p.setVolume(p.volume == 0 ? .8 : 0),
-                        tooltip: 'Без звука',
-                        icon: Icon(
-                          p.volume == 0
-                              ? Icons.volume_off_rounded
-                              : Icons.volume_up_rounded,
-                          color: muted,
-                        ),
-                      ),
-                      Expanded(
-                        child: Semantics(
-                          label: 'Громкость',
-                          child: Slider(
-                            key: const ValueKey('now-playing-volume'),
-                            value: p.volume.clamp(0, 1),
-                            semanticFormatterCallback: (value) =>
-                                '${(value * 100).round()}%',
-                            onChanged: p.setVolume,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      BadgePill(
-                        icon: t?.offline == true
-                            ? Icons.offline_bolt_rounded
-                            : Icons.wifi_rounded,
-                        label: t?.offline == true
-                            ? 'ЛОКАЛЬНЫЙ ФАЙЛ'
-                            : 'ТОРРЕНТ-ПОТОК',
-                      ),
-                      PopupMenuButton<int>(
-                        tooltip: 'Таймер сна',
-                        icon: Icon(
-                          Icons.bedtime_outlined,
-                          color: p.sleepUntil != null ? accent : muted,
-                          size: 22,
-                        ),
-                        onSelected: (minutes) => p.setSleep(
-                          minutes == 0 ? null : Duration(minutes: minutes),
-                        ),
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: 15,
-                            child: Text('Выключить через 15 мин'),
-                          ),
-                          PopupMenuItem(
-                            value: 30,
-                            child: Text('Выключить через 30 мин'),
-                          ),
-                          PopupMenuItem(
-                            value: 60,
-                            child: Text('Выключить через час'),
-                          ),
-                          PopupMenuItem(
-                            value: 0,
-                            child: Text('Отключить таймер'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (p.error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Text(
-                        p.error!,
-                        style: const TextStyle(
-                          color: Color(0xFFFF9292),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _Queue extends StatelessWidget {

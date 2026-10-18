@@ -18,6 +18,7 @@ import 'package:mumpa/domain/music_metadata.dart';
 import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/logic/playback_controller.dart';
 import 'package:mumpa/ui/app_screen.dart';
+import 'package:mumpa/ui/player.dart';
 
 import 'support.dart';
 
@@ -267,7 +268,7 @@ void main() {
         await _submit(tester);
         expect(fixture.requests.queries, [_query]);
         expect(fixture.app.page, AppPage.search);
-        expect(_input(tester).focusNode!.hasFocus, width >= 850);
+        expect(_input(tester).focusNode!.hasFocus, isFalse);
         await tester.pump(const Duration(milliseconds: 700));
         expect(fixture.requests.queries, [_query]);
         fixture.requests.complete(0);
@@ -341,6 +342,8 @@ void main() {
         await _submit(tester);
         expect(fixture.app.page, AppPage.library);
         expect(fixture.requests.queries, isEmpty);
+        await tester.tap(find.byKey(_globalKey));
+        await tester.pump();
         await tester.enterText(find.byKey(_globalKey), _query);
         await tester.pump(const Duration(milliseconds: 650));
         expect(fixture.app.page, AppPage.search);
@@ -358,5 +361,101 @@ void main() {
         await fixture.close(tester);
       }
     });
+  }
+
+  for (final width in [800.0, 1280.0]) {
+    for (final local in [false, true]) {
+      testWidgets(
+        'tablet search stays dismissed across routes and rebuilds ($width, local=$local)',
+        (tester) async {
+          _viewport(tester, width);
+          final fixture = await _fixture(tester);
+          try {
+            final app = fixture.app;
+            await tester.pumpWidget(MumpaApp(controller: app));
+            await tester.pumpAndSettle();
+            final field = find.byKey(local ? _localKey : _globalKey);
+            TextField input() =>
+                local ? tester.widget<TextField>(field) : _input(tester);
+            await tester.tap(field);
+            await tester.enterText(field, _query);
+            await tester.pump();
+            await tester.testTextInput.receiveAction(TextInputAction.search);
+            await tester.pump();
+            if (!local) {
+              fixture.requests.complete(0);
+              await tester.pumpAndSettle();
+            }
+            final node = input().focusNode!;
+            expect(node.hasFocus, isFalse);
+            expect(tester.testTextInput.isVisible, isFalse);
+            await tester.tap(field);
+            await tester.pump();
+            expect(node.hasFocus, isTrue);
+            unawaited(
+              showDialog<void>(
+                context: tester.element(field),
+                builder: (context) => AlertDialog(
+                  title: const Text('Проверка возврата фокуса'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Закрыть окно'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(node.hasFocus, isFalse);
+            app.setSort(LibrarySort.artist);
+            app.setLocalQuery('liked', 'background update');
+            await tester.pump();
+            await tester.tap(find.text('Закрыть окно'));
+            await tester.pumpAndSettle();
+            expect(
+              node.hasFocus,
+              isFalse,
+              reason: 'A route must not restore the remembered search',
+            );
+            expect(tester.testTextInput.isVisible, isFalse);
+            expect(input().controller!.text, _query);
+            await tester.tap(field);
+            await tester.pump();
+            unawaited(showNowPlaying(tester.element(field), app));
+            await tester.pumpAndSettle();
+            await tester.tap(find.byIcon(Icons.keyboard_arrow_down_rounded));
+            await tester.pumpAndSettle();
+            expect(node.hasFocus, isFalse);
+            expect(tester.testTextInput.isVisible, isFalse);
+            tester.view.physicalSize = Size(width == 800 ? 1280 : 800, 1000);
+            await tester.pumpAndSettle();
+            expect(node.hasFocus, isFalse);
+            expect(tester.testTextInput.isVisible, isFalse);
+            await tester.tap(
+              find.byKey(
+                local
+                    ? const ValueKey('local-search-library-clear')
+                    : const ValueKey('global-search-clear'),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(input().controller!.text, isEmpty);
+            expect(
+              node.hasFocus,
+              isFalse,
+              reason: 'Clearing a blurred field must not reopen the keyboard',
+            );
+            await tester.tap(field);
+            await tester.pump();
+            expect(node.hasFocus, isTrue);
+            expect(tester.testTextInput.isVisible, isTrue);
+            expect(tester.takeException(), isNull);
+          } finally {
+            await fixture.close(tester);
+          }
+        },
+      );
+    }
   }
 }

@@ -1,5 +1,25 @@
 # Mumpa verification — 2026-10-18
 
+## Adaptive Now Playing and explicit search focus — 1.2.24
+
+- **112 focused unit/widget tests passed; whole-project Dart analysis clean.**
+  Coverage includes player/lyrics, artist and album navigation, saved queues,
+  playlist selection, track variants, Home, playback and settings.
+- Player layout checked at 320×568, 390×844, 600×960, 800×1280, 1280×800 and
+  844×390, with an additional long-metadata/text-scale-1.8 case. Portrait checks
+  assert the remaining bottom gap and larger tablet artwork. Seek and volume
+  are exercised independently, including preserved playback position/volume.
+- Actual menu interaction adds a track to a saved playlist and favorites,
+  appends it to the queue and opens its album. Navigation preserves the selected
+  decoder and the queue snapshot except for explicitly requested queue edits.
+- Search focus tests at 800 px and 1280 px cover global and local fields,
+  submission, dialog/player dismissal, notifications, resizing, clearing and
+  tapping again. They check both focus ownership and virtual TextInput visibility.
+  Collection-search and original keyboard-shortcut/editing-state checks pass.
+- Screenshots: `test-output/now-playing-390x844.png`, `now-playing-800x1280.png`
+  and `now-playing-1280x800.png`. These are Flutter widget renderings; physical
+  tablet/IME behavior is a separate verification boundary. [Contract](NOW_PLAYING.md).
+
 ## Offline usage, Home shelves and device listening statistics — 1.2.23
 
 - **94 focused regression tests passed; one unrelated platform case skipped.**

@@ -6,6 +6,7 @@ import 'components.dart';
 import 'dialogs.dart';
 import 'pages.dart';
 import 'player.dart';
+import 'search_fields.dart';
 import 'theme.dart';
 
 class MumpaApp extends StatelessWidget {
@@ -32,17 +33,23 @@ class _AppScreenState extends State<AppScreen> {
   final _mouseButtons = <int, int>{};
   final _pageStorage = <int, PageStorageBucket>{};
   late final TextEditingController _globalQuery;
-  final _globalSearchFocus = FocusNode(debugLabel: 'global-search');
+  final _globalSearchFocus = SearchFocusNode(debugLabel: 'global-search');
+  late int _searchEntry;
   AppController get app => widget.app;
 
   @override
   void initState() {
     super.initState();
     _globalQuery = TextEditingController(text: app.query);
+    _searchEntry = app.navigationEntryId;
     app.addListener(_syncGlobalQuery);
   }
 
   void _syncGlobalQuery() {
+    if (_searchEntry != app.navigationEntryId) {
+      _searchEntry = app.navigationEntryId;
+      if (app.page != AppPage.search) _globalSearchFocus.dismiss();
+    }
     if (_globalQuery.text == app.query) return;
     _globalQuery.value = TextEditingValue(
       text: app.query,
@@ -95,7 +102,7 @@ class _AppScreenState extends State<AppScreen> {
         }
         if (HardwareKeyboard.instance.isControlPressed &&
             event.logicalKey == LogicalKeyboardKey.keyK) {
-          _globalSearchFocus.requestFocus();
+          _globalSearchFocus.activate();
           return KeyEventResult.handled;
         }
         final editing =
@@ -431,7 +438,7 @@ class _TopBar extends StatelessWidget {
   final AppController app;
   final bool desktop;
   final TextEditingController query;
-  final FocusNode searchFocus;
+  final SearchFocusNode searchFocus;
   @override
   Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.fromLTRB(desktop ? 26 : 10, 12, desktop ? 26 : 10, 8),
@@ -449,17 +456,20 @@ class _TopBar extends StatelessWidget {
             key: const ValueKey('music-search'),
             controller: query,
             focusNode: searchFocus,
+            onTap: searchFocus.activate,
+            onTapAlwaysCalled: true,
+            onTapOutside: (_) => searchFocus.dismiss(),
             textInputAction: TextInputAction.search,
             style: TextStyle(fontSize: desktop ? 13 : 12),
             onChanged: app.openGlobalSearch,
             onEditingComplete: () {},
             onFieldSubmitted: (value) {
+              searchFocus.dismiss();
               if (value.trim().isEmpty) return;
               if (app.page != AppPage.search || app.query != value) {
                 app.openGlobalSearch(value);
               }
               app.searchSources();
-              if (!desktop) searchFocus.unfocus();
             },
             decoration: InputDecoration(
               hintText: desktop
@@ -488,7 +498,6 @@ class _TopBar extends StatelessWidget {
                       tooltip: 'Очистить общий поиск',
                       onPressed: () {
                         app.setQuery('');
-                        searchFocus.requestFocus();
                       },
                       icon: const Icon(Icons.close_rounded, size: 18),
                       visualDensity: VisualDensity.compact,

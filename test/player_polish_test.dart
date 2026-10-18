@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/data/library_repository.dart';
@@ -17,6 +20,27 @@ import 'package:mumpa/ui/player.dart';
 import 'package:mumpa/ui/theme.dart';
 
 import 'support.dart';
+
+class _UiLibrary extends LibraryRepository {
+  _UiLibrary(super.root) : _ioZone = Zone.current;
+  final Zone _ioZone;
+  @override
+  Future<void> recordListen(String id, {String? playlistId}) =>
+      _ioZone.run(() => super.recordListen(id, playlistId: playlistId));
+  @override
+  Future<void> toggleLike(String id) => _ioZone.run(() => super.toggleLike(id));
+  @override
+  Future<void> addToPlaylist(String id, Iterable<String> tracks) =>
+      _ioZone.run(() => super.addToPlaylist(id, tracks));
+  @override
+  Future<void> setSetting(String key, dynamic value) =>
+      _ioZone.run(() => super.setSetting(key, value));
+}
+
+class _LongAudioBackend extends FakeAudioBackend {
+  @override
+  Duration get duration => const Duration(minutes: 4, seconds: 12);
+}
 
 class _Metadata extends MusicMetadataRepository {
   _Metadata(Directory root)
@@ -39,11 +63,18 @@ class _Metadata extends MusicMetadataRepository {
 }
 
 class _Downloads extends DownloadRepository {
-  _Downloads(super.library, super.torrents);
+  _Downloads(super.library, super.torrents) : _ioZone = Zone.current;
+  final Zone _ioZone;
   List<DownloadJob> statuses = [];
 
   @override
   List<DownloadJob> get jobs => List.unmodifiable(statuses);
+
+  @override
+  Future<void> removeOffline(Track track, {bool userRequested = false}) =>
+      _ioZone.run(
+        () => super.removeOffline(track, userRequested: userRequested),
+      );
 
   void update(List<DownloadJob> jobs) {
     statuses = jobs;
@@ -106,10 +137,11 @@ class _Fixture {
 }
 
 Future<_Fixture> _fixture(
-  WidgetTester tester,
-) async => (await tester.runAsync(() async {
+  WidgetTester tester, {
+  AudioBackend? backend,
+}) async => (await tester.runAsync(() async {
   final root = await Directory.systemTemp.createTemp('mumpa-player-polish-');
-  final library = LibraryRepository(root);
+  final library = _UiLibrary(root);
   await library.load();
   final audio = await File('${root.path}/track.mp3').writeAsBytes([1]);
   final art = await File('${root.path}/cover.png').writeAsBytes(
@@ -121,7 +153,7 @@ Future<_Fixture> _fixture(
   final playback = PlaybackController(
     library: library,
     torrents: torrents,
-    backend: FakeAudioBackend(),
+    backend: backend ?? FakeAudioBackend(),
   );
   await playback.initialize(platformAudio: false);
   final downloads = _Downloads(library, torrents);
@@ -148,6 +180,7 @@ Future<_Fixture> _fixture(
 }))!;
 
 Widget _host(Widget body) => MaterialApp(
+  debugShowCheckedModeBanner: false,
   theme: mumpaTheme(),
   home: Scaffold(body: body),
 );
@@ -160,6 +193,7 @@ void _viewport(WidgetTester tester, double width) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   for (final compact in [false, true]) {
     testWidgets(
       'position updates timeline without rebuilding player artwork ($compact)',
@@ -322,6 +356,260 @@ void main() {
       await f.close(tester);
     }
   });
+
+  for (final size in [
+    const Size(320, 568),
+    const Size(390, 844),
+    const Size(600, 960),
+    const Size(800, 1280),
+    const Size(1280, 800),
+    const Size(844, 390),
+  ]) {
+    testWidgets('now-playing uses the viewport and readable controls at $size', (
+      tester,
+    ) async {
+      final f = await _fixture(tester, backend: _LongAudioBackend());
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      try {
+        await (FontLoader(
+          'Manrope',
+        )..addFont(rootBundle.load('assets/fonts/Manrope.ttf'))).load();
+        await (FontLoader(
+          'MaterialIcons',
+        )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+        await tester.runAsync(() async {
+          final track = f
+              .track('portrait', offline: true)
+              .copyWith(
+                title: 'Свет в окнах',
+                artist: 'Северный ветер и гости',
+                album: 'Вечерние истории',
+              );
+          await f.library.upsert([track]);
+          await f.playback.playTracks([track]);
+          await f.playback.pause();
+          await f.playback.seek(const Duration(seconds: 36));
+        });
+        final boundary = GlobalKey();
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: boundary,
+            child: _host(PlayerBar(app: f.app, compact: size.width < 850)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        unawaited(
+          showNowPlaying(tester.element(find.byType(PlayerBar)), f.app),
+        );
+        await tester.pumpAndSettle();
+        final cover = find.byKey(const ValueKey('now-playing-cover'));
+        final artist = find.byKey(const ValueKey('now-playing-artist'));
+        final album = find.byKey(const ValueKey('now-playing-album'));
+        final viewport = find.byKey(const ValueKey('now-playing-scroll'));
+        expect(
+          tester.getSize(cover).width,
+          closeTo(tester.getSize(cover).height, .1),
+        );
+        for (final link in [artist, album]) {
+          expect(tester.getSize(link).height, greaterThanOrEqualTo(48));
+        }
+        expect(
+          find.byKey(const ValueKey('now-playing-album-disc')),
+          findsOneWidget,
+        );
+        final seek = find.byKey(const ValueKey('now-playing-seek'));
+        final volume = find.byKey(const ValueKey('now-playing-volume'));
+        final seekTheme = tester
+            .widget<SliderTheme>(
+              find.ancestor(of: seek, matching: find.byType(SliderTheme)).first,
+            )
+            .data;
+        final volumeTheme = tester
+            .widget<SliderTheme>(
+              find
+                  .ancestor(of: volume, matching: find.byType(SliderTheme))
+                  .first,
+            )
+            .data;
+        expect(seekTheme.activeTrackColor, isNot(volumeTheme.activeTrackColor));
+        expect(seekTheme.inactiveTrackColor, isNot(seekTheme.activeTrackColor));
+        expect(
+          volumeTheme.inactiveTrackColor,
+          isNot(volumeTheme.activeTrackColor),
+        );
+        if (size.height >= 960 && size.width < size.height) {
+          final bottomGap =
+              tester.getRect(viewport).bottom -
+              tester
+                  .getRect(find.byKey(const ValueKey('now-playing-status')))
+                  .bottom;
+          expect(bottomGap, inInclusiveRange(0, 28));
+        }
+        if (size == const Size(800, 1280)) {
+          expect(tester.getSize(cover).width, greaterThan(440));
+        }
+        expect(tester.takeException(), isNull);
+        if (size.width == 390 || size.width == 800 || size.width == 1280) {
+          await tester.runAsync(() async {
+            final pixels =
+                await (boundary.currentContext!.findRenderObject()!
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final png = await pixels.toByteData(format: ui.ImageByteFormat.png);
+            await Directory('test-output').create();
+            await File(
+              'test-output/now-playing-${size.width.toInt()}x${size.height.toInt()}.png',
+            ).writeAsBytes(png!.buffer.asUint8List());
+            pixels.dispose();
+          });
+        }
+        await tester.ensureVisible(volume);
+        await tester.runAsync(() async {
+          tester.widget<Slider>(volume).onChanged!(.3);
+          await f.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(f.playback.volume, .3);
+        expect(f.playback.position, const Duration(seconds: 36));
+        expect(find.text('30%'), findsOneWidget);
+        await tester.ensureVisible(seek);
+        tester.widget<Slider>(seek).onChanged!(60000);
+        await tester.pump();
+        await tester.runAsync(() async {
+          tester.widget<Slider>(seek).onChangeEnd!(60000);
+          await f.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(f.playback.position, const Duration(minutes: 1));
+        expect(f.playback.volume, .3);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await f.close(tester);
+      }
+    });
+  }
+
+  testWidgets(
+    'now-playing menu saves a track without replacing the playing queue',
+    (tester) async {
+      final f = await _fixture(tester);
+      _viewport(tester, 800);
+      try {
+        late MusicPlaylist target;
+        late Track track;
+        await tester.runAsync(() async {
+          track = f.track('actions', offline: true);
+          await f.library.upsert([track, f.track('next', offline: true)]);
+          target = await f.library.createPlaylist('Для прогулок');
+          await f.playback.playTracks(f.library.tracks);
+          await f.playback.pause();
+        });
+        final queue = f.playback.queue.map((t) => t.id).toList();
+        final opened = (f.playback.backend as FakeAudioBackend).opened;
+        await tester.pumpWidget(_host(PlayerBar(app: f.app, compact: true)));
+        await tester.pumpAndSettle();
+        unawaited(
+          showNowPlaying(tester.element(find.byType(PlayerBar)), f.app),
+        );
+        await tester.pumpAndSettle();
+        Future<void> menu() async {
+          final actions = find.byKey(const ValueKey('now-playing-actions'));
+          await tester.ensureVisible(actions);
+          await tester.tap(actions);
+          await tester.pumpAndSettle();
+        }
+
+        await menu();
+        await tester.tap(find.text('Добавить в плейлист'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(target.name));
+        await tester.pumpAndSettle();
+        await tester.runAsync(f.library.flush);
+        await tester.pumpAndSettle();
+        expect(f.library.playlistById(target.id)!.trackIds, [track.id]);
+        expect(find.byType(TabBar), findsOneWidget);
+        await menu();
+        await tester.tap(find.text('В любимое'));
+        await tester.pumpAndSettle();
+        await tester.runAsync(f.library.flush);
+        expect(f.library.isTrackLiked(track.id), isTrue);
+        expect(f.playback.queue.map((t) => t.id), queue);
+        expect((f.playback.backend as FakeAudioBackend).opened, opened);
+      await menu();
+      await tester.tap(find.text('В конец очереди'));
+      await tester.pumpAndSettle();
+      await tester.runAsync(f.library.flush);
+      queue.add(track.id);
+      expect(f.playback.queue.map((t) => t.id), queue);
+      expect(f.playback.current!.id, track.id);
+        await menu();
+        await tester.tap(find.text('Перейти к альбому'));
+        await tester.pumpAndSettle();
+        expect(f.app.page, AppPage.album);
+        expect(find.byType(TabBar), findsNothing);
+        expect(f.playback.queue.map((t) => t.id), queue);
+        expect((f.playback.backend as FakeAudioBackend).opened, opened);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await f.close(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'now-playing scrolls long metadata at large text size without overflow',
+    (tester) async {
+      final f = await _fixture(tester);
+      _viewport(tester, 390);
+      try {
+        await tester.runAsync(
+          () => f.select(
+            f
+                .track('large-text')
+                .copyWith(
+                  title:
+                      'Очень длинное название трека с дополнительным описанием',
+                  artist: 'Первый исполнитель и вторая музыкальная группа',
+                  album: 'Большой сборник песен с очень длинным названием',
+                ),
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: mumpaTheme(),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.8)),
+              child: child!,
+            ),
+            home: Scaffold(body: PlayerBar(app: f.app, compact: true)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        unawaited(
+          showNowPlaying(tester.element(find.byType(PlayerBar)), f.app),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('now-playing-volume')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .getSize(find.byKey(const ValueKey('now-playing-artist')))
+              .height,
+          greaterThanOrEqualTo(48),
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        await f.close(tester);
+      }
+    },
+  );
 
   testWidgets('album columns keep their position across download states', (
     tester,
