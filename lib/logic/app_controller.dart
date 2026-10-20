@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../data/download_repository.dart';
 import '../data/app_update_service.dart';
 import '../data/library_repository.dart';
+import '../data/profile_transfer.dart';
 import '../data/jackett_service.dart';
 import '../data/flaresolverr_service.dart';
 import '../data/rutracker_service.dart';
@@ -1384,6 +1388,71 @@ class AppController extends ChangeNotifier {
       );
       message = 'Добавлено треков: ${imported.length}';
       navigate(AppPage.library);
+    });
+  }
+
+  Future<void> exportProfile() async {
+    await run('Сохраняем профиль…', () async {
+      await playback.saveSession();
+      final contents = await library.exportProfile();
+      final day = DateTime.now().toIso8601String().substring(0, 10);
+      final location = await FilePicker.saveFile(
+        fileName: 'mumpa-profile-$day.json',
+        bytes: Uint8List.fromList(utf8.encode(contents)),
+        mimeType: 'application/json',
+        dialogTitle: 'Сохранить профиль Mumpa',
+      );
+      if (location != null) {
+        message =
+            'Профиль сохранён. Перенеси файл на другое устройство и импортируй его в Mumpa.';
+      }
+    });
+  }
+
+  Future<ProfileTransfer?> pickProfile() =>
+      run<ProfileTransfer?>('Читаем профиль…', () async {
+        final file = await FilePicker.pickFile(
+          dialogTitle: 'Импортировать профиль Mumpa',
+          type: FileType.custom,
+          allowedExtensions: const ['json'],
+        );
+        if (file == null) return null;
+        if ((await file.length() ?? 0) > ProfileTransfer.maxBytes) {
+          throw const FormatException('Файл профиля больше 64 МБ.');
+        }
+        final bytes = BytesBuilder(copy: false);
+        await for (final chunk in file.readAsByteStream()) {
+          if (bytes.length + chunk.length > ProfileTransfer.maxBytes) {
+            throw const FormatException('Файл профиля больше 64 МБ.');
+          }
+          bytes.add(chunk);
+        }
+        final contents = utf8.decode(bytes.takeBytes());
+        return Isolate.run(() => ProfileTransfer.decode(contents));
+      });
+
+  Future<void> importProfile(
+    ProfileTransfer transfer, {
+    bool includeSettings = true,
+  }) async {
+    await run('Импортируем профиль…', () async {
+      // Preserve the currently visible queue before merging saved sessions.
+      await playback.saveSession();
+      await library.importProfile(transfer, includeSettings: includeSettings);
+      if (includeSettings) {
+        await playback.restoreProfileSessionIfEmpty();
+        await playback.setVolume(
+          (library.settings['volume'] as num?)?.toDouble() ?? .8,
+        );
+        await downloads.setMaxConcurrentDownloads(
+          (library.settings['downloadConcurrency'] as int?) ?? 3,
+        );
+        await metadata.cache.setMaxBytes(
+          ((library.settings['metadataCacheMb'] as int?) ?? 256) * 1024 * 1024,
+        );
+      }
+      message =
+          'Профиль импортирован: ${transfer.favoriteCount} любимых треков, ${transfer.playlistCount} плейлистов. Данные объединены с медиатекой.';
     });
   }
 

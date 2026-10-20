@@ -1,4 +1,36 @@
-# Mumpa verification — 2026-10-19
+# Mumpa verification — 2026-10-20
+
+## Portable profile metadata
+
+Settings → «Перенос профиля» exports a versioned UTF-8 JSON document and imports
+it after a preview and confirmation. Transfers include track/source metadata,
+favorites (tracks/albums/playlists), playlist order, library membership, history,
+listening counts, matching preferences, and optional portable playback settings
+and saved queue. Audio, artwork, device paths and connection credentials are
+excluded. Torrent URLs become magnets containing only the infohash.
+
+Import merges with existing records and keeps their files, names and playlist
+order; missing playlist entries are appended and counts use max. A full private
+snapshot is retained under `backups/before-profile-import/` before applying data.
+Repeated import is idempotent. Invalid references, duplicate/unsafe IDs, malformed
+preferences and unsupported versions are rejected. Files are limited to 64 MiB,
+including streamed Android document-provider reads without filesystem paths.
+Unique local-file metadata/size matches can reattach imported audio to saved IDs.
+
+Automated coverage includes empty-profile restore and restart, existing-library
+merge, repeated import, preservation of target audio, local-file reattachment,
+queue duplicates/selection/position without opening audio, settings opt-out,
+invalid/edited documents, and failures before/after primary snapshot publication.
+Widget checks cover the picker interface with content URIs, cancellation/error,
+import preview/confirmation at 320 px and lazy settings sections at 320/1200 px.
+The real profile metadata was transferred twice into an isolated temporary
+profile and the source file was verified byte-for-byte unchanged.
+
+Validation logs: `test-output/profile-transfer-full-tests.log` and
+`test-output/profile-transfer-analyze.log`: 557 tests passed, five opt-in checks
+skipped; analyzer reports no issues. The real-profile checks passed separately
+with `MUMPA_PROFILE_AUDIT`. This change has no new release,
+installed-app validation or physical Android picker test.
 
 ## Small-cover alignment and Pause/Resume
 

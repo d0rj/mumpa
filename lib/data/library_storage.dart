@@ -94,12 +94,16 @@ class LibraryStorage {
     return null;
   }
 
-  Future<void> save(String contents) async {
+  void checkWritable() {
     if (_unrecoverable) {
       throw const FileSystemException(
         'Библиотека повреждена. Сохранение остановлено для защиты исходных данных.',
       );
     }
+  }
+
+  Future<void> save(String contents) async {
+    checkWritable();
     final temporary = File('${primary.path}.tmp');
     if (_recoveryContents case final String recovered) {
       await File('${primary.path}.bak').writeAsString(recovered, flush: true);

@@ -14,8 +14,10 @@ import '../domain/collection_filter.dart';
 import '../domain/track_matching.dart';
 import 'library_views.dart';
 import 'library_storage.dart';
+import 'profile_transfer.dart';
 
 part 'library_metadata.dart';
+part 'library_profile_transfer.dart';
 
 Future<String> _encodeLibrarySnapshot(Map<String, dynamic> snapshot) {
   // Tiny profiles cost less to encode than starting and transferring an isolate.
@@ -119,6 +121,8 @@ class LibraryRepository extends ChangeNotifier {
   Set<String> _retainedTrackIds = {};
   Map<String, dynamic> _settings = {};
   Future<void> _writeTail = Future.value();
+  int _saveSequence = 0;
+  bool _profileImporting = false;
   String? loadWarning;
   List<Track> get tracks => _trackSnapshot ??= List.unmodifiable(_tracks);
   List<MusicPlaylist> get playlists => _currentViews.playlists;
@@ -390,25 +394,28 @@ class LibraryRepository extends ChangeNotifier {
     return changed;
   }
 
+  Map<String, dynamic> _snapshot() => {
+    'version': 1,
+    'tracks': _tracks.map((t) => t.toJson()).toList(),
+    'playlists': _playlists.map((t) => t.toJson()).toList(),
+    'liked': _liked.toList(),
+    'likedPlaylists': _likedPlaylists.toList(),
+    'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
+    'recent': List<String>.of(_recent),
+    'trackPlayCounts': Map<String, int>.of(_trackPlayCounts),
+    'playlistPlayCounts': Map<String, int>.of(_playlistPlayCounts),
+    'retainedTrackIds': _retainedTrackIds.toList(),
+    'settings': Map<String, dynamic>.of(_settings),
+    'trackMatchExcluded': _matchExcluded.toList(),
+    'preferredTrackVariants': _preferredVariants.toList(),
+  };
+
   Future<void> _save() {
+    _saveSequence++;
     // markPlayed/settings mutate before awaiting disk I/O and notifying.
     _views = null;
     _topTracksPlaylist = null;
-    final snapshot = <String, dynamic>{
-      'version': 1,
-      'tracks': _tracks.map((t) => t.toJson()).toList(),
-      'playlists': _playlists.map((t) => t.toJson()).toList(),
-      'liked': _liked.toList(),
-      'likedPlaylists': _likedPlaylists.toList(),
-      'likedAlbums': _likedAlbums.map((ids) => ids.toList()).toList(),
-      'recent': List<String>.of(_recent),
-      'trackPlayCounts': Map<String, int>.of(_trackPlayCounts),
-      'playlistPlayCounts': Map<String, int>.of(_playlistPlayCounts),
-      'retainedTrackIds': _retainedTrackIds.toList(),
-      'settings': Map<String, dynamic>.of(_settings),
-      'trackMatchExcluded': _matchExcluded.toList(),
-      'preferredTrackVariants': _preferredVariants.toList(),
-    };
+    final snapshot = _snapshot();
     final next = _writeTail.catchError((Object _) {}).then((_) async {
       final contents = await _encodeLibrarySnapshot(snapshot);
       await _storage.save(contents);
@@ -763,8 +770,15 @@ class LibraryRepository extends ChangeNotifier {
       }
       progress?.call(i + 1, files.length);
     }
-    await upsert(imported);
-    return imported;
+    // Metadata-only profile transfers keep IDs used by favorites/playlists.
+    // Reattach a uniquely matching local file instead of adding a second row.
+    final claimed = <String>{};
+    final restored = [
+      for (final track in imported)
+        _reattachTransferredLocalTrack(track, claimed),
+    ];
+    await upsert(restored);
+    return restored;
   }
 
   Future<Track> inspect(

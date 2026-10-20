@@ -26,6 +26,11 @@ enum _SettingsSection {
     'Место для метаданных и обложек, очистка кеша',
     Icons.album_outlined,
   ),
+  profile(
+    'Перенос профиля',
+    'Экспорт и импорт избранного, плейлистов и настроек',
+    Icons.sync_alt_rounded,
+  ),
   windowsPlayer(
     'Плеер в Windows',
     'Кнопки мультимедиа, панель задач и работа в трее',
@@ -327,6 +332,7 @@ class _SettingsPageState extends State<SettingsPage> {
         _SettingsSection.torrent => _engineControls(),
         _SettingsSection.downloads => _downloadControls(),
         _SettingsSection.metadata => _metadataControls(),
+        _SettingsSection.profile => _profileControls(),
         _SettingsSection.windowsPlayer => _windowsControls(),
         _SettingsSection.about => _aboutControls(),
       }),
@@ -833,6 +839,115 @@ class _SettingsPageState extends State<SettingsPage> {
       ],
     ),
   ];
+
+  List<Widget> _profileControls() => [
+    const SectionTitle('Профиль на другом устройстве'),
+    const Text(
+      'Сохрани профиль в файл и открой его в Mumpa на другом устройстве. '
+      'В файл попадут любимые треки, альбомы, плейлисты и их порядок, '
+      'метаданные и источники музыки, история, статистика, выбранные версии треков, очередь и настройки плеера.',
+    ),
+    const SizedBox(height: 16),
+    const Text(
+      'Музыка и обложки в файл не входят. Торрент-треки можно скачать заново при наличии пиров. '
+      'Для локальной музыки сохраняются названия и избранное; сами файлы нужно перенести отдельно. '
+      'Адреса серверов, сетевой интерфейс, пароли и данные входа на новом устройстве настраиваются отдельно.',
+      style: TextStyle(color: muted, fontSize: 12),
+    ),
+    const SizedBox(height: 20),
+    Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        FilledButton.icon(
+          key: const ValueKey('export-profile'),
+          onPressed: widget.app.busy == null ? widget.app.exportProfile : null,
+          icon: const Icon(Icons.file_upload_outlined),
+          label: const Text('Экспортировать профиль'),
+        ),
+        OutlinedButton.icon(
+          key: const ValueKey('import-profile'),
+          onPressed: widget.app.busy == null ? _importProfile : null,
+          icon: const Icon(Icons.file_download_outlined),
+          label: const Text('Импортировать профиль'),
+        ),
+      ],
+    ),
+    const SizedBox(height: 16),
+    const Text(
+      'Импорт объединяет данные с текущей медиатекой. Существующие треки, '
+      'локальные файлы и порядок в плейлистах сохраняются. '
+      'Перед импортом автоматически создаётся резервная копия профиля.',
+      style: TextStyle(color: muted, fontSize: 12),
+    ),
+  ];
+
+  Future<void> _importProfile() async {
+    final transfer = await widget.app.pickProfile();
+    if (transfer == null || !mounted) return;
+    var includeSettings = true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (_, setDialogState) => AlertDialog(
+          title: const Text('Импортировать профиль?'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Треков: ${transfer.trackCount}\n'
+                  'Любимых треков: ${transfer.favoriteCount}\n'
+                  'Любимых альбомов: ${transfer.albumCount}\n'
+                  'Плейлистов и коллекций: ${transfer.playlistCount}',
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Данные будут добавлены к текущей медиатеке. '
+                  'Повторный импорт не создаёт дубликатов. '
+                  'Текущая очередь воспроизведения сохранится.',
+                ),
+                if (transfer.localTrackCount > 0) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Локальных треков без аудиофайлов: ${transfer.localTrackCount}. '
+                    'Для прослушивания потребуется отдельно добавить музыку.',
+                  ),
+                ],
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Перенести настройки плеера'),
+                  subtitle: const Text(
+                    'Сохранённая очередь восстановится, если текущая пуста.',
+                  ),
+                  value: includeSettings,
+                  onChanged: (value) =>
+                      setDialogState(() => includeSettings = value ?? true),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Импортировать'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await widget.app.importProfile(
+        transfer,
+        includeSettings: includeSettings,
+      );
+    }
+  }
 
   List<Widget> _aboutControls() => [
     AppUpdatePanel(

@@ -344,6 +344,14 @@ class PlaybackController extends ChangeNotifier {
     await backend.setVolume(
       (library.settings['volume'] as num?)?.toDouble() ?? 0.8,
     );
+    _restoreSavedSession();
+  }
+
+  Future<void> restoreProfileSessionIfEmpty() async {
+    if (queue.isEmpty) _restoreSavedSession();
+  }
+
+  void _restoreSavedSession() {
     final session = library.settings['playback'];
     if (session is Map) {
       final ids = List<String>.from(

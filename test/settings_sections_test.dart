@@ -1,10 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/testing.dart';
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/data/library_repository.dart';
+import 'package:mumpa/data/profile_transfer.dart';
+import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/data/media_cache.dart';
 import 'package:mumpa/data/music_metadata_repository.dart';
 import 'package:mumpa/data/torrent_service.dart';
@@ -28,6 +33,12 @@ class _SettingsApp extends AppController {
   });
 
   int cacheReads = 0, networkReads = 0;
+  ProfileTransfer? transferToPick;
+  bool mockProfilePicker = false;
+
+  @override
+  Future<ProfileTransfer?> pickProfile() =>
+      mockProfilePicker ? Future.value(transferToPick) : super.pickProfile();
 
   @override
   Future<void> refreshMetadataCache() async {
@@ -40,6 +51,56 @@ class _SettingsApp extends AppController {
   }
 
   void unrelatedNotification() => notifyListeners();
+}
+
+final class _ProfileFile extends PlatformFile {
+  _ProfileFile(this.data);
+  final Uint8List data;
+  @override
+  String get name => 'mumpa-profile.json';
+  @override
+  Uri get uri => Uri.parse('content://documents/profile');
+  @override
+  Future<int?> length() async => null;
+  @override
+  Stream<Uint8List> readAsByteStream() => Stream.value(data);
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _ProfilePicker extends FilePickerPlatform {
+  Uint8List? saved;
+  PlatformFile? selected;
+  @override
+  Future<Uri?> saveFile({
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+    String? dialogTitle,
+    String? initialDirectory,
+    Function(FilePickerStatus)? onFileSaving,
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async {
+    saved = bytes;
+    return Uri.parse('content://documents/saved');
+  }
+
+  @override
+  Future<PlatformFile?> pickFile({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => selected;
 }
 
 class _Fixture {
@@ -134,11 +195,123 @@ const _sectionIds = [
   'torrent',
   'downloads',
   'metadata',
+  'profile',
   'windowsPlayer',
   'about',
 ];
 
 void main() {
+  testWidgets(
+    'profile picker saves bytes and reads content URIs, cancellation and errors',
+    (tester) async {
+      final fixture = await _fixture(tester);
+      addTearDown(() => fixture.close(tester));
+      final picker = _ProfilePicker();
+      final originalPicker = FilePickerPlatform.instance;
+      FilePickerPlatform.instance = picker;
+      addTearDown(() => FilePickerPlatform.instance = originalPicker);
+      final app = fixture.app;
+      await tester.runAsync(() async {
+        await app.library.upsert([
+          const Track(
+            id: 'transfer',
+            title: 'Трек',
+            artist: 'Автор',
+            album: 'Альбом',
+            source: TrackSource.local,
+          ),
+        ]);
+        await app.library.toggleLike('transfer');
+        await app.exportProfile();
+        expect(app.error, isNull);
+        expect(
+          ProfileTransfer.decode(utf8.decode(picker.saved!)).favoriteCount,
+          1,
+        );
+        expect(await app.pickProfile(), isNull);
+        expect(app.error, isNull);
+        picker.selected = _ProfileFile(picker.saved!);
+        final transfer = await app.pickProfile();
+        expect(transfer!.favoriteCount, 1);
+        await app.library.toggleLike('transfer');
+        await app.importProfile(transfer);
+        expect(app.library.isTrackLiked('transfer'), isTrue);
+        expect(app.error, isNull);
+        picker.selected = _ProfileFile(
+          Uint8List.fromList(utf8.encode('{broken')),
+        );
+        expect(await app.pickProfile(), isNull);
+        expect(app.error, isNotNull);
+        expect(app.library.isTrackLiked('transfer'), isTrue);
+        expect(fixture.httpRequests, 0);
+        expect(fixture.engineStarts, 0);
+      });
+    },
+  );
+
+  testWidgets(
+    'profile import preview can cancel and confirm without starting audio',
+    (tester) async {
+      final fixture = await _fixture(tester);
+      addTearDown(() => fixture.close(tester));
+      final app = fixture.app;
+      app.mockProfilePicker = true;
+      await tester.runAsync(() async {
+        final donor = LibraryRepository(
+          Directory('${fixture.root.path}/donor'),
+        );
+        await donor.load();
+        await donor.upsert([
+          const Track(
+            id: 'saved-track',
+            title: 'Песня',
+            artist: 'Автор',
+            album: 'Альбом',
+            source: TrackSource.local,
+          ),
+        ]);
+        await donor.toggleLike('saved-track');
+        app.transferToPick = ProfileTransfer.decode(
+          await donor.exportProfile(),
+        );
+        donor.dispose();
+      });
+      await _mount(tester, app, const Size(320, 568));
+      app.setSettingsSection('profile');
+      await tester.pumpAndSettle();
+      final button = find.byKey(const ValueKey('import-profile'));
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.runAsync(() => tester.tap(button));
+      await tester.pumpAndSettle();
+      expect(find.text('Импортировать профиль?'), findsOneWidget);
+      expect(find.textContaining('Любимых треков: 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+      expect(app.library.favoriteTracks, isEmpty);
+      await tester.runAsync(() => tester.tap(button));
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Импортировать'));
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+        while (app.busy != null) {
+          if (DateTime.now().isAfter(deadline)) {
+            throw StateError('Profile import stalled');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+      await tester.pumpAndSettle();
+      expect(app.library.favoriteTracks.single.id, 'saved-track');
+      expect(app.error, isNull);
+      expect(app.playback.queue, isEmpty);
+      expect(fixture.httpRequests, 0);
+      expect(fixture.engineStarts, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final size in [const Size(320, 568), const Size(1200, 850)]) {
     testWidgets(
       'radio opt-in persists and fits $size without background work',
