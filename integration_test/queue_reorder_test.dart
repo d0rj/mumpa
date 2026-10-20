@@ -1,5 +1,6 @@
 // Opt-in Windows proof using original local WAV files and the real libmpv.
 // No production profile, torrent engine or external metadata is accessed.
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -153,7 +154,7 @@ Future<void> _mouseDrag(
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const enabled = bool.fromEnvironment('QUEUE_REORDER_TEST');
-  if (enabled && Platform.isWindows) MediaKit.ensureInitialized();
+  if (enabled && Platform.isWindows) initializeAudioRuntime();
   testWidgets(
     'native queue drags retain decoder position and change the next successor',
     (tester) async {

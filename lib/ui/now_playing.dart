@@ -20,7 +20,9 @@ class _NowPlaying extends StatelessWidget {
         final info = _NowPlayingInfo(app, compact: compact);
         final status = _NowPlayingStatus(app);
         final volume = _NowPlayingVolume(app.playback, compact: compact);
-        final error = app.playback.error;
+        final error = app.playback.error == null
+            ? null
+            : trMessage(app.playback.error!);
         final errorMessage = error == null
             ? null
             : Padding(
@@ -196,8 +198,8 @@ class _NowPlayingInfo extends StatelessWidget {
     final artist = _NowPlayingLink(
       key: const ValueKey('now-playing-artist'),
       compact: compact,
-      label: 'Исполнитель',
-      title: track?.artist ?? 'Музыка всегда рядом',
+      label: tr("Исполнитель"),
+      title: track?.artist ?? tr("Музыка всегда рядом"),
       leading: const Icon(
         Icons.person_outline_rounded,
         color: Color(0xFFB9C9BE),
@@ -209,8 +211,8 @@ class _NowPlayingInfo extends StatelessWidget {
     final album = _NowPlayingLink(
       key: const ValueKey('now-playing-album'),
       compact: compact,
-      label: 'Альбом',
-      title: track?.album ?? 'Выбери музыку',
+      label: tr("Альбом"),
+      title: track?.album ?? tr("Выбери музыку"),
       leading: _DiscArtwork(app: app, track: track),
       onTap: track == null
           ? null
@@ -224,7 +226,7 @@ class _NowPlayingInfo extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                track?.title ?? 'Выбери трек',
+                track?.title ?? tr("Выбери трек"),
                 key: const ValueKey('now-playing-title'),
                 maxLines: compact ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
@@ -234,8 +236,8 @@ class _NowPlayingInfo extends StatelessWidget {
             if (track != null)
               IconButton(
                 tooltip: app.library.isTrackLiked(track.id)
-                    ? 'Убрать из любимого'
-                    : 'В любимое',
+                    ? tr("Убрать из любимого")
+                    : tr("В любимое"),
                 onPressed: () => app.library.toggleLike(track.id),
                 icon: Icon(
                   app.library.isTrackLiked(track.id)
@@ -402,7 +404,9 @@ class _NowPlayingVolume extends StatelessWidget {
         child: Row(
           children: [
             IconButton(
-              tooltip: player.volume == 0 ? 'Включить звук' : 'Без звука',
+              tooltip: player.volume == 0
+                  ? tr("Включить звук")
+                  : tr("Без звука"),
               onPressed: () => player.setVolume(player.volume == 0 ? .8 : 0),
               icon: Icon(
                 player.volume == 0
@@ -436,7 +440,7 @@ class _NowPlayingVolume extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: player.volume == 0 ? 'Включить звук' : 'Без звука',
+            tooltip: player.volume == 0 ? tr("Включить звук") : tr("Без звука"),
             onPressed: () => player.setVolume(player.volume == 0 ? .8 : 0),
             icon: Icon(
               player.volume == 0
@@ -454,8 +458,8 @@ class _NowPlayingVolume extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Громкость',
+                      Text(
+                        tr("Громкость"),
                         style: TextStyle(color: _volumeBlue, fontSize: 11),
                       ),
                       Text(
@@ -489,7 +493,7 @@ class _NowPlayingVolume extends StatelessWidget {
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
     ),
     child: Semantics(
-      label: 'Громкость',
+      label: tr("Громкость"),
       child: Slider(
         key: const ValueKey('now-playing-volume'),
         value: player.volume.clamp(0, 1),
@@ -517,14 +521,14 @@ class _NowPlayingStatus extends StatelessWidget {
                 ? Icons.offline_bolt_rounded
                 : Icons.wifi_rounded,
             label: track == null
-                ? 'МУЗЫКА ВСЕГДА РЯДОМ'
+                ? tr("МУЗЫКА ВСЕГДА РЯДОМ")
                 : track.offline
-                ? 'ЛОКАЛЬНЫЙ ФАЙЛ'
-                : 'ТОРРЕНТ-ПОТОК',
+                ? tr("ЛОКАЛЬНЫЙ ФАЙЛ")
+                : tr("ТОРРЕНТ-ПОТОК"),
           ),
         ),
         PopupMenuButton<int>(
-          tooltip: 'Таймер сна',
+          tooltip: tr("Таймер сна"),
           icon: Icon(
             Icons.bedtime_outlined,
             color: player.sleepUntil != null ? accent : muted,
@@ -532,11 +536,11 @@ class _NowPlayingStatus extends StatelessWidget {
           ),
           onSelected: (minutes) =>
               player.setSleep(minutes == 0 ? null : Duration(minutes: minutes)),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 15, child: Text('Выключить через 15 мин')),
-            PopupMenuItem(value: 30, child: Text('Выключить через 30 мин')),
-            PopupMenuItem(value: 60, child: Text('Выключить через час')),
-            PopupMenuItem(value: 0, child: Text('Отключить таймер')),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 15, child: Text(tr("Выключить через 15 мин"))),
+            PopupMenuItem(value: 30, child: Text(tr("Выключить через 30 мин"))),
+            PopupMenuItem(value: 60, child: Text(tr("Выключить через час"))),
+            PopupMenuItem(value: 0, child: Text(tr("Отключить таймер"))),
           ],
         ),
       ],
@@ -582,7 +586,7 @@ class _NowPlayingMenu extends StatelessWidget {
 
     return PopupMenuButton<String>(
       key: const ValueKey('now-playing-actions'),
-      tooltip: 'Действия с треком',
+      tooltip: tr("Действия с треком"),
       constraints: const BoxConstraints(minWidth: 260, maxWidth: 340),
       icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
       onSelected: (action) async {
@@ -617,25 +621,27 @@ class _NowPlayingMenu extends StatelessWidget {
               app.reportError(error.message);
             } catch (_) {
               app.reportError(
-                'Не удалось открыть расположение трека в проводнике.',
+                tr("Не удалось открыть расположение трека в проводнике."),
               );
             }
           case 'removeCache':
             final confirmed = await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Удалить офлайн-копию?'),
-                content: const Text(
-                  'Трек сохранится в библиотеке и избранном, но для прослушивания потребуется сеть.',
+                title: Text(tr("Удалить офлайн-копию?")),
+                content: Text(
+                  tr(
+                    "Трек сохранится в библиотеке и избранном, но для прослушивания потребуется сеть.",
+                  ),
                 ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Отмена'),
+                    child: Text(tr("Отмена")),
                   ),
                   FilledButton(
                     onPressed: () => Navigator.pop(context, true),
-                    child: const Text('Удалить копию'),
+                    child: Text(tr("Удалить копию")),
                   ),
                 ],
               ),
@@ -646,50 +652,58 @@ class _NowPlayingMenu extends StatelessWidget {
         }
       },
       itemBuilder: (_) => [
-        _item('album', Icons.album_outlined, 'Перейти к альбому'),
+        _item('album', Icons.album_outlined, tr("Перейти к альбому")),
         if (hasArtistPage(latest.artist))
           _item(
             'artist',
             Icons.person_outline_rounded,
-            'Перейти к исполнителю',
+            tr("Перейти к исполнителю"),
           ),
         if (currentPlaylist != null)
           _item(
             'playlist',
             Icons.queue_music_rounded,
-            'Открыть плейлист «${currentPlaylist.name}»',
+            tr("Открыть плейлист «{0}»", [currentPlaylist.name]),
           ),
         if (collection != null && collection.id != currentPlaylist?.id)
           _item(
             'collection',
             Icons.library_music_outlined,
-            'Открыть коллекцию',
+            tr("Открыть коллекцию"),
           ),
         const PopupMenuDivider(),
-        _item('addPlaylist', Icons.playlist_add_rounded, 'Добавить в плейлист'),
+        _item(
+          'addPlaylist',
+          Icons.playlist_add_rounded,
+          tr("Добавить в плейлист"),
+        ),
         _item(
           'like',
           app.library.isTrackLiked(latest.id)
               ? Icons.favorite_rounded
               : Icons.favorite_border_rounded,
           app.library.isTrackLiked(latest.id)
-              ? 'Убрать из любимого'
-              : 'В любимое',
+              ? tr("Убрать из любимого")
+              : tr("В любимое"),
         ),
-        _item('next', Icons.playlist_play_rounded, 'Слушать следующим'),
-        _item('queue', Icons.queue_music_rounded, 'В конец очереди'),
+        _item('next', Icons.playlist_play_rounded, tr("Слушать следующим")),
+        _item('queue', Icons.queue_music_rounded, tr("В конец очереди")),
         const PopupMenuDivider(),
         if (latest.source == TrackSource.torrent && !latest.offline)
-          _item('download', Icons.download_rounded, 'Скачать для офлайн'),
+          _item('download', Icons.download_rounded, tr("Скачать для офлайн")),
         if (latest.cachedPath != null)
           _item(
             'removeCache',
             Icons.delete_outline_rounded,
-            'Удалить офлайн-копию',
+            tr("Удалить офлайн-копию"),
           ),
         if (FileLocationService.canReveal(app.library, latest))
-          _item('reveal', Icons.folder_open_rounded, 'Показать в проводнике'),
-        _item('copy', Icons.copy_rounded, 'Скопировать название'),
+          _item(
+            'reveal',
+            Icons.folder_open_rounded,
+            tr("Показать в проводнике"),
+          ),
+        _item('copy', Icons.copy_rounded, tr("Скопировать название")),
       ],
     );
   }

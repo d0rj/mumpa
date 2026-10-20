@@ -1,12 +1,12 @@
 // Opt-in native verification against the user's already configured Jackett.
 // Reads credentials locally; never includes URLs, cookies or keys in evidence.
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:mumpa/main.dart';
 import 'package:mumpa/ui/app_screen.dart';
@@ -14,7 +14,7 @@ import 'package:mumpa/logic/app_controller.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  initializeAudioRuntime();
   testWidgets(
     'real RuTracker search opens a persistent playable collection',
     (tester) async {

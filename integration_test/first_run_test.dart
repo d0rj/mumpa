@@ -1,3 +1,4 @@
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -6,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:mumpa/main.dart';
 import 'package:mumpa/logic/app_controller.dart';
@@ -14,7 +14,7 @@ import 'package:mumpa/ui/app_screen.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  initializeAudioRuntime();
   testWidgets(
     'fresh install catalogue and preserved Windows favorites',
     (tester) async {

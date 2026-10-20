@@ -61,7 +61,7 @@ class ArtistLink extends StatelessWidget {
     final open = hasArtistPage(artist) ? onOpen : null;
     return Semantics(
       button: open != null,
-      label: open == null ? null : 'Исполнитель $artist',
+      label: open == null ? null : tr("Исполнитель {0}", [artist]),
       child: InkWell(
         onTap: open,
         borderRadius: BorderRadius.circular(3),
@@ -94,9 +94,9 @@ class AlbumLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Открыть альбом $album',
+    label: tr("Открыть альбом {0}", [album]),
     child: Tooltip(
-      message: 'Перейти к альбому',
+      message: tr("Перейти к альбому"),
       child: InkWell(
         onTap: onOpen,
         borderRadius: BorderRadius.circular(3),
@@ -328,7 +328,7 @@ class _PlayingIndicatorState extends State<PlayingIndicator>
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: widget.playing ? 'Сейчас играет' : 'На паузе',
+    label: widget.playing ? tr("Сейчас играет") : tr("На паузе"),
     child: SizedBox.square(
       dimension: widget.size,
       child: RepaintBoundary(

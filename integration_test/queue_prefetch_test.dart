@@ -1,4 +1,5 @@
 // Isolated loopback transfers and real libmpv decoding; no public swarm/profile.
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -53,7 +54,7 @@ class _LoopbackSource extends TorrentService {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const enabled = bool.fromEnvironment('QUEUE_PREFETCH_NATIVE');
-  if (enabled && Platform.isWindows) MediaKit.ensureInitialized();
+  if (enabled && Platform.isWindows) initializeAudioRuntime();
   testWidgets(
     'native queue prefetch survives failed stream and uses completed file',
     (tester) async {

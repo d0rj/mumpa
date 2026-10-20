@@ -13,22 +13,24 @@ class _DownloadsPage extends StatelessWidget {
     return _PageBody(
       children: [
         SectionTitle(
-          'С тобой без интернета',
-          subtitle:
-              '${app.offlineTracks.length} скачанных треков · ${formatBytes(app.offlineTracks.fold<int>(0, (a, t) => a + t.bytes))}',
+          tr("С тобой без интернета"),
+          subtitle: tr("{0} скачанных треков · {1}", [
+            app.offlineTracks.length,
+            formatBytes(app.offlineTracks.fold<int>(0, (a, t) => a + t.bytes)),
+          ]),
         ),
         if (Platform.isWindows)
           SelectableText(
-            'Папка загрузок: ${app.library.downloads.path}',
+            tr("Папка загрузок: {0}", [app.library.downloads.path]),
             style: const TextStyle(fontSize: 11, color: muted),
           ),
         LocalSearchField(
           app: app,
           scope: 'downloads',
-          hint: 'Поиск в офлайн-музыке и загрузках',
+          hint: tr("Поиск в офлайн-музыке и загрузках"),
         ),
         if (jobs.isNotEmpty) ...[
-          const SectionTitle('Загрузки'),
+          SectionTitle(tr("Загрузки")),
           LazyRows(
             count: jobs.length,
             builder: (_, i) {
@@ -62,16 +64,23 @@ class _DownloadsPage extends StatelessWidget {
                             ),
                           const SizedBox(height: 5),
                           Text(
-                            job.error ??
-                                switch (job.state) {
-                                  DownloadState.queued => 'В очереди',
-                                  DownloadState.downloading =>
-                                    '${formatBytes(job.received)} / ${formatBytes(job.total)}',
-                                  DownloadState.paused =>
-                                    'Приостановлено · ${formatBytes(job.received)}',
-                                  DownloadState.complete => 'Готово для офлайн',
-                                  DownloadState.failed => 'Ошибка загрузки',
-                                },
+                            job.error != null
+                                ? trMessage(job.error!)
+                                : switch (job.state) {
+                                    DownloadState.queued => tr("В очереди"),
+                                    DownloadState.downloading =>
+                                      '${formatBytes(job.received)} / ${formatBytes(job.total)}',
+                                    DownloadState.paused => tr(
+                                      "Приостановлено · {0}",
+                                      [formatBytes(job.received)],
+                                    ),
+                                    DownloadState.complete => tr(
+                                      "Готово для офлайн",
+                                    ),
+                                    DownloadState.failed => tr(
+                                      "Ошибка загрузки",
+                                    ),
+                                  },
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -88,14 +97,14 @@ class _DownloadsPage extends StatelessWidget {
                         job.state == DownloadState.queued)
                       IconButton(
                         onPressed: () => app.downloads.pause(job.track.id),
-                        tooltip: 'Приостановить',
+                        tooltip: tr("Приостановить"),
                         icon: const Icon(Icons.pause_rounded),
                       )
                     else if (job.state == DownloadState.paused ||
                         job.state == DownloadState.failed)
                       IconButton(
                         onPressed: () => app.downloads.retry(job.track.id),
-                        tooltip: 'Продолжить',
+                        tooltip: tr("Продолжить"),
                         icon: const Icon(
                           Icons.play_arrow_rounded,
                           color: accent,
@@ -113,20 +122,21 @@ class _DownloadsPage extends StatelessWidget {
           ),
         ],
         if (tracks.isNotEmpty) ...[
-          const SectionTitle('Скачанные треки'),
+          SectionTitle(tr("Скачанные треки")),
           TrackList(app: app, tracks: tracks),
         ] else if (searching && jobs.isEmpty)
-          const EmptyState(
+          EmptyState(
             icon: Icons.search_off_rounded,
-            title: 'Ничего не найдено в этом разделе',
-            description: 'Попробуй другой запрос или очисти поиск.',
+            title: tr("Ничего не найдено в этом разделе"),
+            description: tr("Попробуй другой запрос или очисти поиск."),
           )
         else if (!searching && jobs.isEmpty)
-          const EmptyState(
+          EmptyState(
             icon: Icons.offline_bolt_rounded,
-            title: 'Сохрани музыку для дороги',
-            description:
-                'Открой торрент-альбом и нажми «Скачать альбом». Завершённые загрузки играют без сети.',
+            title: tr("Сохрани музыку для дороги"),
+            description: tr(
+              "Открой торрент-альбом и нажми «Скачать альбом». Завершённые загрузки играют без сети.",
+            ),
           ),
       ],
     );

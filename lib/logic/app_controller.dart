@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -101,6 +102,7 @@ class AppController extends ChangeNotifier {
             catalog: this.catalog,
           ),
     );
+    AppLanguage.current = library.settings['language'] == 'en' ? 'en' : 'ru';
     library.addListener(_changed);
     downloads.addListener(_changed);
     playback.addListener(_onPlayback);
@@ -352,7 +354,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> setDownloadConcurrency(int value) async {
-    await run('Сохраняем настройки загрузок', () async {
+    await run(tr("Сохраняем настройки загрузок"), () async {
       await downloads.setMaxConcurrentDownloads(value);
     });
   }
@@ -366,7 +368,7 @@ class AppController extends ChangeNotifier {
       await library.setSetting('metadataCacheMb', megabytes);
       await refreshMetadataCache();
     } catch (_) {
-      reportError('Не удалось изменить размер кеша.');
+      reportError(tr("Не удалось изменить размер кеша."));
     } finally {
       cacheBusy = false;
       if (!_disposed) notifyListeners();
@@ -396,9 +398,9 @@ class AppController extends ChangeNotifier {
       trackVariants = [];
       versionFormat = null;
       await refreshMetadataCache();
-      reportMessage('Кеш обложек и метаданных очищен.');
+      reportMessage(tr("Кеш обложек и метаданных очищен."));
     } catch (_) {
-      reportError('Не удалось очистить кеш.');
+      reportError(tr("Не удалось очистить кеш."));
     } finally {
       cacheBusy = false;
       if (!_disposed) notifyListeners();
@@ -412,7 +414,9 @@ class AppController extends ChangeNotifier {
   String? get indexerNotice =>
       configuredIndexers.any((i) => i.id == 'rutracker-ru') &&
           !configuredIndexers.any((i) => i.id == 'rutracker')
-      ? 'Подключён RuTracker.RU. Это другой сайт, чем RuTracker.org. Для каталога RuTracker.org добавь именно этот индексатор в Jackett и войди в свой аккаунт.'
+      ? tr(
+          "Подключён RuTracker.RU. Это другой сайт, чем RuTracker.org. Для каталога RuTracker.org добавь именно этот индексатор в Jackett и войди в свой аккаунт.",
+        )
       : null;
   String? indexerError;
   bool indexerLoading = false;
@@ -427,7 +431,7 @@ class AppController extends ChangeNotifier {
           : 'automatic');
   bool get usesAutomaticSource => searchProvider == 'automatic';
   String get sourceLabel => usesAutomaticSource
-      ? 'Автоматически'
+      ? tr("Автоматически")
       : usesIndexer
       ? 'Jackett'
       : 'RuTracker';
@@ -537,16 +541,17 @@ class AppController extends ChangeNotifier {
       torrentNetworks = List.unmodifiable(await listTorrentNetworks());
       if (!_disposed) notifyListeners();
     } catch (e) {
-      reportError('Не удалось прочитать сетевые интерфейсы: $e');
+      reportError(tr("Не удалось прочитать сетевые интерфейсы: {0}", [e]));
     }
   }
 
   Future<void> saveTorrentInterface(String name) async {
-    await run('Сохраняем сетевой интерфейс', () async {
+    await run(tr("Сохраняем сетевой интерфейс"), () async {
       await resolveTorrentNetwork(name);
       await library.setSetting('torrentInterface', name);
-      message =
-          'Сетевой интерфейс сохранён. Перезапустите Mumpa для применения.';
+      message = tr(
+        "Сетевой интерфейс сохранён. Перезапустите Mumpa для применения.",
+      );
     });
   }
 
@@ -582,6 +587,7 @@ class AppController extends ChangeNotifier {
   }
 
   void _changed() {
+    AppLanguage.current = library.settings['language'] == 'en' ? 'en' : 'ru';
     if (!identical(_artworkTracks, library.tracks)) {
       _artworkByAlbum = null;
       _artworkTracks = library.tracks;
@@ -975,7 +981,7 @@ class AppController extends ChangeNotifier {
     if (!playback.queue.any((t) => t.id == track.id)) {
       playback.enqueue(track);
     }
-    reportMessage('Добавлено в «${target.name}»');
+    reportMessage(tr("Добавлено в «{0}»", [target.name]));
   }
 
   Future<MusicPlaylist?> openTorrentCollection(
@@ -983,7 +989,7 @@ class AppController extends ChangeNotifier {
     String? link,
     String? title,
     String? artist,
-  }) => run('Открываем коллекцию…', () async {
+  }) => run(tr("Открываем коллекцию…"), () async {
     final identity = parseReleaseIdentity(title ?? info.title);
     final tracks = torrents.tracks(
       info,
@@ -995,7 +1001,7 @@ class AppController extends ChangeNotifier {
           inferredReleaseArtist(title ?? info.title),
     );
     if (tracks.isEmpty) {
-      throw const FormatException('В этой коллекции нет аудиотреков.');
+      throw FormatException(tr("В этой коллекции нет аудиотреков."));
     }
     final collection = await library.openSourceCollection(
       hash: info.hash,
@@ -1048,7 +1054,7 @@ class AppController extends ChangeNotifier {
       if (_disposed || id != _artistRequest) return;
       artistProfile = profile;
       if (profile == null) {
-        artistError = 'Исполнитель пока не найден в MusicBrainz.';
+        artistError = tr("Исполнитель пока не найден в MusicBrainz.");
       } else {
         unawaited(_loadSimilarArtists(profile, id, operation));
       }
@@ -1056,7 +1062,7 @@ class AppController extends ChangeNotifier {
       if (!_disposed && id == _artistRequest) {
         artistError = e is HttpException
             ? e.message
-            : 'Музыкальная база сейчас недоступна.';
+            : tr("Музыкальная база сейчас недоступна.");
       }
     } finally {
       if (!_disposed && id == _artistRequest) {
@@ -1128,8 +1134,9 @@ class AppController extends ChangeNotifier {
     versionError = null;
     versionStatus = null;
     if (!usesIndexer || !indexerConnected) {
-      versionError =
-          'Для поиска файлов треков подключи Jackett. Раздачи напрямую можно открыть в режиме «Альбомы и коллекции».';
+      versionError = tr(
+        "Для поиска файлов треков подключи Jackett. Раздачи напрямую можно открыть в режиме «Альбомы и коллекции».",
+      );
       notifyListeners();
       return;
     }
@@ -1175,14 +1182,17 @@ class AppController extends ChangeNotifier {
             const Duration(seconds: 120),
             onTimeout: () {
               operation.cancel();
-              throw TimeoutException('Поиск версий занял больше двух минут.');
+              throw TimeoutException(
+                tr("Поиск версий занял больше двух минут."),
+              );
             },
           );
       if (!_disposed && id == _versionRequest) {
         trackVariants = results;
         if (results.isEmpty) {
-          versionError =
-              'В проверенных коллекциях подходящих аудиофайлов не найдено. Попробуй поиск по альбому: база и имена файлов могут различаться.';
+          versionError = tr(
+            "В проверенных коллекциях подходящих аудиофайлов не найдено. Попробуй поиск по альбому: база и имена файлов могут различаться.",
+          );
         }
       }
     } on SourceCancelled {
@@ -1192,8 +1202,10 @@ class AppController extends ChangeNotifier {
         versionError = e is HttpException
             ? e.message
             : e is TimeoutException
-            ? 'Поиск версий занял больше двух минут. Уже найденные варианты доступны.'
-            : 'Не удалось найти версии трека.';
+            ? tr(
+                "Поиск версий занял больше двух минут. Уже найденные варианты доступны.",
+              )
+            : tr("Не удалось найти версии трека.");
       }
     } finally {
       operation.cancel();
@@ -1206,7 +1218,7 @@ class AppController extends ChangeNotifier {
 
   Future<({MusicPlaylist playlist, List<Track> tracks, Track selected})?>
   _importVariant(TrackVariant variant) =>
-      run('Открываем выбранную версию…', () async {
+      run(tr("Открываем выбранную версию…"), () async {
         var source = variant.source;
         if (!source.startsWith('magnet:') && !await File(source).exists()) {
           final resolved = await indexer.resolve(
@@ -1230,8 +1242,8 @@ class AppController extends ChangeNotifier {
             )
             .toList();
         if (info.hash != variant.info.hash || readyMatches.length != 1) {
-          throw const FormatException(
-            'Список файлов раздачи изменился. Повтори поиск версий.',
+          throw FormatException(
+            tr("Список файлов раздачи изменился. Повтори поиск версий."),
           );
         }
         final readyAudio = readyMatches.single;
@@ -1259,7 +1271,7 @@ class AppController extends ChangeNotifier {
             )
             .toList();
         if (savedMatches.length != 1) {
-          throw const FormatException('Трек отсутствует в коллекции.');
+          throw FormatException(tr("Трек отсутствует в коллекции."));
         }
         final selected = savedMatches.single;
         // Source-playlist edits remain persistent. Explicitly choosing a
@@ -1287,7 +1299,7 @@ class AppController extends ChangeNotifier {
     final imported = await _importVariant(variant);
     if (imported == null) return;
     playback.enqueue(imported.selected);
-    reportMessage('Трек добавлен в очередь.');
+    reportMessage(tr("Трек добавлен в очередь."));
   }
 
   /// Switching the results page and updating the shared field is one change,
@@ -1355,12 +1367,13 @@ class AppController extends ChangeNotifier {
       return await action();
     } catch (e) {
       if (e is SourceCancelled) {
-        message = 'Открытие альбома отменено.';
+        message = tr("Открытие альбома отменено.");
       } else if (e is HttpException) {
         error = e.message;
       } else if (e is TimeoutException) {
-        error =
-            'Источник не ответил вовремя. Попробуй другую раздачу или повтори запрос.';
+        error = tr(
+          "Источник не ответил вовремя. Попробуй другую раздачу или повтори запрос.",
+        );
       } else {
         error = e.toString();
       }
@@ -1372,7 +1385,7 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> importFiles() async {
-    await run('Выберите музыку', () async {
+    await run(tr("Выберите музыку"), () async {
       final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: audioExtensions.toList(),
@@ -1382,17 +1395,17 @@ class AppController extends ChangeNotifier {
         files.map((f) => f.path).whereType<String>().toList(),
         copy: Platform.isAndroid,
         progress: (done, total) {
-          busy = 'Импорт: $done из $total';
+          busy = tr("Импорт: {0} из {1}", [done, total]);
           notifyListeners();
         },
       );
-      message = 'Добавлено треков: ${imported.length}';
+      message = tr("Добавлено треков: {0}", [imported.length]);
       navigate(AppPage.library);
     });
   }
 
   Future<void> exportProfile() async {
-    await run('Сохраняем профиль…', () async {
+    await run(tr("Сохраняем профиль…"), () async {
       await playback.saveSession();
       final contents = await library.exportProfile();
       final day = DateTime.now().toIso8601String().substring(0, 10);
@@ -1400,30 +1413,31 @@ class AppController extends ChangeNotifier {
         fileName: 'mumpa-profile-$day.json',
         bytes: Uint8List.fromList(utf8.encode(contents)),
         mimeType: 'application/json',
-        dialogTitle: 'Сохранить профиль Mumpa',
+        dialogTitle: tr("Сохранить профиль Mumpa"),
       );
       if (location != null) {
-        message =
-            'Профиль сохранён. Перенеси файл на другое устройство и импортируй его в Mumpa.';
+        message = tr(
+          "Профиль сохранён. Перенеси файл на другое устройство и импортируй его в Mumpa.",
+        );
       }
     });
   }
 
   Future<ProfileTransfer?> pickProfile() =>
-      run<ProfileTransfer?>('Читаем профиль…', () async {
+      run<ProfileTransfer?>(tr("Читаем профиль…"), () async {
         final file = await FilePicker.pickFile(
-          dialogTitle: 'Импортировать профиль Mumpa',
+          dialogTitle: tr("Импортировать профиль Mumpa"),
           type: FileType.custom,
           allowedExtensions: const ['json'],
         );
         if (file == null) return null;
         if ((await file.length() ?? 0) > ProfileTransfer.maxBytes) {
-          throw const FormatException('Файл профиля больше 64 МБ.');
+          throw FormatException(tr("Файл профиля больше 64 МБ."));
         }
         final bytes = BytesBuilder(copy: false);
         await for (final chunk in file.readAsByteStream()) {
           if (bytes.length + chunk.length > ProfileTransfer.maxBytes) {
-            throw const FormatException('Файл профиля больше 64 МБ.');
+            throw FormatException(tr("Файл профиля больше 64 МБ."));
           }
           bytes.add(chunk);
         }
@@ -1435,11 +1449,12 @@ class AppController extends ChangeNotifier {
     ProfileTransfer transfer, {
     bool includeSettings = true,
   }) async {
-    await run('Импортируем профиль…', () async {
+    await run(tr("Импортируем профиль…"), () async {
       // Preserve the currently visible queue before merging saved sessions.
       await playback.saveSession();
       await library.importProfile(transfer, includeSettings: includeSettings);
       if (includeSettings) {
+        await playback.backend.applyPreferences(playback.audioPreferences);
         await playback.restoreProfileSessionIfEmpty();
         await playback.setVolume(
           (library.settings['volume'] as num?)?.toDouble() ?? .8,
@@ -1451,13 +1466,15 @@ class AppController extends ChangeNotifier {
           ((library.settings['metadataCacheMb'] as int?) ?? 256) * 1024 * 1024,
         );
       }
-      message =
-          'Профиль импортирован: ${transfer.favoriteCount} любимых треков, ${transfer.playlistCount} плейлистов. Данные объединены с медиатекой.';
+      message = tr(
+        "Профиль импортирован: {0} любимых треков, {1} плейлистов. Данные объединены с медиатекой.",
+        [transfer.favoriteCount, transfer.playlistCount],
+      );
     });
   }
 
   Future<void> importFolder() async {
-    await run('Выберите папку с альбомами', () async {
+    await run(tr("Выберите папку с альбомами"), () async {
       List<String> paths;
       if (Platform.isAndroid) {
         paths =
@@ -1467,7 +1484,7 @@ class AppController extends ChangeNotifier {
             [];
       } else {
         final folder = await FilePicker.getDirectoryPath(
-          dialogTitle: 'Папка с музыкой',
+          dialogTitle: tr("Папка с музыкой"),
         );
         paths = folder == null ? [] : [folder];
       }
@@ -1475,17 +1492,17 @@ class AppController extends ChangeNotifier {
       final tracks = await library.importPaths(
         paths,
         progress: (done, total) {
-          busy = 'Импорт: $done из $total';
+          busy = tr("Импорт: {0} из {1}", [done, total]);
           notifyListeners();
         },
       );
-      message = 'Добавлено треков: ${tracks.length}';
+      message = tr("Добавлено треков: {0}", [tracks.length]);
       navigate(AppPage.library);
     });
   }
 
   Future<TorrentInfo?> inspectTorrent(String link, {bool file = false}) => run(
-    'Получаем файлы альбома…',
+    tr("Получаем файлы альбома…"),
     () => file ? torrents.upload(link) : torrents.add(link),
   );
   Future<TorrentInfo?> pickTorrent() async {
@@ -1504,13 +1521,13 @@ class AppController extends ChangeNotifier {
     String? album,
     String? artist,
   }) async {
-    await run('Добавляем альбом', () async {
+    await run(tr("Добавляем альбом"), () async {
       final tracks = torrents
           .tracks(info, link: link, album: album, artist: artist)
           .where((t) => selected.contains(t.torrentIndex))
           .toList();
       await library.upsert(tracks, addToLibrary: true);
-      message = 'Альбом добавлен · ${tracks.length} треков';
+      message = tr("Альбом добавлен · {0} треков", [tracks.length]);
       if (tracks.isNotEmpty) openAlbum(Album(tracks));
     });
   }
@@ -1575,7 +1592,7 @@ class AppController extends ChangeNotifier {
         if (!_disposed && id == _searchId) {
           metadataError = e is HttpException
               ? e.message
-              : 'Поиск MusicBrainz недоступен.';
+              : tr("Поиск MusicBrainz недоступен.");
         }
       } finally {
         if (!_disposed && id == _searchId) {
@@ -1591,8 +1608,9 @@ class AppController extends ChangeNotifier {
     if (usesIndexer && endpoint.isEmpty) {
       searching = false;
       searchCompleted = true;
-      message =
-          'Настрой Jackett: добавь RuTracker и войди в свой аккаунт. На Windows можно запустить Jackett из Mumpa.';
+      message = tr(
+        "Настрой Jackett: добавь RuTracker и войди в свой аккаунт. На Windows можно запустить Jackett из Mumpa.",
+      );
       notifyListeners();
       return;
     }
@@ -1696,38 +1714,41 @@ class AppController extends ChangeNotifier {
       if (provider == 'torznab' &&
           library.settings['managedJackett'] == true &&
           Platform.isWindows) {
-        await run('Запускаем Jackett…', _startJackett);
+        await run(tr("Запускаем Jackett…"), _startJackett);
       }
       await refreshSourceFeed();
     }
   }
 
   Future<JackettConnection?> prepareJackett() =>
-      run('Запускаем Jackett…', () async {
+      run(tr("Запускаем Jackett…"), () async {
         final connection = await _startJackett();
         await library.setSetting('searchProvider', 'torznab');
         return connection;
       });
 
   Future<void> prepareCloudflare() async {
-    await run('Настраиваем проверку Cloudflare…', () async {
+    await run(tr("Настраиваем проверку Cloudflare…"), () async {
       final connection = await _startJackett();
       final solverUrl = await flaresolverr.enable();
       await jackett.configureFlareSolverr(connection, solverUrl);
       cloudflareEnabled = true;
-      message =
-          'FlareSolverr подключён. Повтори сохранение или проверку RuTracker.org в Jackett.';
+      message = tr(
+        "FlareSolverr подключён. Повтори сохранение или проверку RuTracker.org в Jackett.",
+      );
     });
   }
 
   Future<void> finishJackettSetup() async {
     final connection = jackettConnection;
     if (connection == null) return;
-    await run('Проверяем RuTracker в Jackett', () async {
+    await run(tr("Проверяем RuTracker в Jackett"), () async {
       final configured = await jackett.isRuTrackerConfigured(connection);
       message = configured
-          ? 'RuTracker подключён через Jackett.'
-          : 'Jackett готов. Добавь индексатор RuTracker.org и сохрани настройки аккаунта.';
+          ? tr("RuTracker подключён через Jackett.")
+          : tr(
+              "Jackett готов. Добавь индексатор RuTracker.org и сохрани настройки аккаунта.",
+            );
     });
     await refreshSourceFeed();
     if (query.trim().isNotEmpty) await searchSources();
@@ -1765,14 +1786,12 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> saveIndexer(String endpoint, String key) async {
-    await run('Проверяем Jackett…', () async {
+    await run(tr("Проверяем Jackett…"), () async {
       var uri = Uri.tryParse(endpoint.trim());
       if (uri == null ||
           !{'http', 'https'}.contains(uri.scheme) ||
           uri.host.isEmpty) {
-        throw const FormatException(
-          'Укажи корректный HTTP/HTTPS адрес Jackett.',
-        );
+        throw FormatException(tr("Укажи корректный HTTP/HTTPS адрес Jackett."));
       }
       if (uri.path.isEmpty || uri.path == '/' || uri.path.startsWith('/UI/')) {
         uri = uri.replace(path: '/api/v2.0/indexers/all/results/torznab/api');
@@ -1787,7 +1806,9 @@ class AppController extends ChangeNotifier {
       await library.setSetting('indexerKey', apiKey);
       await library.setSetting('managedJackett', false);
       await library.setSetting('searchProvider', 'torznab');
-      message = 'Jackett подключён. Поиск ограничен музыкальными раздачами.';
+      message = tr(
+        "Jackett подключён. Поиск ограничен музыкальными раздачами.",
+      );
     });
     if (indexerConnected) await refreshSourceFeed();
   }
@@ -1795,7 +1816,9 @@ class AppController extends ChangeNotifier {
   void _catalogFailure(Object e) {
     catalogError = e is CatalogException
         ? e.message
-        : 'Не удалось загрузить RuTracker. Проверь соединение и повтори попытку.';
+        : tr(
+            "Не удалось загрузить RuTracker. Проверь соединение и повтори попытку.",
+          );
     catalogNeedsConnection = e is CatalogException && e.connect;
     catalogNeedsLogin =
         catalogNeedsConnection &&
@@ -1920,7 +1943,7 @@ class AppController extends ChangeNotifier {
     setQuery(query);
     await library.setSetting('searchProvider', 'rutracker');
     await run(
-      login ? 'Вход в RuTracker' : 'Проверка доступа к RuTracker',
+      login ? tr("Вход в RuTracker") : tr("Проверка доступа к RuTracker"),
       () async {
         await catalog.connect(login: login);
       },
@@ -1955,7 +1978,9 @@ class AppController extends ChangeNotifier {
         );
       }
       progress(
-        'Получаем torrent-файл из ${release.indexerName.isEmpty ? 'Jackett' : release.indexerName}…',
+        tr("Получаем torrent-файл из {0}…", [
+          release.indexerName.isEmpty ? 'Jackett' : release.indexerName,
+        ]),
       );
       final resolved = await indexer.resolve(
         release.link,
@@ -1986,15 +2011,17 @@ class AppController extends ChangeNotifier {
 
     try {
       return await run(
-        'Открываем альбом…',
+        tr("Открываем альбом…"),
         () => operation
             .wait(inspect())
             .timeout(
               const Duration(seconds: 60),
               onTimeout: () {
                 operation.cancel();
-                throw const HttpException(
-                  'Не удалось открыть альбом за минуту. Проверь источник или выбери другую раздачу.',
+                throw HttpException(
+                  tr(
+                    "Не удалось открыть альбом за минуту. Проверь источник или выбери другую раздачу.",
+                  ),
                 );
               },
             ),
@@ -2007,9 +2034,9 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> checkEngine() async {
-    await run('Проверяем торрент-движок', () async {
+    await run(tr("Проверяем торрент-движок"), () async {
       engineVersion = await torrents.version();
-      message = 'Торрент-движок готов: $engineVersion';
+      message = tr("Торрент-движок готов: {0}", [engineVersion]);
     });
   }
 

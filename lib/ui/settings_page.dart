@@ -3,9 +3,10 @@ part of 'pages.dart';
 enum _SettingsSection {
   playback(
     'Воспроизведение',
-    'Радио после окончания очереди',
+    'Эквалайзер, переходы, громкость, моно и радио',
     Icons.radio_rounded,
   ),
+  language('Язык', 'Язык интерфейса приложения', Icons.language_rounded),
   sources(
     'Источники музыки',
     'Готовый каталог, RuTracker и дополнительные источники',
@@ -102,9 +103,13 @@ class _OfflineUsageState extends State<_OfflineUsage> {
                 child: Text(
                   usage == null
                       ? snapshot.hasError
-                            ? 'Не удалось прочитать размер загрузок'
-                            : 'Подсчитываем скачанные треки…'
-                      : 'Скачанные треки: ${formatBytes(usage.bytes)} из ${formatBytes(limit)} · ${(fraction * 100).toStringAsFixed(1)}%',
+                            ? tr("Не удалось прочитать размер загрузок")
+                            : tr("Подсчитываем скачанные треки…")
+                      : tr("Скачанные треки: {0} из {1} · {2}%", [
+                          formatBytes(usage.bytes),
+                          formatBytes(limit),
+                          (fraction * 100).toStringAsFixed(1),
+                        ]),
                   key: const ValueKey('offline-storage-usage'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
@@ -113,7 +118,7 @@ class _OfflineUsageState extends State<_OfflineUsage> {
                 ),
               ),
               IconButton(
-                tooltip: 'Обновить размер загрузок',
+                tooltip: tr("Обновить размер загрузок"),
                 onPressed: () => setState(_refresh),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
               ),
@@ -128,7 +133,12 @@ class _OfflineUsageState extends State<_OfflineUsage> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${usage == null ? '' : 'Файлов: ${usage.files} · '}Только треки, скачанные Mumpa. Добавленная с диска музыка не учитывается. Незавершённые загрузки также используют лимит.',
+            tr(
+              "{0}Только треки, скачанные Mumpa. Добавленная с диска музыка не учитывается. Незавершённые загрузки также используют лимит.",
+              [
+                usage == null ? '' : tr("Файлов: {0} · ", [usage.files]),
+              ],
+            ),
             style: const TextStyle(color: muted, fontSize: 11),
           ),
         ],
@@ -225,10 +235,10 @@ class _SettingsPageState extends State<SettingsPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 26, 8, 24),
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
                     child: Text(
-                      'НАСТРОЙКИ',
+                      tr("НАСТРОЙКИ"),
                       style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 1.4,
@@ -242,7 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: ValueKey('settings-nav-${item.name}'),
                       leading: Icon(item.icon, size: 20),
                       title: Text(
-                        item.title,
+                        tr(item.title),
                         style: const TextStyle(fontSize: 12),
                       ),
                       selected: item == section,
@@ -265,9 +275,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _overview() => _PageBody(
     children: [
-      const SectionTitle('Настройки', subtitle: 'Сделай Mumpa своей'),
-      const Text(
-        'Выбери раздел, чтобы изменить нужные параметры.',
+      SectionTitle(tr("Настройки"), subtitle: tr("Сделай Mumpa своей")),
+      Text(
+        tr("Выбери раздел, чтобы изменить нужные параметры."),
         style: TextStyle(color: muted, fontSize: 12),
       ),
       const SizedBox(height: 22),
@@ -289,7 +299,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       contentPadding: const EdgeInsets.all(16),
                       leading: Icon(section.icon, color: accent),
                       title: Text(
-                        section.title,
+                        tr(section.title),
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
@@ -298,7 +308,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Text(
-                          section.description,
+                          tr(section.description),
                           style: const TextStyle(fontSize: 11, color: muted),
                         ),
                       ),
@@ -322,12 +332,13 @@ class _SettingsPageState extends State<SettingsPage> {
           key: const ValueKey('settings-back'),
           onPressed: widget.app.back,
           icon: const Icon(Icons.arrow_back_rounded, size: 18),
-          label: const Text('Назад'),
+          label: Text(tr("Назад")),
         ),
       ),
-      SectionTitle(section.title, subtitle: section.description),
+      SectionTitle(tr(section.title), subtitle: tr(section.description)),
       _panel(switch (section) {
         _SettingsSection.playback => _playbackControls(),
+        _SettingsSection.language => _languageControls(),
         _SettingsSection.sources => _sourceControls(),
         _SettingsSection.torrent => _engineControls(),
         _SettingsSection.downloads => _downloadControls(),
@@ -340,19 +351,50 @@ class _SettingsPageState extends State<SettingsPage> {
   );
 
   List<Widget> _playbackControls() => [
+    AudioSettings(app: widget.app),
+    const Divider(height: 40),
     SwitchListTile.adaptive(
       key: const ValueKey('radio-autoplay'),
       contentPadding: EdgeInsets.zero,
-      title: const Text('Продолжать музыку после очереди'),
-      subtitle: const Text('Подбирать треки тех же и похожих исполнителей'),
+      title: Text(tr("Продолжать музыку после очереди")),
+      subtitle: Text(tr("Подбирать треки тех же и похожих исполнителей")),
       value: widget.app.playback.radioEnabled,
       onChanged: (value) =>
           unawaited(widget.app.playback.setRadioEnabled(value)),
     ),
     const SizedBox(height: 12),
-    const Text(
-      'Следующие треки готовятся заранее. Недоступные раздачи пропускаются. '
-      'Исходный плейлист сохраняется; повтор и таймер сна имеют приоритет.',
+    Text(
+      tr(
+        "Следующие треки готовятся заранее. Недоступные раздачи пропускаются. Исходный плейлист сохраняется; повтор и таймер сна имеют приоритет.",
+      ),
+      style: TextStyle(color: muted, fontSize: 12),
+    ),
+  ];
+
+  List<Widget> _languageControls() => [
+    DropdownButtonFormField<String>(
+      key: ValueKey(
+        'app-language-${widget.app.library.settings['language'] ?? 'ru'}',
+      ),
+      initialValue: widget.app.library.settings['language'] == 'en'
+          ? 'en'
+          : 'ru',
+      decoration: InputDecoration(labelText: tr("Язык интерфейса")),
+      items: [
+        DropdownMenuItem(value: 'ru', child: Text(tr("Русский"))),
+        DropdownMenuItem(value: 'en', child: Text('English')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          unawaited(widget.app.library.setSetting('language', value));
+        }
+      },
+    ),
+    const SizedBox(height: 12),
+    Text(
+      tr(
+        "Язык меняется сразу. Названия музыки и поисковые запросы сохраняются.",
+      ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
   ];
@@ -375,10 +417,10 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Крестик скрывает Mumpa в трее, и музыка продолжает играть. '
-              'Нажми значок в трее, чтобы вернуть окно. '
-              'Кнопки на колонках и под превью на панели задач управляют плеером.',
+            Text(
+              tr(
+                "Крестик скрывает Mumpa в трее, и музыка продолжает играть. Нажми значок в трее, чтобы вернуть окно. Кнопки на колонках и под превью на панели задач управляют плеером.",
+              ),
               style: TextStyle(color: muted, fontSize: 12),
             ),
             const SizedBox(height: 12),
@@ -391,9 +433,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       } catch (_) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Не удалось завершить Mumpa. Попробуй ещё раз.',
+                                tr(
+                                  "Не удалось завершить Mumpa. Попробуй ещё раз.",
+                                ),
                               ),
                             ),
                           );
@@ -402,13 +446,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     }
                   : null,
               icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-              label: const Text('Завершить Mumpa'),
+              label: Text(tr("Завершить Mumpa")),
             ),
             if (!widget.app.windowsPlayer!.available)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'Управление через Windows сейчас недоступно.',
+                  tr("Управление через Windows сейчас недоступно."),
                   style: TextStyle(color: muted, fontSize: 12),
                 ),
               ),
@@ -418,11 +462,11 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   List<Widget> _sourceControls() => [
-    const SectionTitle('Музыка сразу после установки'),
-    const Text(
-      '«Автоматически» ищет музыку в Knaben и RuTor без аккаунта, '
-      'Jackett и FlareSolverr. Поисковые запросы отправляются этим каталогам. '
-      'Наличие раздачи в поиске не гарантирует доступных пиров.',
+    SectionTitle(tr("Музыка сразу после установки")),
+    Text(
+      tr(
+        "«Автоматически» ищет музыку в Knaben и RuTor без аккаунта, Jackett и FlareSolverr. Поисковые запросы отправляются этим каталогам. Наличие раздачи в поиске не гарантирует доступных пиров.",
+      ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
     const SizedBox(height: 12),
@@ -430,8 +474,8 @@ class _SettingsPageState extends State<SettingsPage> {
     const SizedBox(height: 22),
     ExpansionTile(
       key: const PageStorageKey('settings-custom-sources'),
-      title: const Text('Дополнительно: свой Jackett / Prowlarr'),
-      subtitle: const Text('Для собственных трекеров и серверов'),
+      title: Text(tr("Дополнительно: свой Jackett / Prowlarr")),
+      subtitle: Text(tr("Для собственных трекеров и серверов")),
       tilePadding: EdgeInsets.zero,
       children: [
         ConstrainedBox(
@@ -439,7 +483,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionTitle('Jackett · дополнительный каталог'),
+              SectionTitle(tr("Jackett · дополнительный каталог")),
               if (Platform.isWindows)
                 FilledButton.icon(
                   onPressed: widget.app.busy == null
@@ -460,7 +504,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         }
                       : null,
                   icon: const Icon(Icons.settings_rounded, size: 18),
-                  label: const Text('Запустить Jackett и настроить RuTracker'),
+                  label: Text(tr("Запустить Jackett и настроить RuTracker")),
                 ),
               if (Platform.isWindows) ...[
                 const SizedBox(height: 10),
@@ -471,27 +515,31 @@ class _SettingsPageState extends State<SettingsPage> {
                   icon: const Icon(Icons.verified_user_outlined, size: 18),
                   label: Text(
                     widget.app.cloudflareEnabled
-                        ? 'FlareSolverr подключён · проверить'
-                        : 'Настроить FlareSolverr для Cloudflare',
+                        ? tr("FlareSolverr подключён · проверить")
+                        : tr("Настроить FlareSolverr для Cloudflare"),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Если Jackett сообщает Empty cookies returned by FlareSolverr, выбери «Автоматически» или войди в RuTracker напрямую ниже. Для поиска через Mumpa не нужно настраивать cookies вручную.',
+                Text(
+                  tr(
+                    "Если Jackett сообщает Empty cookies returned by FlareSolverr, выбери «Автоматически» или войди в RuTracker напрямую ниже. Для поиска через Mumpa не нужно настраивать cookies вручную.",
+                  ),
                   style: TextStyle(color: muted, fontSize: 12),
                 ),
               ],
               const SizedBox(height: 14),
-              const Text(
-                'Добавь RuTracker.org в Jackett и сохрани аккаунт. Можно использовать встроенный Jackett на Windows или подключить свой сервер Jackett/Prowlarr по адресу и API key.',
+              Text(
+                tr(
+                  "Добавь RuTracker.org в Jackett и сохрани аккаунт. Можно использовать встроенный Jackett на Windows или подключить свой сервер Jackett/Prowlarr по адресу и API key.",
+                ),
                 style: TextStyle(color: muted),
               ),
               const SizedBox(height: 14),
               TextField(
                 key: const PageStorageKey('settings-jackett-url'),
                 controller: source,
-                decoration: const InputDecoration(
-                  labelText: 'Адрес Jackett или URL Torznab API',
+                decoration: InputDecoration(
+                  labelText: tr("Адрес Jackett или URL Torznab API"),
                   hintText:
                       'http://localhost:9117/api/v2.0/indexers/all/results/torznab/api',
                 ),
@@ -507,12 +555,12 @@ class _SettingsPageState extends State<SettingsPage> {
               FilledButton(
                 onPressed: () =>
                     widget.app.saveIndexer(source.text, apiKey.text),
-                child: const Text('Сохранить и проверить подключение'),
+                child: Text(tr("Сохранить и проверить подключение")),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Использовать Jackett для поиска',
+                title: Text(
+                  tr("Использовать Jackett для поиска"),
                   style: TextStyle(fontSize: 13),
                 ),
                 value: widget.app.searchProvider == 'torznab',
@@ -525,11 +573,11 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ],
     ),
-    const SectionTitle('Прямой доступ к RuTracker'),
+    SectionTitle(tr("Прямой доступ к RuTracker")),
     Text(
       widget.app.catalog.username == null
-          ? 'Войди в свой аккаунт для поиска исполнителей и альбомов.'
-          : 'Выполнен вход: ${widget.app.catalog.username}',
+          ? tr("Войди в свой аккаунт для поиска исполнителей и альбомов.")
+          : tr("Выполнен вход: {0}", [widget.app.catalog.username]),
       style: const TextStyle(color: muted),
     ),
     const SizedBox(height: 12),
@@ -540,11 +588,11 @@ class _SettingsPageState extends State<SettingsPage> {
         FilledButton.icon(
           onPressed: () => widget.app.connectCatalog(),
           icon: const Icon(Icons.login_rounded, size: 18),
-          label: const Text('Войти в RuTracker'),
+          label: Text(tr("Войти в RuTracker")),
         ),
         TextButton(
           onPressed: () => widget.app.connectCatalog(login: false),
-          child: const Text('Открыть сайт'),
+          child: Text(tr("Открыть сайт")),
         ),
         if (widget.app.catalog.username != null)
           TextButton(
@@ -552,14 +600,14 @@ class _SettingsPageState extends State<SettingsPage> {
               await widget.app.catalog.logout();
               await widget.app.refreshCatalog();
             },
-            child: const Text('Выйти'),
+            child: Text(tr("Выйти")),
           ),
       ],
     ),
     const SizedBox(height: 12),
     DropdownButtonFormField<String>(
       initialValue: widget.app.catalog.base.toString(),
-      decoration: const InputDecoration(labelText: 'Зеркало RuTracker'),
+      decoration: InputDecoration(labelText: tr("Зеркало RuTracker")),
       items: RuTrackerService.mirrors
           .map(
             (url) =>
@@ -577,19 +625,19 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   List<Widget> _engineControls() => [
-    const SectionTitle('Торрент-движок'),
+    SectionTitle(tr("Торрент-движок")),
     if (Platform.isWindows) ...[
       DropdownButtonFormField<String>(
         key: ValueKey(widget.app.torrentInterface),
         initialValue: widget.app.torrentInterface,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: 'Интерфейс встроенного торрент-движка',
+        decoration: InputDecoration(
+          labelText: tr("Интерфейс встроенного торрент-движка"),
         ),
         items: [
-          const DropdownMenuItem(
+          DropdownMenuItem(
             value: '',
-            child: Text('Системный маршрут (по умолчанию)'),
+            child: Text(tr("Системный маршрут (по умолчанию)")),
           ),
           for (final name in {
             ...widget.app.torrentNetworks.map((n) => n.name),
@@ -607,29 +655,30 @@ class _SettingsPageState extends State<SettingsPage> {
             : null,
       ),
       const SizedBox(height: 8),
-      const Text(
-        'Выбор Wi-Fi или Ethernet может отправлять торрент-трафик напрямую: '
-        'трекеры и пиры увидят IP провайдера. Системный маршрут учитывает VPN. '
-        'Настройка применяется после перезапуска Mumpa. '
-        'Другой интерфейс не будет выбран автоматически.',
+      Text(
+        tr(
+          "Выбор Wi-Fi или Ethernet может отправлять торрент-трафик напрямую: трекеры и пиры увидят IP провайдера. Системный маршрут учитывает VPN. Настройка применяется после перезапуска Mumpa. Другой интерфейс не будет выбран автоматически.",
+        ),
         style: TextStyle(color: muted, fontSize: 12),
       ),
       TextButton.icon(
         onPressed: widget.app.refreshTorrentNetworks,
         icon: const Icon(Icons.refresh, size: 16),
-        label: const Text('Обновить список интерфейсов'),
+        label: Text(tr("Обновить список интерфейсов")),
       ),
       const SizedBox(height: 12),
     ],
-    const Text(
-      'Встроенный движок работает автоматически. Можно подключить свой TorrServer — например, на домашнем сервере.',
+    Text(
+      tr(
+        "Встроенный движок работает автоматически. Можно подключить свой TorrServer — например, на домашнем сервере.",
+      ),
       style: TextStyle(color: muted),
     ),
     const SizedBox(height: 14),
     TextField(
       controller: server,
-      decoration: const InputDecoration(
-        labelText: 'Внешний TorrServer (необязательно)',
+      decoration: InputDecoration(
+        labelText: tr("Внешний TorrServer (необязательно)"),
         hintText: 'http://192.168.1.10:8090',
       ),
     ),
@@ -646,17 +695,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 (uri == null ||
                     !{'http', 'https'}.contains(uri.scheme) ||
                     uri.host.isEmpty)) {
-              widget.app.reportError('Укажите корректный HTTP/HTTPS URL.');
+              widget.app.reportError(tr("Укажите корректный HTTP/HTTPS URL."));
               return;
             }
             await widget.app.library.setSetting('serverUrl', url);
             await widget.app.checkEngine();
           },
-          child: const Text('Сохранить и проверить'),
+          child: Text(tr("Сохранить и проверить")),
         ),
         TextButton(
           onPressed: widget.app.checkEngine,
-          child: const Text('Проверить движок'),
+          child: Text(tr("Проверить движок")),
         ),
       ],
     ),
@@ -664,55 +713,89 @@ class _SettingsPageState extends State<SettingsPage> {
       Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Text(
-          'Подключён: ${widget.app.engineVersion}',
+          tr("Подключён: {0}", [widget.app.engineVersion]),
           style: const TextStyle(color: accent, fontSize: 12),
         ),
       ),
   ];
 
   List<Widget> _downloadControls() => [
-    const SectionTitle('Офлайн и кеш'),
+    SectionTitle(tr("Офлайн и кеш")),
+    DropdownButtonFormField<String>(
+      key: ValueKey('download-quality-${widget.app.downloads.quality}'),
+      initialValue: widget.app.downloads.quality,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: tr("Качество скачивания")),
+      items: [
+        DropdownMenuItem(
+          value: 'original',
+          child: Text(tr("Выбранная версия · оригинал")),
+        ),
+        DropdownMenuItem(
+          value: 'lossless',
+          child: Text(tr("Предпочитать lossless")),
+        ),
+        DropdownMenuItem(
+          value: 'compact',
+          child: Text(tr("Предпочитать компактный формат")),
+        ),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          unawaited(widget.app.library.setSetting('downloadQuality', value));
+        }
+      },
+    ),
+    Padding(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      child: Text(
+        tr(
+          "Выбор среди уже известных версий того же трека. Если подходящей нет, скачивается выбранная версия. Файлы сохраняются без перекодирования; битрейт задаёт источник. Автокеш и предзагрузка сохраняют версию для воспроизведения.",
+        ),
+        style: TextStyle(color: muted, fontSize: 12),
+      ),
+    ),
     DropdownButtonFormField<int>(
       key: ValueKey('prefetch-tracks-${widget.app.prefetch.count}'),
       initialValue: widget.app.prefetch.count,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Загружать следующие треки заранее',
+      decoration: InputDecoration(
+        labelText: tr("Загружать следующие треки заранее"),
       ),
       items: [
         for (var count = 0; count <= 10; count++)
           DropdownMenuItem(
             value: count,
-            child: Text(count == 0 ? 'Отключено' : '$count'),
+            child: Text(count == 0 ? tr("Отключено") : '$count'),
           ),
       ],
       onChanged: (value) {
         if (value != null) unawaited(widget.app.prefetch.setCount(value));
       },
     ),
-    const Padding(
+    Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: Text(
-        'По умолчанию 3 следующих незагруженных трека из текущей очереди. '
-        'Офлайн-копии пропускаются. При паузе подготовка приостанавливается; '
-        'готовые файлы сохраняются.',
+        tr(
+          "По умолчанию 3 следующих незагруженных трека из текущей очереди. Офлайн-копии пропускаются. При паузе подготовка приостанавливается; готовые файлы сохраняются.",
+        ),
         style: TextStyle(color: muted, fontSize: 11),
       ),
     ),
-    const Text(
-      'Лайкнутые и скачанные треки не удаляются автоматически или при удалении альбома. '
-      'Офлайн-копию можно удалить только вручную с подтверждением. '
-      'Лимит места останавливает новые загрузки, сохраняя существующие файлы.',
+    Text(
+      tr(
+        "Лайкнутые и скачанные треки не удаляются автоматически или при удалении альбома. Офлайн-копию можно удалить только вручную с подтверждением. Лимит места останавливает новые загрузки, сохраняя существующие файлы.",
+      ),
       style: TextStyle(color: muted),
     ),
     SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      title: const Text(
-        'Скачивать прослушиваемые треки',
+      title: Text(
+        tr("Скачивать прослушиваемые треки"),
         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       ),
-      subtitle: const Text(
-        'Автоматически сохранять торрент-треки для офлайн',
+      subtitle: Text(
+        tr("Автоматически сохранять торрент-треки для офлайн"),
         style: TextStyle(fontSize: 11, color: muted),
       ),
       value: widget.app.library.settings['autoCache'] == true,
@@ -725,14 +808,18 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       initialValue: widget.app.downloads.maxConcurrentDownloads,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Одновременные загрузки треков',
+      decoration: InputDecoration(
+        labelText: tr("Одновременные загрузки треков"),
       ),
       items: [
         for (final count in [1, 2, 3, 4, 5, 6])
           DropdownMenuItem(
             value: count,
-            child: Text(count == 1 ? '1 · по очереди' : '$count · параллельно'),
+            child: Text(
+              count == 1
+                  ? tr("1 · по очереди")
+                  : tr("{0} · параллельно", [count]),
+            ),
           ),
       ],
       onChanged: widget.app.busy != null
@@ -743,18 +830,20 @@ class _SettingsPageState extends State<SettingsPage> {
               }
             },
     ),
-    const Padding(
+    Padding(
       padding: EdgeInsets.symmetric(vertical: 12),
       child: Text(
-        'По умолчанию 3. Прослушиваемый трек получает место в очереди первым. Пауза сохраняет загруженную часть файла.',
+        tr(
+          "По умолчанию 3. Прослушиваемый трек получает место в очереди первым. Пауза сохраняет загруженную часть файла.",
+        ),
         style: TextStyle(color: muted, fontSize: 11),
       ),
     ),
     TextField(
       controller: limit,
       keyboardType: TextInputType.number,
-      decoration: const InputDecoration(
-        labelText: 'Лимит офлайн-загрузок, МБ',
+      decoration: InputDecoration(
+        labelText: tr("Лимит офлайн-загрузок, МБ"),
         hintText: '4096',
       ),
     ),
@@ -768,16 +857,16 @@ class _SettingsPageState extends State<SettingsPage> {
           await widget.app.library.setSetting('cacheLimitMb', value);
         }
       },
-      child: const Text('Сохранить лимит'),
+      child: Text(tr("Сохранить лимит")),
     ),
   ];
 
   List<Widget> _metadataControls() => [
-    const SectionTitle('Обложки и музыкальные метаданные'),
-    const Text(
-      'MusicBrainz помогает сопоставлять исполнителей и альбомы. '
-      'Cover Art Archive предоставляет обложки. Данные сохраняются на диске; '
-      'при заполнении кеша удаляются самые старые записи.',
+    SectionTitle(tr("Обложки и музыкальные метаданные")),
+    Text(
+      tr(
+        "MusicBrainz помогает сопоставлять исполнителей и альбомы. Cover Art Archive предоставляет обложки. Данные сохраняются на диске; при заполнении кеша удаляются самые старые записи.",
+      ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
     const SizedBox(height: 12),
@@ -788,8 +877,8 @@ class _SettingsPageState extends State<SettingsPage> {
       initialValue:
           widget.app.library.settings['metadataCacheMb'] as int? ?? 256,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Лимит кеша обложек и метаданных',
+      decoration: InputDecoration(
+        labelText: tr("Лимит кеша обложек и метаданных"),
       ),
       items: [
         for (final mb in {
@@ -800,7 +889,7 @@ class _SettingsPageState extends State<SettingsPage> {
           1024,
           widget.app.library.settings['metadataCacheMb'] as int? ?? 256,
         }.toList()..sort())
-          DropdownMenuItem(value: mb, child: Text('$mb МБ')),
+          DropdownMenuItem(value: mb, child: Text(tr("{0} МБ", [mb]))),
       ],
       onChanged: widget.app.cacheBusy
           ? null
@@ -813,9 +902,11 @@ class _SettingsPageState extends State<SettingsPage> {
     const SizedBox(height: 12),
     if (widget.app.cacheStats != null)
       Text(
-        '${formatBytes(widget.app.cacheStats!.bytes)} из '
-        '${formatBytes(widget.app.cacheStats!.maxBytes)} · '
-        '${widget.app.cacheStats!.count} записей',
+        tr("{0} из {1} · {2} записей", [
+          formatBytes(widget.app.cacheStats!.bytes),
+          formatBytes(widget.app.cacheStats!.maxBytes),
+          widget.app.cacheStats!.count,
+        ]),
         style: const TextStyle(color: muted, fontSize: 12),
       ),
     Wrap(
@@ -828,30 +919,30 @@ class _SettingsPageState extends State<SettingsPage> {
               ? null
               : widget.app.clearMetadataCache,
           icon: const Icon(Icons.delete_sweep_outlined, size: 18),
-          label: const Text('Очистить кеш'),
+          label: Text(tr("Очистить кеш")),
         ),
         TextButton(
           onPressed: widget.app.cacheBusy
               ? null
               : widget.app.refreshMetadataCache,
-          child: const Text('Обновить размер'),
+          child: Text(tr("Обновить размер")),
         ),
       ],
     ),
   ];
 
   List<Widget> _profileControls() => [
-    const SectionTitle('Профиль на другом устройстве'),
-    const Text(
-      'Сохрани профиль в файл и открой его в Mumpa на другом устройстве. '
-      'В файл попадут любимые треки, альбомы, плейлисты и их порядок, '
-      'метаданные и источники музыки, история, статистика, выбранные версии треков, очередь и настройки плеера.',
+    SectionTitle(tr("Профиль на другом устройстве")),
+    Text(
+      tr(
+        "Сохрани профиль в файл и открой его в Mumpa на другом устройстве. В файл попадут любимые треки, альбомы, плейлисты и их порядок, метаданные и источники музыки, история, статистика, выбранные версии треков, очередь и настройки плеера.",
+      ),
     ),
     const SizedBox(height: 16),
-    const Text(
-      'Музыка и обложки в файл не входят. Торрент-треки можно скачать заново при наличии пиров. '
-      'Для локальной музыки сохраняются названия и избранное; сами файлы нужно перенести отдельно. '
-      'Адреса серверов, сетевой интерфейс, пароли и данные входа на новом устройстве настраиваются отдельно.',
+    Text(
+      tr(
+        "Музыка и обложки в файл не входят. Торрент-треки можно скачать заново при наличии пиров. Для локальной музыки сохраняются названия и избранное; сами файлы нужно перенести отдельно. Адреса серверов, сетевой интерфейс, пароли и данные входа на новом устройстве настраиваются отдельно.",
+      ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
     const SizedBox(height: 20),
@@ -863,21 +954,21 @@ class _SettingsPageState extends State<SettingsPage> {
           key: const ValueKey('export-profile'),
           onPressed: widget.app.busy == null ? widget.app.exportProfile : null,
           icon: const Icon(Icons.file_upload_outlined),
-          label: const Text('Экспортировать профиль'),
+          label: Text(tr("Экспортировать профиль")),
         ),
         OutlinedButton.icon(
           key: const ValueKey('import-profile'),
           onPressed: widget.app.busy == null ? _importProfile : null,
           icon: const Icon(Icons.file_download_outlined),
-          label: const Text('Импортировать профиль'),
+          label: Text(tr("Импортировать профиль")),
         ),
       ],
     ),
     const SizedBox(height: 16),
-    const Text(
-      'Импорт объединяет данные с текущей медиатекой. Существующие треки, '
-      'локальные файлы и порядок в плейлистах сохраняются. '
-      'Перед импортом автоматически создаётся резервная копия профиля.',
+    Text(
+      tr(
+        "Импорт объединяет данные с текущей медиатекой. Существующие треки, локальные файлы и порядок в плейлистах сохраняются. Перед импортом автоматически создаётся резервная копия профиля.",
+      ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
   ];
@@ -890,36 +981,45 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
-          title: const Text('Импортировать профиль?'),
+          title: Text(tr("Импортировать профиль?")),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Треков: ${transfer.trackCount}\n'
-                  'Любимых треков: ${transfer.favoriteCount}\n'
-                  'Любимых альбомов: ${transfer.albumCount}\n'
-                  'Плейлистов и коллекций: ${transfer.playlistCount}',
+                  tr(
+                    "Треков: {0}\nЛюбимых треков: {1}\nЛюбимых альбомов: {2}\nПлейлистов и коллекций: {3}",
+                    [
+                      transfer.trackCount,
+                      transfer.favoriteCount,
+                      transfer.albumCount,
+                      transfer.playlistCount,
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Данные будут добавлены к текущей медиатеке. '
-                  'Повторный импорт не создаёт дубликатов. '
-                  'Текущая очередь воспроизведения сохранится.',
+                Text(
+                  tr(
+                    "Данные будут добавлены к текущей медиатеке. Повторный импорт не создаёт дубликатов. Текущая очередь воспроизведения сохранится.",
+                  ),
                 ),
                 if (transfer.localTrackCount > 0) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Локальных треков без аудиофайлов: ${transfer.localTrackCount}. '
-                    'Для прослушивания потребуется отдельно добавить музыку.',
+                    tr(
+                      "Локальных треков без аудиофайлов: {0}. Для прослушивания потребуется отдельно добавить музыку.",
+                      [transfer.localTrackCount],
+                    ),
                   ),
                 ],
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Перенести настройки плеера'),
-                  subtitle: const Text(
-                    'Сохранённая очередь восстановится, если текущая пуста.',
+                  title: Text(tr("Перенести настройки плеера")),
+                  subtitle: Text(
+                    tr(
+                      "Сохранённая очередь восстановится, если текущая пуста.",
+                    ),
                   ),
                   value: includeSettings,
                   onChanged: (value) =>
@@ -931,11 +1031,11 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Отмена'),
+              child: Text(tr("Отмена")),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Импортировать'),
+              child: Text(tr("Импортировать")),
             ),
           ],
         ),
@@ -955,8 +1055,8 @@ class _SettingsPageState extends State<SettingsPage> {
       quit: () async {
         final shell = widget.app.windowsPlayer;
         if (shell == null || !shell.available) {
-          throw const FormatException(
-            'Перезапуск недоступен. Заверши Mumpa и повтори установку.',
+          throw FormatException(
+            tr("Перезапуск недоступен. Заверши Mumpa и повтори установку."),
           );
         }
         await shell.requestQuit();
@@ -967,8 +1067,10 @@ class _SettingsPageState extends State<SettingsPage> {
     ),
     const SizedBox(height: 24),
     const SectionTitle('Mumpa'),
-    const Text(
-      'Музыка из твоих файлов и источников.\nДемо Mumpa Sessions — оригинальные синтезированные фрагменты.\nFlutter · media_kit · TorrServer MatriX.145.2',
+    Text(
+      tr(
+        "Музыка из твоих файлов и источников.\nДемо Mumpa Sessions — оригинальные синтезированные фрагменты.\nFlutter · media_kit · TorrServer MatriX.145.2",
+      ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
     const SizedBox(height: 12),
@@ -980,25 +1082,25 @@ class _SettingsPageState extends State<SettingsPage> {
         applicationLegalese:
             'GPL-3.0 · TorrServer: github.com/YouROK/TorrServer, MatriX.145.2\nEngine source: commit bb3f4468d38a96f4df563f28c9fd4ccc3b2b37a9',
       ),
-      child: const Text('Лицензии компонентов'),
+      child: Text(tr("Лицензии компонентов")),
     ),
     const SizedBox(height: 12),
     SelectableText(
-      'Библиотека: ${widget.app.library.root.path}',
+      tr("Библиотека: {0}", [widget.app.library.root.path]),
       style: const TextStyle(fontSize: 10, color: muted),
     ),
     const SizedBox(height: 8),
-    const Text(
-      'Избранное и настройки сохраняются отдельно от приложения. '
-      'Резервные копии за последние 7 дней находятся в подпапке backups. '
-      'Обновление и очистка кеша сохраняют эти данные.',
+    Text(
+      tr(
+        "Избранное и настройки сохраняются отдельно от приложения. Резервные копии за последние 7 дней находятся в подпапке backups. Обновление и очистка кеша сохраняют эти данные.",
+      ),
       style: TextStyle(fontSize: 11, color: muted),
     ),
     if (Platform.isAndroid)
-      const Padding(
+      Padding(
         padding: EdgeInsets.only(top: 8),
         child: Text(
-          'Импорт на Android сохраняет копии в приватной папке приложения.',
+          tr("Импорт на Android сохраняет копии в приватной папке приложения."),
           style: TextStyle(color: muted, fontSize: 11),
         ),
       ),

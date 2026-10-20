@@ -48,6 +48,7 @@ class WindowsPlayerBridge {
   bool tray_added_ = false, thumbnail_added_ = false, initialized_ = false;
   bool quit_requested_ = false, has_track_ = false, playing_ = false;
   bool can_previous_ = false, can_next_ = false;
+  bool english_ = false;
   std::wstring title_, artist_, album_;
   DWORD last_media_tick_ = 0;
   UINT last_media_action_ = 0, last_media_origin_ = 0;

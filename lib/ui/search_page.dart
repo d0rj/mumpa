@@ -7,12 +7,12 @@ class _SearchPage extends StatelessWidget {
   Widget build(BuildContext context) => _PageBody(
     children: [
       SectionTitle(
-        'Найди свой звук',
+        tr("Найди свой звук"),
         subtitle: app.usesAutomaticSource
-            ? 'Твоя медиатека и готовый музыкальный каталог'
+            ? tr("Твоя медиатека и готовый музыкальный каталог")
             : app.usesIndexer
-            ? 'Твоя медиатека и музыкальные трекеры Jackett'
-            : 'Твоя медиатека и музыкальный каталог RuTracker',
+            ? tr("Твоя медиатека и музыкальные трекеры Jackett")
+            : tr("Твоя медиатека и музыкальный каталог RuTracker"),
       ),
       SearchOptionsPanel(app: app),
       const SizedBox(height: 12),
@@ -31,29 +31,29 @@ class _SearchPage extends StatelessWidget {
                 : const Icon(Icons.search_rounded, size: 18),
             label: Text(
               app.trackSearchMode
-                  ? 'Искать треки'
+                  ? tr("Искать треки")
                   : app.usesAutomaticSource
-                  ? 'Искать музыку'
+                  ? tr("Искать музыку")
                   : app.usesIndexer
-                  ? 'Искать через Jackett'
-                  : 'Искать на RuTracker',
+                  ? tr("Искать через Jackett")
+                  : tr("Искать на RuTracker"),
             ),
           ),
           if (!app.usesIndexer && app.catalog.username == null)
             TextButton(
               onPressed: () => app.connectCatalog(),
-              child: const Text('Войти в RuTracker'),
+              child: Text(tr("Войти в RuTracker")),
             ),
         ],
       ),
       if (app.trackSearchMode && app.selectedRecording != null) ...[
         SectionTitle(
-          'Версии «${app.selectedRecording!.title}»',
+          tr("Версии «{0}»", [app.selectedRecording!.title]),
           subtitle: app.selectedRecording!.artist,
           action: app.versionLoading
               ? TextButton(
                   onPressed: app.cancelVersionSearch,
-                  child: const Text('Отменить'),
+                  child: Text(tr("Отменить")),
                 )
               : null,
         ),
@@ -75,10 +75,12 @@ class _SearchPage extends StatelessWidget {
             ),
           ),
         if (app.trackVariants.isNotEmpty) ...[
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Выбери формат и раздачу. Метки Clean и «без цензуры» взяты из описания версии.',
+              tr(
+                "Выбери формат и раздачу. Метки Clean и «без цензуры» взяты из описания версии.",
+              ),
               style: TextStyle(color: muted, fontSize: 11),
             ),
           ),
@@ -99,22 +101,24 @@ class _SearchPage extends StatelessWidget {
             ),
           ),
         SectionTitle(
-          'Треки в MusicBrainz',
+          tr("Треки в MusicBrainz"),
           subtitle: app.searching
-              ? 'Ищем…'
+              ? tr("Ищем…")
               : app.recordingResults.isNotEmpty
-              ? 'Найдено: ${app.recordingResults.length}'
-              : 'Введи название трека и исполнителя',
+              ? tr("Найдено: {0}", [app.recordingResults.length])
+              : tr("Введи название трека и исполнителя"),
         ),
         if (app.recordingResults.isNotEmpty)
           RecordingRows(app: app, recordings: app.recordingResults)
         else if (!app.searching &&
             app.searchCompleted &&
             app.metadataError == null)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              'Треки не найдены. Попробуй добавить имя исполнителя или поискать альбом в источниках.',
+              tr(
+                "Треки не найдены. Попробуй добавить имя исполнителя или поискать альбом в источниках.",
+              ),
               style: TextStyle(color: muted),
             ),
           ),
@@ -135,7 +139,9 @@ class _SearchPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              'По исходному запросу ничего не найдено. Проверяем «${app.searchCorrectionCandidate}»…',
+              tr("По исходному запросу ничего не найдено. Проверяем «{0}»…", [
+                app.searchCorrectionCandidate,
+              ]),
               style: const TextStyle(color: muted),
             ),
           )
@@ -144,16 +150,21 @@ class _SearchPage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
               app.releases.isNotEmpty
-                  ? 'По запросу «${app.query.trim()}» ничего не найдено. Показаны результаты для «${app.correctedSearchQuery}».'
-                  : 'Также проверили «${app.correctedSearchQuery}»: раздачи не найдены.',
+                  ? tr(
+                      "По запросу «{0}» ничего не найдено. Показаны результаты для «{1}».",
+                      [app.query.trim(), app.correctedSearchQuery],
+                    )
+                  : tr("Также проверили «{0}»: раздачи не найдены.", [
+                      app.correctedSearchQuery,
+                    ]),
               style: const TextStyle(color: muted),
             ),
           ),
         if (app.searchCorrectionSuggestions.isNotEmpty) ...[
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              'Есть несколько похожих названий. Уточни запрос:',
+              tr("Есть несколько похожих названий. Уточни запрос:"),
               style: TextStyle(color: muted),
             ),
           ),
@@ -174,15 +185,15 @@ class _SearchPage extends StatelessWidget {
         ],
         SectionTitle(
           app.usesAutomaticSource
-              ? 'В музыкальном каталоге'
+              ? tr("В музыкальном каталоге")
               : app.usesIndexer
-              ? 'В трекерах Jackett'
-              : 'На RuTracker',
+              ? tr("В трекерах Jackett")
+              : tr("На RuTracker"),
           subtitle: app.searching
-              ? 'Ищем…'
+              ? tr("Ищем…")
               : app.searchCompleted
-              ? 'Найдено: ${app.releases.length}'
-              : 'Начни вводить запрос',
+              ? tr("Найдено: {0}", [app.releases.length])
+              : tr("Начни вводить запрос"),
         ),
         if (app.releases.isNotEmpty)
           ReleaseRows(app: app, releases: app.releases)
@@ -191,25 +202,28 @@ class _SearchPage extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Text(
               app.searchCompleted
-                  ? 'В подключённых источниках ничего не найдено. Проверь название или подключи другой музыкальный трекер.'
-                  : 'Нажми «Искать», чтобы найти альбомы в каталоге.',
+                  ? tr(
+                      "В подключённых источниках ничего не найдено. Проверь название или подключи другой музыкальный трекер.",
+                    )
+                  : tr("Нажми «Искать», чтобы найти альбомы в каталоге."),
               style: const TextStyle(color: muted),
             ),
           ),
       ],
       if (app.query.trim().isNotEmpty) ...[
         SectionTitle(
-          'В твоей медиатеке',
-          subtitle:
-              'Найдено: ${app.library.matchedTracks(app.searchTracks).length}',
+          tr("В твоей медиатеке"),
+          subtitle: tr("Найдено: {0}", [
+            app.library.matchedTracks(app.searchTracks).length,
+          ]),
         ),
         if (app.searchTracks.isNotEmpty)
           TrackList(app: app, tracks: app.searchTracks)
         else
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Text(
-              'В локальной медиатеке пока ничего не найдено.',
+              tr("В локальной медиатеке пока ничего не найдено."),
               style: TextStyle(color: muted),
             ),
           ),

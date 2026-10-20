@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -162,15 +163,15 @@ class PlaylistRadio extends ChangeNotifier {
       }
       operation.check();
       exhausted = _ready.isEmpty;
-      if (exhausted) message = 'Новых доступных треков пока нет';
+      if (exhausted) message = tr("Новых доступных треков пока нет");
     } on SourceCancelled {
       if (!identical(_operation, operation)) return;
       exhausted = _ready.isEmpty;
-      if (exhausted) message = 'Не удалось подготовить продолжение';
+      if (exhausted) message = tr("Не удалось подготовить продолжение");
     } catch (_) {
       if (identical(_operation, operation)) {
         exhausted = _ready.isEmpty;
-        message = 'Поиск продолжения временно недоступен';
+        message = tr("Поиск продолжения временно недоступен");
       }
     } finally {
       deadline.cancel();

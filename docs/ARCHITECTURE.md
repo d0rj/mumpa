@@ -1,5 +1,42 @@
 # Mumpa architecture
 
+## Audio preferences and English interface — 2026-10-20
+
+`AudioPreferences` reads bounded, backward-compatible settings: six EQ bands
+(60/150/400/1000/2400/15000 Hz, ±12 dB), normalization, mono and optional
+1–12 second crossfade. `NativeAudioBackend` applies lavfi `equalizer`, live
+EBU R128 `loudnorm` (-16 LUFS target, -1.5 dBTP) and stereo averaging through
+`pan`. EQ runs in floating point; a pan preamp reserves boost headroom and
+a final peak limiter protects overlapping boosted bands, while
+the UI and saved user volume remain independent. Disabled effects bypass DSP.
+
+The old minimal media_kit native libraries omit required filters. The local
+`mumpa_audio_runtime` native-assets package pins mpv 0.41.0 / FFmpeg 8.1.1
+`libmpv-r17` binaries by SHA-256. `initializeAudioRuntime()` selects this exact
+library before any Player is constructed. Android invokes JNI_OnLoad on this
+library through MainActivity; media_kit's existing helpers remain available.
+Build-time downloads are atomic and checked; application startup is offline.
+
+`_PlaybackTransitions` prepares only the next queue occurrence without changing
+selection. If the next decoder starts before the current track ends, the
+backend swaps the active decoder and ramps two independent gains over the
+remaining fade window. Queue keys, shuffle/repeat and selected source are
+retained. Pause, Stop, seek and newer transport requests invalidate preparation;
+Pause finishes the outgoing tail and resumes the same incoming decoder.
+Unavailable sources use existing completion/failure handling. Radio discovery
+and repeat-one keep their existing bounded behavior.
+
+Download quality chooses among already matched recordings for explicit offline
+requests. It neither transcodes nor searches new sources. Unknown/ambiguous
+formats fall back to the chosen source; playback caching and prefetch keep the
+exact playback version. Existing transfers are not rewritten.
+
+Russian source messages map to an English catalog with ordered placeholders.
+`MumpaApp` supplies ru/en Material localizations and rebuilds on language changes.
+App messages can be translated at display time; music metadata, filenames and
+search queries stay untouched. Windows tray/taskbar controls receive the same
+language setting. Portable profile validation includes the new settings.
+
 ## Russian automatic search — 1.2.22
 
 `AutomaticMusicCatalog` runs the Knaben API and anonymous, music-category RuTor

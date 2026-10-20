@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/app_controller.dart';
@@ -100,7 +101,7 @@ class _LocalSearchFieldState extends State<LocalSearchField> {
             ? null
             : IconButton(
                 key: ValueKey('local-search-${widget.scope}-clear'),
-                tooltip: 'Очистить поиск в разделе',
+                tooltip: tr("Очистить поиск в разделе"),
                 onPressed: () {
                   widget.app.setLocalQuery(widget.scope, '');
                 },

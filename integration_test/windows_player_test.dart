@@ -1,3 +1,4 @@
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -5,7 +6,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:mumpa/main.dart';
 import 'package:mumpa/ui/app_screen.dart';
 
@@ -49,7 +49,7 @@ Future<void> waitForShellPlayback(
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  initializeAudioRuntime();
   testWidgets(
     'Windows shell buttons and close-to-tray retain native playback',
     (tester) async {

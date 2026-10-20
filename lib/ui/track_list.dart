@@ -82,7 +82,7 @@ class TrackList extends SliverContent {
             app.reportError(error.message);
           } catch (_) {
             app.reportError(
-              'Не удалось открыть расположение трека в проводнике.',
+              tr("Не удалось открыть расположение трека в проводнике."),
             );
           }
         }
@@ -207,8 +207,8 @@ class TrackList extends SliverContent {
                       height: 22,
                       child: Center(
                         child: t.offline
-                            ? const Tooltip(
-                                message: 'Доступен офлайн',
+                            ? Tooltip(
+                                message: tr("Доступен офлайн"),
                                 child: Icon(
                                   Icons.download_done_rounded,
                                   size: 14,
@@ -217,7 +217,7 @@ class TrackList extends SliverContent {
                               )
                             : downloading != null
                             ? Tooltip(
-                                message: 'Сохраняется для офлайн',
+                                message: tr("Сохраняется для офлайн"),
                                 child: SizedBox.square(
                                   dimension: 14,
                                   child: CircularProgressIndicator(
@@ -232,7 +232,7 @@ class TrackList extends SliverContent {
                   IconButton(
                     onPressed: () =>
                         app.library.toggleMatchedTrackLike(row.group, t.id),
-                    tooltip: liked ? 'Убрать из любимого' : 'В любимое',
+                    tooltip: liked ? tr("Убрать из любимого") : tr("В любимое"),
                     visualDensity: VisualDensity.compact,
                     icon: Icon(
                       liked
@@ -249,7 +249,7 @@ class TrackList extends SliverContent {
                           ? IconButton(
                               key: ValueKey('track-reveal-${anchor.id}'),
                               onPressed: revealFile,
-                              tooltip: 'Показать в проводнике',
+                              tooltip: tr("Показать в проводнике"),
                               visualDensity: VisualDensity.compact,
                               icon: const Icon(
                                 Icons.folder_open_rounded,
@@ -270,7 +270,7 @@ class TrackList extends SliverContent {
                     ),
                   PopupMenuButton<String>(
                     key: ValueKey('track-actions-${anchor.id}'),
-                    tooltip: 'Действия с треком',
+                    tooltip: tr("Действия с треком"),
                     icon: const Icon(
                       Icons.more_horiz_rounded,
                       color: muted,
@@ -301,20 +301,21 @@ class TrackList extends SliverContent {
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Удалить офлайн-копию?'),
-                              content: const Text(
-                                'Трек сохранится в библиотеке и избранном, '
-                                'но для прослушивания потребуется сеть.',
+                              title: Text(tr("Удалить офлайн-копию?")),
+                              content: Text(
+                                tr(
+                                  "Трек сохранится в библиотеке и избранном, но для прослушивания потребуется сеть.",
+                                ),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () =>
                                       Navigator.pop(context, false),
-                                  child: const Text('Отмена'),
+                                  child: Text(tr("Отмена")),
                                 ),
                                 FilledButton(
                                   onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Удалить копию'),
+                                  child: Text(tr("Удалить копию")),
                                 ),
                               ],
                             ),
@@ -347,75 +348,77 @@ class TrackList extends SliverContent {
                         PopupMenuItem(
                           value: 'moveUp',
                           enabled: i > 0,
-                          child: const Text('Выше в плейлисте'),
+                          child: Text(tr("Выше в плейлисте")),
                         ),
                         PopupMenuItem(
                           value: 'moveDown',
                           enabled: i < rows.length - 1,
-                          child: const Text('Ниже в плейлисте'),
+                          child: Text(tr("Ниже в плейлисте")),
                         ),
                       ],
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'album',
-                        child: Text('Перейти к альбому'),
+                        child: Text(tr("Перейти к альбому")),
                       ),
                       if (row.group.multiple)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'versions',
-                          child: Text('Выбрать версию'),
+                          child: Text(tr("Выбрать версию")),
                         ),
                       if (app.library.isMatchExcluded(anchor.id))
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'joinMatching',
-                          child: Text('Снова объединять похожие версии'),
+                          child: Text(tr("Снова объединять похожие версии")),
                         ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'next',
-                        child: Text('Слушать следующим'),
+                        child: Text(tr("Слушать следующим")),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'queue',
-                        child: Text('В конец очереди'),
+                        child: Text(tr("В конец очереди")),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'addPlaylist',
-                        child: Text('Добавить в плейлист'),
+                        child: Text(tr("Добавить в плейлист")),
                       ),
                       if (app.currentPlaylist != null &&
                           !app.currentPlaylist!.trackIds.contains(t.id))
                         PopupMenuItem(
                           value: 'currentPlaylist',
                           child: Text(
-                            'В текущий плейлист «${app.currentPlaylist!.name}»',
+                            tr("В текущий плейлист «{0}»", [
+                              app.currentPlaylist!.name,
+                            ]),
                           ),
                         ),
                       if (hasArtistPage(t.artist))
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'artist',
-                          child: Text('Все треки исполнителя'),
+                          child: Text(tr("Все треки исполнителя")),
                         ),
                       if (t.source == TrackSource.torrent &&
                           t.cachedPath == null)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'download',
-                          child: Text('Скачать для офлайн'),
+                          child: Text(tr("Скачать для офлайн")),
                         ),
                       if (t.cachedPath != null)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'removeCache',
-                          child: Text('Удалить офлайн-копию'),
+                          child: Text(tr("Удалить офлайн-копию")),
                         ),
                       if (canReveal)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'revealFile',
-                          child: Text('Показать в проводнике'),
+                          child: Text(tr("Показать в проводнике")),
                         ),
                       if (playlistId != null &&
                           app.library.playlistById(playlistId)?.isSystem !=
                               true)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'removePlaylist',
-                          child: Text('Убрать из плейлиста'),
+                          child: Text(tr("Убрать из плейлиста")),
                         ),
                     ],
                   ),
@@ -423,8 +426,8 @@ class TrackList extends SliverContent {
                     ReorderableDragStartListener(
                       key: ValueKey('playlist-drag-${anchor.id}'),
                       index: i,
-                      child: const Tooltip(
-                        message: 'Переместить трек',
+                      child: Tooltip(
+                        message: tr("Переместить трек"),
                         child: MouseRegion(
                           cursor: SystemMouseCursors.grab,
                           child: SizedBox.square(
@@ -473,7 +476,7 @@ Future<String?> askName(
       content: TextField(
         controller: field,
         autofocus: true,
-        decoration: const InputDecoration(labelText: 'Название'),
+        decoration: InputDecoration(labelText: tr("Название")),
         onSubmitted: (value) {
           if (value.trim().isNotEmpty) Navigator.pop(context, value.trim());
         },
@@ -481,7 +484,7 @@ Future<String?> askName(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: Text(tr("Отмена")),
         ),
         FilledButton(
           onPressed: () {
@@ -489,7 +492,7 @@ Future<String?> askName(
               Navigator.pop(context, field.text.trim());
             }
           },
-          child: const Text('Сохранить'),
+          child: Text(tr("Сохранить")),
         ),
       ],
     ),
@@ -506,7 +509,7 @@ Future<void> choosePlaylist(
   final selected = await showDialog<String>(
     context: context,
     builder: (context) => SimpleDialog(
-      title: const Text('Добавить в плейлист'),
+      title: Text(tr("Добавить в плейлист")),
       children: [
         ...app.library.playlists
             .where((playlist) => playlist.sourceHash == null)
@@ -518,10 +521,7 @@ Future<void> choosePlaylist(
             ),
         SimpleDialogOption(
           onPressed: () => Navigator.pop(context, '__new__'),
-          child: const Text(
-            '+ Новый плейлист',
-            style: TextStyle(color: accent),
-          ),
+          child: Text(tr("+ Новый плейлист"), style: TextStyle(color: accent)),
         ),
       ],
     ),
@@ -529,7 +529,7 @@ Future<void> choosePlaylist(
   if (selected == null) return;
   var id = selected;
   if (selected == '__new__' && context.mounted) {
-    final name = await askName(context, 'Новый плейлист');
+    final name = await askName(context, tr("Новый плейлист"));
     if (name == null) return;
     id = (await app.library.createPlaylist(name)).id;
   }

@@ -175,7 +175,15 @@ class ProfileTransfer {
     Set<String> playlists,
   ) {
     final result = <String, dynamic>{};
-    for (final key in ['autoCache', 'autoplayRadio', 'checkAppUpdates']) {
+    for (final key in [
+      'autoCache',
+      'autoplayRadio',
+      'checkAppUpdates',
+      'equalizerEnabled',
+      'normalizeVolume',
+      'monoAudio',
+      'crossfadeEnabled',
+    ]) {
       if (!settings.containsKey(key)) continue;
       if (settings[key] is! bool) {
         throw const FormatException('Повреждены настройки профиля.');
@@ -188,6 +196,7 @@ class ProfileTransfer {
       'metadataCacheMb': (32, 4096),
       'downloadConcurrency': (1, 6),
       'prefetchTracks': (0, 10),
+      'crossfadeSeconds': (1, 12),
     }.entries) {
       final value = settings[entry.key];
       if (value == null) continue;
@@ -195,10 +204,30 @@ class ProfileTransfer {
           !value.isFinite ||
           value < entry.value.$1 ||
           value > entry.value.$2 ||
-          (entry.key != 'volume' && value is! int)) {
+          (!['volume', 'crossfadeSeconds'].contains(entry.key) &&
+              value is! int)) {
         throw const FormatException('Повреждены настройки профиля.');
       }
       result[entry.key] = value;
+    }
+    for (final entry in {
+      'language': ['ru', 'en'],
+      'downloadQuality': ['original', 'lossless', 'compact'],
+    }.entries) {
+      if (!settings.containsKey(entry.key)) continue;
+      if (!entry.value.contains(settings[entry.key])) {
+        throw const FormatException('Повреждены настройки профиля.');
+      }
+      result[entry.key] = settings[entry.key];
+    }
+    if (settings.containsKey('equalizerGains')) {
+      final gains = settings['equalizerGains'];
+      if (gains is! List ||
+          gains.length != 6 ||
+          gains.any((v) => v is! num || !v.isFinite || v < -12 || v > 12)) {
+        throw const FormatException('Повреждены настройки профиля.');
+      }
+      result['equalizerGains'] = List<num>.from(gains);
     }
     if (settings['playback'] case final Map session) {
       final original = List<String>.from(

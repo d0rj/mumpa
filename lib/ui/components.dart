@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -117,9 +118,9 @@ class _AlbumCardState extends State<AlbumCard> {
                         left: 9,
                         right: widget.app == null ? null : 54,
                         top: 9,
-                        child: const BadgePill(
+                        child: BadgePill(
                           icon: Icons.download_done_rounded,
-                          label: 'Офлайн',
+                          label: tr("Офлайн"),
                         ),
                       ),
                     if (widget.app != null)
@@ -140,7 +141,7 @@ class _AlbumCardState extends State<AlbumCard> {
                         duration: const Duration(milliseconds: 150),
                         child: IconButton.filled(
                           onPressed: widget.onPlay,
-                          tooltip: 'Слушать альбом',
+                          tooltip: tr("Слушать альбом"),
                           icon: const Icon(Icons.play_arrow_rounded),
                           style: IconButton.styleFrom(
                             backgroundColor: accent,
@@ -233,14 +234,14 @@ class AlbumFavoriteButton extends StatelessWidget {
     );
     final key = ValueKey('favorite-album-${album.id}');
     final description = liked
-        ? 'Убрать альбом из любимого'
-        : 'Добавить альбом в любимое';
+        ? tr("Убрать альбом из любимого")
+        : tr("Добавить альбом в любимое");
     return label
         ? OutlinedButton.icon(
             key: key,
             onPressed: () => app.library.toggleAlbumLike(album),
             icon: icon,
-            label: Text(liked ? 'В любимом' : 'В любимое'),
+            label: Text(liked ? tr("В любимом") : tr("В любимое")),
           )
         : IconButton(
             key: key,
@@ -276,13 +277,13 @@ class PlaylistFavoriteButton extends StatelessWidget {
       color: liked ? accent : muted,
       size: 20,
     );
-    final description = liked ? 'Убрать из любимого' : 'В любимое';
+    final description = liked ? tr("Убрать из любимого") : tr("В любимое");
     return label
         ? OutlinedButton.icon(
             key: ValueKey('favorite-playlist-$playlistId'),
             onPressed: () => app.library.togglePlaylistLike(playlistId),
             icon: icon,
-            label: Text(liked ? 'В любимом' : 'В любимое'),
+            label: Text(liked ? tr("В любимом") : tr("В любимое")),
           )
         : IconButton(
             key: ValueKey('favorite-playlist-$playlistId'),
@@ -351,7 +352,7 @@ class EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              description,
+              trMessage(description),
               textAlign: TextAlign.center,
               style: const TextStyle(color: muted),
             ),

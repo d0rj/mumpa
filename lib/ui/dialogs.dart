@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../logic/app_controller.dart';
@@ -20,7 +21,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
                 children: [
                   Expanded(
                     child: Text(
-                      'Добавить музыку',
+                      tr("Добавить музыку"),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
@@ -31,29 +32,31 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Собери свою коллекцию из локальных альбомов и торрент-ссылок.',
+              Text(
+                tr(
+                  "Собери свою коллекцию из локальных альбомов и торрент-ссылок.",
+                ),
                 style: TextStyle(color: muted),
               ),
               const SizedBox(height: 24),
               _SourceOption(
                 icon: Icons.folder_open_rounded,
-                title: 'Папка с альбомами',
-                subtitle: 'Импортировать все аудиофайлы из папки',
+                title: tr("Папка с альбомами"),
+                subtitle: tr("Импортировать все аудиофайлы из папки"),
                 onTap: () => Navigator.pop(context, 'folder'),
               ),
               const SizedBox(height: 10),
               _SourceOption(
                 icon: Icons.audio_file_outlined,
-                title: 'Музыкальные файлы',
-                subtitle: 'MP3, FLAC, M4A, OGG, WAV и другие',
+                title: tr("Музыкальные файлы"),
+                subtitle: tr("MP3, FLAC, M4A, OGG, WAV и другие"),
                 onTap: () => Navigator.pop(context, 'files'),
               ),
               const SizedBox(height: 10),
               _SourceOption(
                 icon: Icons.file_open_outlined,
-                title: 'Файл .torrent',
-                subtitle: 'Открыть коллекцию и слушать без полной загрузки',
+                title: tr("Файл .torrent"),
+                subtitle: tr("Открыть коллекцию и слушать без полной загрузки"),
                 onTap: () => Navigator.pop(context, 'torrent'),
               ),
               const SizedBox(height: 24),
@@ -72,8 +75,10 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
                 controller: link,
                 minLines: 1,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  hintText: 'magnet:?xt=urn:btih:… или https://…/album.torrent',
+                decoration: InputDecoration(
+                  hintText: tr(
+                    "magnet:?xt=urn:btih:… или https://…/album.torrent",
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -87,7 +92,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
                     }
                   },
                   icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Открыть торрент'),
+                  label: Text(tr("Открыть торрент")),
                 ),
               ),
             ],
@@ -214,7 +219,7 @@ class _TorrentDialogState extends State<_TorrentDialog> {
               children: [
                 Expanded(
                   child: Text(
-                    'Треки из торрента',
+                    tr("Треки из торрента"),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
@@ -225,23 +230,26 @@ class _TorrentDialogState extends State<_TorrentDialog> {
               ],
             ),
             if (files.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('В этом торренте нет поддерживаемых аудиофайлов.'),
+                child: Text(
+                  tr("В этом торренте нет поддерживаемых аудиофайлов."),
+                ),
               ),
             if (files.isNotEmpty) ...[
               const SizedBox(height: 14),
               TextField(
                 controller: album,
-                decoration: const InputDecoration(labelText: 'Альбом'),
+                decoration: InputDecoration(labelText: tr("Альбом")),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: artist,
-                decoration: const InputDecoration(
-                  labelText: 'Исполнитель',
-                  hintText:
-                      'Можно указать сейчас; теги прочитаются после скачивания',
+                decoration: InputDecoration(
+                  labelText: tr("Исполнитель"),
+                  hintText: tr(
+                    "Можно указать сейчас; теги прочитаются после скачивания",
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -249,7 +257,10 @@ class _TorrentDialogState extends State<_TorrentDialog> {
                 children: [
                   Expanded(
                     child: Text(
-                      '${files.length} аудиофайлов · ${formatBytes(files.fold<int>(0, (a, b) => a + b.bytes))}',
+                      tr("{0} аудиофайлов · {1}", [
+                        files.length,
+                        formatBytes(files.fold<int>(0, (a, b) => a + b.bytes)),
+                      ]),
                       style: const TextStyle(color: muted, fontSize: 12),
                     ),
                   ),
@@ -263,8 +274,8 @@ class _TorrentDialogState extends State<_TorrentDialog> {
                     }),
                     child: Text(
                       selected.length == files.length
-                          ? 'Снять всё'
-                          : 'Выбрать всё',
+                          ? tr("Снять всё")
+                          : tr("Выбрать всё"),
                     ),
                   ),
                 ],
@@ -314,7 +325,7 @@ class _TorrentDialogState extends State<_TorrentDialog> {
                           );
                         },
                   icon: const Icon(Icons.library_add_rounded),
-                  label: Text('Добавить ${selected.length} треков'),
+                  label: Text(tr("Добавить {0} треков", [selected.length])),
                 ),
               ),
             ],

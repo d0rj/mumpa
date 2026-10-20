@@ -1,11 +1,11 @@
 // Opt-in check of existing liked sources in an isolated library. Never prints
 // tracker URLs, source links, API keys or raw engine responses.
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/logic/app_controller.dart';
@@ -18,7 +18,7 @@ void main() {
   const diagnosticServer = String.fromEnvironment('FAVORITES_SERVER_URL');
   const selectedInterface = String.fromEnvironment('FAVORITES_INTERFACE');
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  initializeAudioRuntime();
   testWidgets(
     requirePlayback
         ? 'a real liked torrent plays from the network'

@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
@@ -12,9 +13,11 @@ import '../data/torrent_service.dart';
 import '../data/source_operation.dart';
 import '../data/radio_repository.dart';
 import '../domain/models.dart';
+import '../domain/audio_preferences.dart';
 import 'playlist_radio.dart';
 
 part 'audio_backend.dart';
+part 'playback_transitions.dart';
 
 class PlaybackController extends ChangeNotifier {
   /// Controls/queue change independently of the continuously updating timeline.
@@ -90,7 +93,9 @@ class PlaybackController extends ChangeNotifier {
       final opening = loading;
       final advance = _wantsPlayback;
       final failure = message.contains('Failed to open')
-          ? 'Поток недоступен. Проверьте подключение и наличие сидов; можно выбрать другой источник.'
+          ? tr(
+              "Поток недоступен. Проверьте подключение и наличие сидов; можно выбрать другой источник.",
+            )
           : message;
       _failOpening(failure);
       // The opening loop handles synchronous decoder errors itself.
@@ -102,6 +107,18 @@ class PlaybackController extends ChangeNotifier {
   final LibraryRepository library;
   final TorrentService torrents;
   final AudioBackend backend;
+  late final _transitions = _PlaybackTransitions(this);
+  AudioPreferences get audioPreferences =>
+      AudioPreferences.fromSettings(library.settings);
+
+  Future<void> setAudioSetting(String key, Object value) async {
+    await library.setSetting(key, value);
+    if (_closed) return;
+    await backend.applyPreferences(audioPreferences);
+    if (audioPreferences.crossfadeSeconds == 0) await _transitions.cancel();
+    notifyListeners();
+  }
+
   final PlaylistRadio radio;
   final Set<int> _radioEntries = {};
   int _radioIntent = 0;
@@ -115,10 +132,10 @@ class PlaybackController extends ChangeNotifier {
       _radioEntries.contains(_order[index]);
   bool get currentIsRadio => isRadioEntry(_cursor);
   String get radioStatus => radio.preparing
-      ? 'Готовим продолжение · готово: ${radio.readyCount}'
+      ? tr("Готовим продолжение · готово: {0}", [radio.readyCount])
       : radio.readyCount > 0
-      ? 'Продолжение готово · треков: ${radio.readyCount}'
-      : radio.message ?? 'Похожие исполнители после окончания очереди';
+      ? tr("Продолжение готово · треков: {0}", [radio.readyCount])
+      : radio.message ?? tr("Похожие исполнители после окончания очереди");
 
   Future<void> setRadioEnabled(bool enabled) =>
       library.setSetting('autoplayRadio', enabled);
@@ -316,9 +333,9 @@ class PlaybackController extends ChangeNotifier {
     if (platformAudio && Platform.isAndroid) {
       system = await AudioService.init(
         builder: () => SystemAudioHandler(this),
-        config: const AudioServiceConfig(
+        config: AudioServiceConfig(
           androidNotificationChannelId: 'app.mumpa.playback',
-          androidNotificationChannelName: 'Музыка',
+          androidNotificationChannelName: tr("Музыка"),
           androidNotificationOngoing: false,
           androidStopForegroundOnPause: false,
         ),
@@ -344,6 +361,7 @@ class PlaybackController extends ChangeNotifier {
     await backend.setVolume(
       (library.settings['volume'] as num?)?.toDouble() ?? 0.8,
     );
+    await backend.applyPreferences(audioPreferences);
     _restoreSavedSession();
   }
 
@@ -460,6 +478,7 @@ class PlaybackController extends ChangeNotifier {
     system?.publish();
     _publishChange(controls: false);
     _prepareRadio();
+    _transitions.tick();
     if (DateTime.now().difference(_lastSave).inSeconds >= 5 &&
         current != null) {
       _lastSave = DateTime.now();
@@ -510,7 +529,7 @@ class PlaybackController extends ChangeNotifier {
       return (await torrents.resolve(track, operation: operation)).toString();
     }
     throw FileSystemException(
-      'Файл перемещён или удалён. Импортируйте его снова.',
+      tr("Файл перемещён или удалён. Импортируйте его снова."),
       track.localPath,
     );
   }
@@ -525,6 +544,8 @@ class PlaybackController extends ChangeNotifier {
     if (_closed || current == null) return;
     _wantsPlayback = play;
     final intent = ++_advanceIntent;
+    await _transitions.cancel();
+    if (_closed || intent != _advanceIntent) return;
     if (!skipCurrent) _failedEntries.clear();
     final attempted = <int>{..._failedEntries};
     var skip = skipCurrent;
@@ -571,7 +592,7 @@ class PlaybackController extends ChangeNotifier {
     final connection = _connection = SourceOperation();
     _torrentStatus = null;
     connectionStatus = track.source == TrackSource.torrent
-        ? 'Подключаем раздачу…'
+        ? tr("Подключаем раздачу…")
         : null;
     loading = true;
     error = null;
@@ -594,7 +615,7 @@ class PlaybackController extends ChangeNotifier {
       if (request != _request) return;
       if (track.source == TrackSource.torrent &&
           {'http', 'https'}.contains(Uri.parse(uri).scheme)) {
-        connectionStatus = 'Ищем пиров и ждём первые аудиоданные…';
+        connectionStatus = tr("Ищем пиров и ждём первые аудиоданные…");
         notifyListeners();
         var polling = false;
         final audioWait = Stopwatch()..start();
@@ -608,8 +629,14 @@ class PlaybackController extends ChangeNotifier {
             if (request != _request || connection.cancelled) return;
             _torrentStatus = info;
             connectionStatus = info.peers == 0
-                ? 'Ждём соединения с пирами · подключено: 0 · ${audioWait.elapsed.inSeconds}/${audioStartupTimeout.inSeconds} с'
-                : 'Получаем аудиоданные · пиров: ${info.peers} · ${formatBytes(info.speed.round())}/с';
+                ? tr("Ждём соединения с пирами · подключено: 0 · {0}/{1} с", [
+                    audioWait.elapsed.inSeconds,
+                    audioStartupTimeout.inSeconds,
+                  ])
+                : tr("Получаем аудиоданные · пиров: {0} · {1}/с", [
+                    info.peers,
+                    formatBytes(info.speed.round()),
+                  ]);
             notifyListeners();
           } catch (_) {
             // Diagnostics must not replace the actual stream result.
@@ -627,11 +654,11 @@ class PlaybackController extends ChangeNotifier {
         );
         if (request != _request) return;
         _statisticsTimer?.cancel();
-        connectionStatus = 'Запускаем воспроизведение…';
+        connectionStatus = tr("Запускаем воспроизведение…");
         notifyListeners();
       }
       if (play && _session != null && !await _session!.setActive(true)) {
-        throw StateError('Аудиофокус занят другим приложением.');
+        throw StateError(tr("Аудиофокус занят другим приложением."));
       }
       _initialPlaybackPosition = _restorePosition ?? Duration.zero;
       awaitingAudio = false;
@@ -660,9 +687,9 @@ class PlaybackController extends ChangeNotifier {
               backend.position != _initialPlaybackPosition) {
             return;
           }
-          final failure =
-              'Аудиоданные получены, но воспроизведение не началось. '
-              'Повтори попытку или выбери другой источник.';
+          final failure = tr(
+            "Аудиоданные получены, но воспроизведение не началось. Повтори попытку или выбери другой источник.",
+          );
           _failOpening(failure);
           if (!_radioAdvancing) unawaited(_open(skipCurrent: true));
         });
@@ -672,11 +699,16 @@ class PlaybackController extends ChangeNotifier {
     } on TimeoutException {
       if (request == _request) {
         final message = !awaitingAudio
-            ? 'Не удалось запустить воспроизведение. Повтори попытку или выбери другой источник.'
+            ? tr(
+                "Не удалось запустить воспроизведение. Повтори попытку или выбери другой источник.",
+              )
             : _torrentStatus?.peers == 0
-            ? 'Нет соединения с пирами: раздача не передаёт аудиоданные. '
-                  'Повтори попытку, проверь поддержку P2P у VPN или выбери другой источник.'
-            : 'Не удалось дождаться аудиоданных. Повтори попытку или выбери другой источник.';
+            ? tr(
+                "Нет соединения с пирами: раздача не передаёт аудиоданные. Повтори попытку, проверь поддержку P2P у VPN или выбери другой источник.",
+              )
+            : tr(
+                "Не удалось дождаться аудиоданных. Повтори попытку или выбери другой источник.",
+              );
         _failOpening(message);
       }
     } catch (e) {
@@ -737,8 +769,10 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> pause() async {
     _wantsPlayback = false;
-    ++_advanceIntent;
+    final intent = ++_advanceIntent;
     _cancelRadio();
+    await _transitions.cancel();
+    if (_closed || intent != _advanceIntent) return;
     if (buffering) {
       await stop();
     } else {
@@ -752,7 +786,7 @@ class PlaybackController extends ChangeNotifier {
   Future<void> toggle() => playing || buffering ? pause() : play();
   Future<void> stop() async {
     _wantsPlayback = false;
-    ++_advanceIntent;
+    final intent = ++_advanceIntent;
     _cancelRadio();
     _restorePosition = position;
     ++_request;
@@ -760,6 +794,8 @@ class PlaybackController extends ChangeNotifier {
     loading = false;
     _openedId = null;
     notifyListeners();
+    await _transitions.cancel();
+    if (_closed || intent != _advanceIntent) return;
     await backend.stop();
     await _session?.setActive(false);
     notifyListeners();
@@ -768,6 +804,9 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Future<void> seek(Duration value) async {
+    final request = _request;
+    await _transitions.cancel();
+    if (_closed || request != _request) return;
     if (_openedId == null) {
       _restorePosition = value;
       notifyListeners();
@@ -1003,6 +1042,7 @@ class PlaybackController extends ChangeNotifier {
       }
     }
 
+    await cleanup('crossfade preparation', _transitions.cancel);
     await cleanup(
       'radio continuation',
       () async => await _radioSettled?.future,

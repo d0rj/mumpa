@@ -41,6 +41,7 @@ class WindowsPlayerService {
       capabilities = Map.unmodifiable(result ?? const {});
       _initialized = true;
       playback.addListener(_publish);
+      playback.library.addListener(_publish);
       _publish();
     } on MissingPluginException {
       _channel.setMethodCallHandler(null);
@@ -76,6 +77,7 @@ class WindowsPlayerService {
     if (!available || _quitting) return;
     final track = playback.current;
     final state = <String, Object>{
+      'english': playback.library.settings['language'] == 'en',
       'hasTrack': track != null,
       'title': track?.title ?? '',
       'artist': track?.artist ?? '',
@@ -132,6 +134,7 @@ class WindowsPlayerService {
     if (_disposed || _quitting) return;
     _quitting = true;
     if (_initialized) playback.removeListener(_publish);
+    if (_initialized) playback.library.removeListener(_publish);
     _pendingState = null;
     try {
       await onQuit();
@@ -143,6 +146,7 @@ class WindowsPlayerService {
       _quit = null;
       if (_initialized && !_disposed) {
         playback.addListener(_publish);
+        playback.library.addListener(_publish);
         await _channel.invokeMethod<void>('quitFailed');
         _lastState = null;
         _publish();
@@ -156,6 +160,7 @@ class WindowsPlayerService {
   Future<void> _close() async {
     if (_disposed) return;
     if (_initialized && !_quitting) playback.removeListener(_publish);
+    if (_initialized && !_quitting) playback.library.removeListener(_publish);
     _disposed = true;
     _pendingState = null;
     _channel.setMethodCallHandler(null);

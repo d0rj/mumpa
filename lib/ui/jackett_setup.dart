@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -30,7 +31,9 @@ Future<void> setupJackett(
   } else if (!Platform.isWindows) {
     app.setSettingsSection('sources');
     app.reportMessage(
-      'Укажи URL Torznab и API key Jackett на ПК или сервере. Для телефона нужен доступный сетевой адрес.',
+      tr(
+        "Укажи URL Torznab и API key Jackett на ПК или сервере. Для телефона нужен доступный сетевой адрес.",
+      ),
     );
     return;
   } else {
@@ -44,8 +47,9 @@ Future<void> setupJackett(
       settings: InAppBrowserClassSettings(
         browserSettings: InAppBrowserSettings(
           hideUrlBar: false,
-          toolbarTopFixedTitle:
-              'Jackett · добавь RuTracker.org, затем закрой окно',
+          toolbarTopFixedTitle: tr(
+            "Jackett · добавь RuTracker.org, затем закрой окно",
+          ),
         ),
         webViewSettings: InAppWebViewSettings(
           javaScriptEnabled: true,
@@ -62,7 +66,9 @@ Future<void> setupJackett(
     }
   } catch (_) {
     app.reportError(
-      'Jackett запущен, но окно настройки не открылось. Адрес: ${connection.dashboardUrl}',
+      tr("Jackett запущен, но окно настройки не открылось. Адрес: {0}", [
+        connection.dashboardUrl,
+      ]),
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../domain/models.dart';
+import '../l10n/app_localizations.dart';
 import '../domain/torrent_album_layout.dart';
 import '../domain/collection_filter.dart';
 import '../domain/track_matching.dart';
@@ -57,7 +58,7 @@ class LibraryRepository extends ChangeNotifier {
 
   String trackCountLabel(List<Track> tracks) {
     final count = matchedTracks(tracks).length;
-    return '$count треков${count == tracks.length ? '' : ' · ${tracks.length} файлов'}';
+    return '${tr('{0} треков', [count])}${count == tracks.length ? '' : tr(' · {0} файлов', [tracks.length])}';
   }
 
   Future<void> _prepareTracks() async {
@@ -166,7 +167,7 @@ class LibraryRepository extends ChangeNotifier {
     });
     return MusicPlaylist(
       id: MusicPlaylist.deviceTop50Id,
-      name: 'Топ-50 на этом устройстве',
+      name: tr('Топ-50 на этом устройстве'),
       trackIds: List.unmodifiable(rows.take(50).map((row) => row.anchor.id)),
     );
   }

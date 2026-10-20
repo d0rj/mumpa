@@ -1,10 +1,10 @@
+import 'logic/audio_runtime.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'data/download_repository.dart';
@@ -223,7 +223,7 @@ class _BootstrapState extends State<_Bootstrap> {
 
   Future<AppController> _startApplication() async {
     await Future<void>.delayed(Duration.zero);
-    MediaKit.ensureInitialized();
+    initializeAudioRuntime();
     final app = await createApplication(desktopIntegration: true);
     final report = _startupArguments
         .where((argument) => argument.startsWith('--profile-report='))

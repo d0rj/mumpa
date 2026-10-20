@@ -7,7 +7,7 @@ class _ArtistPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = app.artistProfile;
-    final name = profile?.name ?? app.selectedArtist ?? 'Исполнитель';
+    final name = profile?.name ?? app.selectedArtist ?? tr("Исполнитель");
     final tracks = app.artistTracks;
     final albums = app.artistAlbums;
     final visibleTracks = app.artistSearchTracks;
@@ -44,8 +44,8 @@ class _ArtistPage extends StatelessWidget {
               final information = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'ИСПОЛНИТЕЛЬ',
+                  Text(
+                    tr("ИСПОЛНИТЕЛЬ"),
                     style: TextStyle(
                       fontSize: 10,
                       letterSpacing: 1.7,
@@ -65,7 +65,10 @@ class _ArtistPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    '${app.library.trackCountLabel(tracks)} · ${albums.length} альбомов в медиатеке',
+                    tr("{0} · {1} альбомов в медиатеке", [
+                      app.library.trackCountLabel(tracks),
+                      albums.length,
+                    ]),
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   if (profile != null) ...[
@@ -133,7 +136,7 @@ class _ArtistPage extends StatelessWidget {
                   ? null
                   : () => app.playCollection(tracks),
               icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Слушать'),
+              label: Text(tr("Слушать")),
             ),
             OutlinedButton.icon(
               onPressed: () {
@@ -141,23 +144,23 @@ class _ArtistPage extends StatelessWidget {
                 unawaited(app.searchSources());
               },
               icon: const Icon(Icons.search_rounded, size: 18),
-              label: const Text('Найти в источниках'),
+              label: Text(tr("Найти в источниках")),
             ),
           ],
         ),
         LocalSearchField(
           app: app,
           scope: app.artistSearchScope,
-          hint: 'Поиск у исполнителя: альбом или трек',
+          hint: tr("Поиск у исполнителя: альбом или трек"),
         ),
         if (visibleLikedTracks.isNotEmpty) ...[
           SectionTitle(
-            'Любимые треки',
+            tr("Любимые треки"),
             key: const ValueKey('artist-liked-section'),
             subtitle: app.library.trackCountLabel(visibleLikedTracks),
             action: IconButton(
               key: const ValueKey('play-artist-liked'),
-              tooltip: 'Слушать любимые треки исполнителя',
+              tooltip: tr("Слушать любимые треки исполнителя"),
               onPressed: () => app.playCollection(likedTracks),
               icon: const Icon(Icons.play_arrow_rounded, color: accent),
             ),
@@ -170,11 +173,11 @@ class _ArtistPage extends StatelessWidget {
           ),
         ],
         if (visibleAlbums.isNotEmpty) ...[
-          const SectionTitle('Твои альбомы'),
+          SectionTitle(tr("Твои альбомы")),
           albumGrid(app, visibleAlbums),
         ],
         if (app.artistLoading) ...[
-          const SectionTitle('Узнаём исполнителя'),
+          SectionTitle(tr("Узнаём исполнителя")),
           const LinearProgressIndicator(minHeight: 2),
         ],
         if (app.artistError != null)
@@ -186,29 +189,30 @@ class _ArtistPage extends StatelessWidget {
             ),
           ),
         if (discography.isNotEmpty) ...[
-          const SectionTitle(
-            'Дискография',
-            subtitle:
-                'MusicBrainz · выбери альбом, чтобы найти его в источниках',
+          SectionTitle(
+            tr("Дискография"),
+            subtitle: tr(
+              "MusicBrainz · выбери альбом, чтобы найти его в источниках",
+            ),
           ),
           _DiscographyGrid(app, discography),
         ],
         if (visibleTracks.isNotEmpty) ...[
-          const SectionTitle('Треки в твоей медиатеке'),
+          SectionTitle(tr("Треки в твоей медиатеке")),
           TrackList(app: app, tracks: visibleTracks),
         ],
         if (recordings.isNotEmpty) ...[
-          const SectionTitle(
-            'Треки из каталога',
-            subtitle: 'Выбери трек для поиска доступных версий',
+          SectionTitle(
+            tr("Треки из каталога"),
+            subtitle: tr("Выбери трек для поиска доступных версий"),
           ),
           RecordingRows(app: app, recordings: recordings),
         ],
         if (!searching && app.similarArtistResults.isNotEmpty) ...[
-          const SectionTitle(
-            'Похожие исполнители',
+          SectionTitle(
+            tr("Похожие исполнители"),
             key: ValueKey('similar-artists-section'),
-            subtitle: 'ListenBrainz · по совместным прослушиваниям',
+            subtitle: tr("ListenBrainz · по совместным прослушиваниям"),
           ),
           LazyRows(
             count: app.similarArtistResults.length,
@@ -244,27 +248,32 @@ class _ArtistPage extends StatelessWidget {
             visibleAlbums.isEmpty &&
             discography.isEmpty &&
             recordings.isEmpty)
-          const EmptyState(
+          EmptyState(
             icon: Icons.search_off_rounded,
-            title: 'Ничего не найдено у этого исполнителя',
-            description: 'Попробуй другой запрос или очисти поиск.',
+            title: tr("Ничего не найдено у этого исполнителя"),
+            description: tr("Попробуй другой запрос или очисти поиск."),
           ),
         if (profile != null) ...[
           SectionTitle(
-            'Об исполнителе',
-            subtitle: 'Метаданные: MusicBrainz · обложки: Cover Art Archive',
+            tr("Об исполнителе"),
+            subtitle: tr(
+              "Метаданные: MusicBrainz · обложки: Cover Art Archive",
+            ),
           ),
           if (profile.aliases.isNotEmpty)
             Text(
-              'Также известен как: ${profile.aliases.take(8).join(', ')}',
+              tr("Также известен как: {0}", [
+                profile.aliases.take(8).join(', '),
+              ]),
               style: const TextStyle(color: muted, fontSize: 12),
             ),
         ] else if (!searching && !app.artistLoading && tracks.isEmpty)
-          const EmptyState(
+          EmptyState(
             icon: Icons.person_search_rounded,
-            title: 'Пока нет треков этого исполнителя',
-            description:
-                'Найди его альбом в подключённых источниках или добавь локальные файлы.',
+            title: tr("Пока нет треков этого исполнителя"),
+            description: tr(
+              "Найди его альбом в подключённых источниках или добавь локальные файлы.",
+            ),
           ),
       ],
     );
@@ -272,10 +281,10 @@ class _ArtistPage extends StatelessWidget {
 }
 
 String _artistType(String type) => switch (type) {
-  'Group' => 'Группа',
-  'Person' => 'Исполнитель',
-  'Orchestra' => 'Оркестр',
-  'Choir' => 'Хор',
+  'Group' => tr("Группа"),
+  'Person' => tr("Исполнитель"),
+  'Orchestra' => tr("Оркестр"),
+  'Choir' => tr("Хор"),
   _ => type,
 };
 

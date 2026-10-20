@@ -1,4 +1,5 @@
 // Native playback and legacy-profile audit are opt-in and keep user data intact.
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -9,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/data/media_cache.dart';
@@ -68,7 +68,7 @@ class _OfflineMetadata extends MusicMetadataRepository {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  initializeAudioRuntime();
 
   testWidgets('played source album enters personal library on native Windows', (
     tester,

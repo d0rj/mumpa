@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -50,7 +51,7 @@ class PlayerBar extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              t?.title ?? 'Выбери свой первый трек',
+                              t?.title ?? tr("Выбери свой первый трек"),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -59,7 +60,7 @@ class PlayerBar extends StatelessWidget {
                               ),
                             ),
                             ArtistLink(
-                              artist: t?.artist ?? 'Музыка всегда рядом',
+                              artist: t?.artist ?? tr("Музыка всегда рядом"),
                               onOpen: t == null
                                   ? null
                                   : () => app.openArtist(t.artist),
@@ -85,10 +86,10 @@ class PlayerBar extends StatelessWidget {
                         key: const Key('player-toggle'),
                         onPressed: t == null ? null : p.toggle,
                         tooltip: p.buffering
-                            ? 'Отменить загрузку'
+                            ? tr("Отменить загрузку")
                             : p.playing
-                            ? 'Пауза'
-                            : 'Слушать',
+                            ? tr("Пауза")
+                            : tr("Слушать"),
                         icon: p.buffering
                             ? const SizedBox(
                                 width: 20,
@@ -106,7 +107,7 @@ class PlayerBar extends StatelessWidget {
                       ),
                       IconButton(
                         onPressed: p.hasQueue ? p.next : null,
-                        tooltip: 'Следующий трек',
+                        tooltip: tr("Следующий трек"),
                         icon: const Icon(Icons.skip_next_rounded, size: 24),
                       ),
                     ],
@@ -161,7 +162,7 @@ class PlayerBar extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            t?.title ?? 'Выбери первый трек',
+                            t?.title ?? tr("Выбери первый трек"),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -171,7 +172,7 @@ class PlayerBar extends StatelessWidget {
                           ),
                           const SizedBox(height: 3),
                           ArtistLink(
-                            artist: t?.artist ?? 'Твоя музыка всегда рядом',
+                            artist: t?.artist ?? tr("Твоя музыка всегда рядом"),
                             onOpen: t == null
                                 ? null
                                 : () => app.openArtist(t.artist),
@@ -194,7 +195,7 @@ class PlayerBar extends StatelessWidget {
                   if (t != null)
                     IconButton(
                       onPressed: () => app.library.toggleLike(t.id),
-                      tooltip: 'Любимый трек',
+                      tooltip: tr("Любимый трек"),
                       icon: Icon(
                         app.library.isTrackLiked(t.id)
                             ? Icons.favorite_rounded
@@ -225,7 +226,7 @@ class PlayerBar extends StatelessWidget {
                     width: 40,
                     child: IconButton(
                       onPressed: () => showNowPlaying(context, app, tab: 1),
-                      tooltip: 'Очередь',
+                      tooltip: tr("Очередь"),
                       icon: const Icon(
                         Icons.queue_music_rounded,
                         size: 20,
@@ -240,7 +241,7 @@ class PlayerBar extends StatelessWidget {
                       onPressed: _hasLyrics(t)
                           ? () => showNowPlaying(context, app, tab: 2)
                           : null,
-                      tooltip: 'Текст песни',
+                      tooltip: tr("Текст песни"),
                       icon: Icon(
                         Icons.lyrics_outlined,
                         size: 18,
@@ -254,7 +255,7 @@ class PlayerBar extends StatelessWidget {
                     width: 40,
                     child: IconButton(
                       onPressed: () => p.setVolume(p.volume == 0 ? 0.8 : 0),
-                      tooltip: 'Без звука',
+                      tooltip: tr("Без звука"),
                       icon: Icon(
                         p.volume == 0
                             ? Icons.volume_off_rounded
@@ -267,7 +268,7 @@ class PlayerBar extends StatelessWidget {
                   SizedBox(
                     width: 152,
                     child: Semantics(
-                      label: 'Громкость',
+                      label: tr("Громкость"),
                       child: Slider(
                         key: const ValueKey('desktop-volume'),
                         value: p.volume.clamp(0, 1),
@@ -300,7 +301,7 @@ class _Transport extends StatelessWidget {
     children: [
       IconButton(
         onPressed: p.toggleShuffle,
-        tooltip: 'Перемешать',
+        tooltip: tr("Перемешать"),
         icon: Icon(
           Icons.shuffle_rounded,
           size: large ? 23 : 18,
@@ -309,7 +310,7 @@ class _Transport extends StatelessWidget {
       ),
       IconButton(
         onPressed: p.hasQueue ? p.previous : null,
-        tooltip: 'Предыдущий трек',
+        tooltip: tr("Предыдущий трек"),
         icon: Icon(Icons.skip_previous_rounded, size: large ? 32 : 25),
       ),
       const SizedBox(width: 8),
@@ -320,10 +321,10 @@ class _Transport extends StatelessWidget {
           key: const Key('transport-toggle'),
           onPressed: p.current == null ? null : p.toggle,
           tooltip: p.buffering
-              ? 'Отменить загрузку'
+              ? tr("Отменить загрузку")
               : p.playing
-              ? 'Пауза'
-              : 'Слушать',
+              ? tr("Пауза")
+              : tr("Слушать"),
           style: IconButton.styleFrom(
             backgroundColor: large ? accent : Colors.white,
             foregroundColor: Colors.black,
@@ -348,15 +349,15 @@ class _Transport extends StatelessWidget {
       const SizedBox(width: 8),
       IconButton(
         onPressed: p.hasQueue ? p.next : null,
-        tooltip: 'Следующий трек',
+        tooltip: tr("Следующий трек"),
         icon: Icon(Icons.skip_next_rounded, size: large ? 32 : 25),
       ),
       IconButton(
         onPressed: p.cycleRepeat,
         tooltip: switch (p.repeat) {
-          PlayerRepeatMode.off => 'Повтор выключен',
-          PlayerRepeatMode.all => 'Повтор очереди',
-          PlayerRepeatMode.one => 'Повтор трека',
+          PlayerRepeatMode.off => tr("Повтор выключен"),
+          PlayerRepeatMode.all => tr("Повтор очереди"),
+          PlayerRepeatMode.one => tr("Повтор трека"),
         },
         icon: Icon(
           p.repeat == PlayerRepeatMode.one
@@ -396,7 +397,7 @@ class _SeekBarState extends State<_SeekBar> {
     final max = p.duration.inMilliseconds.toDouble();
     final value = drag ?? p.position.inMilliseconds.toDouble().clamp(0, max);
     final slider = Semantics(
-      label: 'Позиция воспроизведения',
+      label: tr("Позиция воспроизведения"),
       child: SliderTheme(
         data: SliderTheme.of(context).copyWith(
           activeTrackColor: accent,
@@ -539,13 +540,13 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
     final tabBar = TabBar(
       controller: _tabs,
       tabs: [
-        const Tab(text: 'Плеер'),
-        const Tab(text: 'Очередь'),
-        if (_lyrics) const Tab(text: 'Текст'),
+        Tab(text: tr("Плеер")),
+        Tab(text: tr("Очередь")),
+        if (_lyrics) Tab(text: tr("Текст")),
       ],
     );
     final close = IconButton(
-      tooltip: 'Закрыть плеер',
+      tooltip: tr("Закрыть плеер"),
       onPressed: () => Navigator.pop(context),
       icon: const Icon(Icons.keyboard_arrow_down_rounded),
     );
@@ -569,8 +570,8 @@ class _NowPlayingSheetState extends State<_NowPlayingSheet>
                 children: [
                   const Icon(Icons.graphic_eq_rounded, color: accent, size: 19),
                   const SizedBox(width: 8),
-                  const Text(
-                    'СЕЙЧАС ИГРАЕТ',
+                  Text(
+                    tr("СЕЙЧАС ИГРАЕТ"),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
@@ -610,18 +611,18 @@ class _Queue extends StatelessWidget {
     final queue = p.queue;
     final entryKeys = p.queueEntryKeys;
     return queue.isEmpty
-        ? const EmptyState(
+        ? EmptyState(
             icon: Icons.queue_music_rounded,
-            title: 'Очередь пуста',
-            description: 'Включи альбом или добавь треки через меню.',
+            title: tr("Очередь пуста"),
+            description: tr("Включи альбом или добавь треки через меню."),
           )
         : ReorderableListView.builder(
             key: const Key('playback-queue'),
             header: SwitchListTile.adaptive(
               key: const ValueKey('queue-radio-autoplay'),
               contentPadding: EdgeInsets.zero,
-              title: const Text(
-                'Радио после плейлиста',
+              title: Text(
+                tr("Радио после плейлиста"),
                 style: TextStyle(fontSize: 13),
               ),
               subtitle: Text(
@@ -694,8 +695,8 @@ class _Queue extends StatelessWidget {
                                       ),
                                     ),
                                     if (p.isRadioEntry(i))
-                                      const Text(
-                                        'Радио после плейлиста',
+                                      Text(
+                                        tr("Радио после плейлиста"),
                                         style: TextStyle(
                                           color: accent,
                                           fontSize: 10,
@@ -711,7 +712,7 @@ class _Queue extends StatelessWidget {
                     ),
                     PopupMenuButton<String>(
                       key: ValueKey('queue-actions-$entry'),
-                      tooltip: 'Порядок трека',
+                      tooltip: tr("Порядок трека"),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 48,
@@ -725,18 +726,18 @@ class _Queue extends StatelessWidget {
                         PopupMenuItem(
                           value: 'up',
                           enabled: i > 0,
-                          child: const Text('Выше в очереди'),
+                          child: Text(tr("Выше в очереди")),
                         ),
                         PopupMenuItem(
                           value: 'down',
                           enabled: i < queue.length - 1,
-                          child: const Text('Ниже в очереди'),
+                          child: Text(tr("Ниже в очереди")),
                         ),
                       ],
                     ),
                     IconButton(
                       onPressed: () => p.removeQueue(i),
-                      tooltip: 'Убрать из очереди',
+                      tooltip: tr("Убрать из очереди"),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 48,
@@ -752,9 +753,9 @@ class _Queue extends StatelessWidget {
                       key: ValueKey('queue-drag-$entry'),
                       index: i,
                       child: Tooltip(
-                        message: 'Переместить трек',
+                        message: tr("Переместить трек"),
                         child: Semantics(
-                          label: 'Переместить трек',
+                          label: tr("Переместить трек"),
                           child: const MouseRegion(
                             cursor: SystemMouseCursors.grab,
                             child: SizedBox(
@@ -784,11 +785,12 @@ class _Lyrics extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = app.playback.current?.lyrics?.trim();
     return text == null || text.isEmpty
-        ? const EmptyState(
+        ? EmptyState(
             icon: Icons.lyrics_outlined,
-            title: 'Текста пока нет',
-            description:
-                'Если текст песни записан в тегах файла, он появится здесь. Для торрент-трека теги читаются после полной загрузки.',
+            title: tr("Текста пока нет"),
+            description: tr(
+              "Если текст песни записан в тегах файла, он появится здесь. Для торрент-трека теги читаются после полной загрузки.",
+            ),
           )
         : SingleChildScrollView(
             padding: const EdgeInsets.all(32),

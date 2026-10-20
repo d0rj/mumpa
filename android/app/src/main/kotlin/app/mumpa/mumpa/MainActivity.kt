@@ -15,6 +15,11 @@ import java.security.MessageDigest
 
 class MainActivity : AudioServiceActivity() {
     companion object {
+        init {
+            // Invoke JNI_OnLoad before Dart opens the DSP runtime via FFI.
+            // AudioTrack needs the JavaVM registered in this exact library.
+            System.loadLibrary("mpv_audio_kit")
+        }
         private var torrentProcess: Process? = null
         private var torrentPort: Int = 0
         private const val FOLDER_REQUEST = 4417

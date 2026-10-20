@@ -198,16 +198,16 @@ void WindowsPlayerBridge::ShowWindow() {
 void WindowsPlayerBridge::ShowTrayMenu(POINT point) {
   HMENU menu = CreatePopupMenu();
   if (!menu) return;
-  AppendMenu(menu, MF_STRING, kShow, L"Открыть Mumpa");
+  AppendMenu(menu, MF_STRING, kShow, english_ ? L"Open Mumpa" : L"Открыть Mumpa");
   AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
   const UINT enabled = has_track_ && !quit_requested_ ? MF_ENABLED : MF_GRAYED;
-  AppendMenu(menu, MF_STRING | enabled, kToggle, playing_ ? L"Пауза" : L"Воспроизвести");
+  AppendMenu(menu, MF_STRING | enabled, kToggle, english_ ? (playing_ ? L"Pause" : L"Play") : (playing_ ? L"Пауза" : L"Воспроизвести"));
   AppendMenu(menu, MF_STRING | (can_previous_ && !quit_requested_ ? MF_ENABLED : MF_GRAYED),
-             kPrevious, L"Предыдущий трек");
+             kPrevious, english_ ? L"Previous track" : L"Предыдущий трек");
   AppendMenu(menu, MF_STRING | (can_next_ && !quit_requested_ ? MF_ENABLED : MF_GRAYED),
-             kNext, L"Следующий трек");
+             kNext, english_ ? L"Next track" : L"Следующий трек");
   AppendMenu(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenu(menu, MF_STRING | (quit_requested_ ? MF_GRAYED : MF_ENABLED), kQuit, L"Выход");
+  AppendMenu(menu, MF_STRING | (quit_requested_ ? MF_GRAYED : MF_ENABLED), kQuit, english_ ? L"Quit" : L"Выход");
   SetForegroundWindow(window_);
   const UINT action = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON,
                                     point.x, point.y, 0, window_, nullptr);
@@ -259,6 +259,7 @@ void WindowsPlayerBridge::SendAction(UINT action, UINT media_origin) {
 void WindowsPlayerBridge::UpdateState(const flutter::EncodableMap& state) {
   using namespace winrt::Windows::Media;
   has_track_ = ReadBool(state, "hasTrack");
+  english_ = ReadBool(state, "english");
   playing_ = ReadBool(state, "playing");
   can_previous_ = ReadBool(state, "canPrevious");
   can_next_ = ReadBool(state, "canNext");
@@ -291,8 +292,9 @@ void WindowsPlayerBridge::UpdateThumbnailButtons() {
   THUMBBUTTON buttons[3]{};
   const UINT ids[] = {kPrevious, kToggle, kNext};
   const HICON icons[] = {previous_icon_, playing_ ? pause_icon_ : play_icon_, next_icon_};
-  const wchar_t* tips[] = {L"Предыдущий трек", playing_ ? L"Пауза" : L"Воспроизвести",
-                           L"Следующий трек"};
+  const wchar_t* tips[] = {english_ ? L"Previous track" : L"Предыдущий трек",
+                           english_ ? (playing_ ? L"Pause" : L"Play") : (playing_ ? L"Пауза" : L"Воспроизвести"),
+                           english_ ? L"Next track" : L"Следующий трек"};
   const bool enabled[] = {can_previous_, has_track_, can_next_};
   for (int i = 0; i < 3; ++i) {
     buttons[i].dwMask = static_cast<THUMBBUTTONMASK>(THB_ICON | THB_TOOLTIP | THB_FLAGS);

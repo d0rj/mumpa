@@ -54,6 +54,48 @@ class DownloadRepository extends ChangeNotifier {
       : 3;
 
   int get maxConcurrentDownloads => _maxConcurrentDownloads;
+  String get quality => switch (library.settings['downloadQuality']) {
+    'lossless' => 'lossless',
+    'compact' => 'compact',
+    _ => 'original',
+  };
+
+  /// Choose only already matched versions of the same recording. No transcode,
+  /// catalog request or change to the version selected for playback is involved.
+  Track trackForDownload(Track original) {
+    if (quality == 'original' || original.source != TrackSource.torrent) {
+      return original;
+    }
+    final variants = library.trackMatches
+        .groupFor(original)
+        .variants
+        .where(
+          (t) =>
+              t.source == TrackSource.torrent &&
+              (quality == 'lossless'
+                  ? {
+                      'FLAC',
+                      'ALAC',
+                      'WAV',
+                      'AIFF',
+                      'AIF',
+                      'APE',
+                    }.contains(t.format)
+                  : {'MP3', 'AAC', 'OGG', 'OPUS'}.contains(t.format)),
+        )
+        .toList();
+    // Keep the exact selection when it already satisfies the preference.
+    if (variants.any((t) => t.id == original.id)) return original;
+    variants.sort((a, b) {
+      if (a.offline != b.offline) return a.offline ? -1 : 1;
+      final size = (a.bytes <= 0 ? 1 << 62 : a.bytes).compareTo(
+        b.bytes <= 0 ? 1 << 62 : b.bytes,
+      );
+      return size != 0 ? size : a.id.compareTo(b.id);
+    });
+    return variants.firstOrNull ?? original;
+  }
+
   int get limitBytes =>
       ((library.settings['cacheLimitMb'] as num?)?.toInt() ?? 4096) *
       1024 *
@@ -171,7 +213,9 @@ class DownloadRepository extends ChangeNotifier {
   void enqueue(Iterable<Track> tracks, {bool priority = false}) {
     if (_disposed) return;
     final selected = <String>[];
-    for (final track in tracks) {
+    for (final original in tracks) {
+      // Playback caching must cache the very decoder source being listened to.
+      final track = priority ? original : trackForDownload(original);
       // Explicit downloads and the playing track outlive a prefetch window.
       _prefetch.remove(track.id);
       final latest = library.byId(track.id) ?? track;

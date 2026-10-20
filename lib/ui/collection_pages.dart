@@ -14,8 +14,8 @@ class _AlbumPage extends StatelessWidget {
           final information = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'АЛЬБОМ',
+              Text(
+                tr("АЛЬБОМ"),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -44,7 +44,7 @@ class _AlbumPage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${album.year != null ? '${album.year} · ' : ''}${app.library.trackCountLabel(album.tracks)}${album.offline ? ' · Доступен офлайн' : ''}',
+                '${album.year != null ? '${album.year} · ' : ''}${app.library.trackCountLabel(album.tracks)}${album.offline ? tr(" · Доступен офлайн") : ''}',
                 style: const TextStyle(color: muted, fontSize: 12),
               ),
               for (final collection in app.albumCollections) ...[
@@ -54,7 +54,7 @@ class _AlbumPage extends StatelessWidget {
                   onPressed: () => app.openPlaylist(collection),
                   icon: const Icon(Icons.library_music_outlined, size: 18),
                   label: Text(
-                    'В коллекцию «${collection.name}»',
+                    tr("В коллекцию «{0}»", [collection.name]),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -100,14 +100,14 @@ class _AlbumPage extends StatelessWidget {
               playlistId: app.albumPlaylistId,
             ),
             icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Слушать'),
+            label: Text(tr("Слушать")),
           ),
           AlbumFavoriteButton(app: app, album: album, label: true),
           if (album.torrent && !album.offline)
             OutlinedButton.icon(
               onPressed: () => app.downloads.enqueue(album.tracks),
               icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('Скачать альбом'),
+              label: Text(tr("Скачать альбом")),
             ),
           IconButton(
             onPressed: () => choosePlaylist(
@@ -115,30 +115,30 @@ class _AlbumPage extends StatelessWidget {
               app,
               album.tracks.map((t) => t.id).toList(),
             ),
-            tooltip: 'В плейлист',
+            tooltip: tr("В плейлист"),
             icon: const Icon(Icons.playlist_add_rounded),
           ),
           PopupMenuButton<String>(
-            tooltip: 'Действия с альбомом',
+            tooltip: tr("Действия с альбомом"),
             onSelected: (value) async {
               if (value == 'remove') {
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: const Text('Убрать альбом из медиатеки?'),
-                    content: const Text(
-                      'Лайкнутые и скачанные треки, избранные альбомы '
-                      'и треки избранных плейлистов останутся в библиотеке. '
-                      'Исходные музыкальные файлы сохранятся.',
+                    title: Text(tr("Убрать альбом из медиатеки?")),
+                    content: Text(
+                      tr(
+                        "Лайкнутые и скачанные треки, избранные альбомы и треки избранных плейлистов останутся в библиотеке. Исходные музыкальные файлы сохранятся.",
+                      ),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Отмена'),
+                        child: Text(tr("Отмена")),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Убрать'),
+                        child: Text(tr("Убрать")),
                       ),
                     ],
                   ),
@@ -149,10 +149,10 @@ class _AlbumPage extends StatelessWidget {
                 }
               }
             },
-            itemBuilder: (_) => const [
+            itemBuilder: (_) => [
               PopupMenuItem(
                 value: 'remove',
-                child: Text('Убрать из медиатеки'),
+                child: Text(tr("Убрать из медиатеки")),
               ),
             ],
           ),
@@ -221,9 +221,10 @@ class _TrackCollection extends StatelessWidget {
       ),
       if (app.playlist?.isSystem == true) ...[
         const SizedBox(height: 8),
-        const Text(
-          'До 50 треков по числу прослушиваний в Mumpa на этом устройстве. '
-          'Статистика накапливается с этого обновления.',
+        Text(
+          tr(
+            "До 50 треков по числу прослушиваний в Mumpa на этом устройстве. Статистика накапливается с этого обновления.",
+          ),
           style: TextStyle(color: muted),
         ),
       ],
@@ -238,7 +239,7 @@ class _TrackCollection extends StatelessWidget {
                 : () => app.playCollection(tracks, playlistId: playlistId),
             key: const ValueKey('play-collection'),
             icon: const Icon(Icons.play_arrow),
-            label: const Text('Слушать'),
+            label: Text(tr("Слушать")),
           ),
           if (playlistId != null &&
               tracks.any((t) => t.source == TrackSource.torrent))
@@ -250,7 +251,7 @@ class _TrackCollection extends StatelessWidget {
                   ? () => app.downloads.enqueue(tracks)
                   : null,
               icon: const Icon(Icons.download_rounded),
-              label: const Text('Скачать коллекцию'),
+              label: Text(tr("Скачать коллекцию")),
             ),
           if (playlistId != null && app.playlist?.isSystem != true)
             PlaylistFavoriteButton(
@@ -264,7 +265,7 @@ class _TrackCollection extends StatelessWidget {
                 if (value == 'rename') {
                   final name = await askName(
                     context,
-                    'Название плейлиста',
+                    tr("Название плейлиста"),
                     initial: title,
                   );
                   if (name != null) {
@@ -276,9 +277,15 @@ class _TrackCollection extends StatelessWidget {
                   app.navigate(AppPage.library);
                 }
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'rename', child: Text('Переименовать')),
-                PopupMenuItem(value: 'delete', child: Text('Удалить плейлист')),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                  value: 'rename',
+                  child: Text(tr("Переименовать")),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text(tr("Удалить плейлист")),
+                ),
               ],
             ),
         ],
@@ -289,11 +296,13 @@ class _TrackCollection extends StatelessWidget {
         EmptyState(
           icon: icon,
           title: app.playlist?.isSystem == true
-              ? 'Твой топ пока пуст'
-              : 'Добавь первые треки',
+              ? tr("Твой топ пока пуст")
+              : tr("Добавь первые треки"),
           description: app.playlist?.isSystem == true
-              ? 'Слушай музыку в Mumpa — самые частые треки появятся здесь автоматически.'
-              : 'Нажми на сердечко или добавь музыку через меню трека.',
+              ? tr(
+                  "Слушай музыку в Mumpa — самые частые треки появятся здесь автоматически.",
+                )
+              : tr("Нажми на сердечко или добавь музыку через меню трека."),
         )
       else
         _CollectionTracks(
@@ -437,15 +446,15 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.search_rounded),
                     hintText: section.groupByAlbum
-                        ? 'Поиск в коллекции'
+                        ? tr("Поиск в коллекции")
                         : section.scope.startsWith('album:') ||
                               section.playlistId == null
-                        ? 'Поиск в альбоме'
-                        : 'Поиск в плейлисте',
+                        ? tr("Поиск в альбоме")
+                        : tr("Поиск в плейлисте"),
                     suffixIcon: searching
                         ? IconButton(
                             key: const ValueKey('collection-search-clear'),
-                            tooltip: 'Очистить поиск',
+                            tooltip: tr("Очистить поиск"),
                             onPressed: _clear,
                             icon: const Icon(Icons.close_rounded),
                           )
@@ -461,7 +470,7 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                       ChoiceChip(
                         key: const ValueKey('collection-albums-view'),
                         avatar: const Icon(Icons.album_outlined, size: 18),
-                        label: Text('Альбомы · ${groups.length}'),
+                        label: Text(tr("Альбомы · {0}", [groups.length])),
                         selected: showAlbums,
                         onSelected: searching
                             ? null
@@ -473,7 +482,7 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                       ChoiceChip(
                         key: const ValueKey('collection-tracks-view'),
                         avatar: const Icon(Icons.queue_music_rounded, size: 18),
-                        label: const Text('Все треки'),
+                        label: Text(tr("Все треки")),
                         selected: !showAlbums,
                         onSelected: (_) => setState(() {
                           _albums = false;
@@ -486,7 +495,10 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
                 if (searching) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'Найдено: ${section.app.library.matchedTracks(filtered).length} из ${section.app.library.matchedTracks(tracks).length}',
+                    tr("Найдено: {0} из {1}", [
+                      section.app.library.matchedTracks(filtered).length,
+                      section.app.library.matchedTracks(tracks).length,
+                    ]),
                     style: const TextStyle(color: muted, fontSize: 12),
                   ),
                 ],
@@ -500,12 +512,13 @@ class _CollectionTracksBodyState extends State<_CollectionTracksBody> {
           SliverToBoxAdapter(
             child: EmptyState(
               icon: Icons.search_off_rounded,
-              title: 'Ничего не найдено',
-              description:
-                  'Попробуй другое название трека, альбома или исполнителя.',
+              title: tr("Ничего не найдено"),
+              description: tr(
+                "Попробуй другое название трека, альбома или исполнителя.",
+              ),
               action: TextButton(
                 onPressed: _clear,
-                child: const Text('Сбросить поиск'),
+                child: Text(tr("Сбросить поиск")),
               ),
             ),
           )

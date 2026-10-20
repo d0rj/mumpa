@@ -17,6 +17,7 @@ import 'package:mumpa/data/windows_player_service.dart';
 import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/logic/playback_controller.dart';
 import 'package:mumpa/ui/pages.dart';
+import 'package:mumpa/ui/app_screen.dart';
 import 'package:mumpa/ui/theme.dart';
 
 import 'support.dart';
@@ -191,6 +192,7 @@ Future<void> _mount(WidgetTester tester, _SettingsApp app, Size size) async {
 
 const _sectionIds = [
   'playback',
+  'language',
   'sources',
   'torrent',
   'downloads',
@@ -201,6 +203,110 @@ const _sectionIds = [
 ];
 
 void main() {
+  for (final size in [const Size(320, 568), const Size(1200, 850)]) {
+    testWidgets(
+      'audio controls and immediate English switch persist at $size',
+      (tester) async {
+        final fixture = await _fixture(tester);
+        addTearDown(() => fixture.close(tester));
+        final app = fixture.app;
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = size;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        await tester.pumpWidget(MumpaApp(controller: app));
+        app.setSettingsSection('playback');
+        await tester.pumpAndSettle();
+        Slider band() => tester.widget<Slider>(
+          find.byKey(const ValueKey('equalizer-band-0')),
+        );
+        expect(band().onChanged, isNull);
+        await tester.runAsync(() async {
+          tester
+              .widget<SwitchListTile>(
+                find.byKey(const ValueKey('equalizer-enabled')),
+              )
+              .onChanged!(true);
+          await app.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(band().onChanged, isNotNull);
+        await tester.runAsync(() async {
+          band().onChanged!(6);
+          await app.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(band().value, 6);
+        await tester.runAsync(() async {
+          tester
+              .widget<SwitchListTile>(
+                find.byKey(const ValueKey('equalizer-enabled')),
+              )
+              .onChanged!(false);
+          tester
+              .widget<SwitchListTile>(find.byKey(const ValueKey('mono-audio')))
+              .onChanged!(true);
+          tester
+              .widget<SwitchListTile>(
+                find.byKey(const ValueKey('normalize-volume')),
+              )
+              .onChanged!(true);
+          await app.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(band().onChanged, isNull);
+        expect(band().value, 6);
+        app.setSettingsSection('language');
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          tester
+              .widget<DropdownButtonFormField<String>>(
+                find.byKey(const ValueKey('app-language-ru')),
+              )
+              .onChanged!('en');
+          await app.library.flush();
+        });
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<MaterialApp>(find.byType(MaterialApp)).locale,
+          const Locale('en'),
+        );
+        expect(find.text('Interface language'), findsOneWidget);
+        for (final section in _sectionIds) {
+          app.setSettingsSection(section);
+          await tester.pumpAndSettle();
+          expect(
+            tester.takeException(),
+            isNull,
+            reason: 'English $section $size',
+          );
+        }
+        app.setSettingsSection('playback');
+        await tester.pumpAndSettle();
+        expect(find.text('Equalizer'), findsOneWidget);
+        expect(find.text('Mono audio'), findsOneWidget);
+        expect(app.library.settings['monoAudio'], isTrue);
+        expect(app.library.settings['normalizeVolume'], isTrue);
+        expect(fixture.engineStarts, 0);
+        expect(fixture.httpRequests, 0);
+        final restored = LibraryRepository(app.library.root);
+        await tester.runAsync(() async {
+          await app.library.flush();
+          await restored.load();
+        });
+        expect(restored.settings['language'], 'en');
+        expect(restored.settings['equalizerGains'], [
+          6.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+        ]);
+        restored.dispose();
+      },
+    );
+  }
   testWidgets(
     'profile picker saves bytes and reads content URIs, cancellation and errors',
     (tester) async {
@@ -323,6 +429,8 @@ void main() {
         await tester.pumpAndSettle();
         final toggle = find.byKey(const ValueKey('radio-autoplay'));
         expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+        await tester.ensureVisible(toggle);
+        await tester.pumpAndSettle();
         await tester.runAsync(() async {
           await tester.tap(toggle);
           await fixture.app.library.flush();

@@ -94,9 +94,9 @@ class _TrackStackArtworkState extends State<TrackStackArtwork> {
                     onPressed: active ? app.playback.toggle : widget.onPlay,
                     tooltip: active
                         ? state.playing || state.buffering
-                              ? 'Пауза'
-                              : 'Продолжить'
-                        : 'Слушать ${track.title}',
+                              ? tr("Пауза")
+                              : tr("Продолжить")
+                        : tr("Слушать {0}", [track.title]),
                     // Center the touch target on the front artwork regardless
                     // of the platform's Material density/tap-target defaults.
                     style: IconButton.styleFrom(
@@ -169,14 +169,14 @@ class _KnownTrackVersions extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Выбрать версию',
+                    tr("Выбрать версию"),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
                 IconButton(
                   key: const ValueKey('track-versions-close'),
                   onPressed: () => Navigator.pop(context),
-                  tooltip: 'Закрыть',
+                  tooltip: tr("Закрыть"),
                   icon: const Icon(Icons.close_rounded),
                 ),
               ],
@@ -187,9 +187,10 @@ class _KnownTrackVersions extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Только уже известные файлы. Совпадение по метаданным; аудио не сравнивалось. '
-              'Звёздочка запоминает версию для play на обложке. Без выбора приоритет у офлайн-копии.',
+            Text(
+              tr(
+                "Только уже известные файлы. Совпадение по метаданным; аудио не сравнивалось. Звёздочка запоминает версию для play на обложке. Без выбора приоритет у офлайн-копии.",
+              ),
               style: TextStyle(fontSize: 11, color: muted),
             ),
             const SizedBox(height: 12),
@@ -215,8 +216,8 @@ class _KnownTrackVersions extends StatelessWidget {
                                   ?.name ??
                               track.album
                         : track.source == TrackSource.demo
-                        ? 'Демо'
-                        : 'Локальный файл';
+                        ? tr("Демо")
+                        : tr("Локальный файл");
                     final path = track.torrentPath ?? track.localPath ?? '';
                     final file = path.replaceAll('\\', '/').split('/').last;
                     final preferred = app.library.isPreferredVariant(track.id);
@@ -247,7 +248,7 @@ class _KnownTrackVersions extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${trackFormatDescription(track)} · ${track.durationMs > 0 ? formatTime(track.duration) : 'Длительность неизвестна'}',
+                                      '${trackFormatDescription(track)} · ${track.durationMs > 0 ? formatTime(track.duration) : tr("Длительность неизвестна")}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w800,
@@ -255,7 +256,7 @@ class _KnownTrackVersions extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '$edition${track.offline ? ' · Офлайн' : ''}',
+                                      '$edition${track.offline ? tr(" · Офлайн") : ''}',
                                       style: const TextStyle(
                                         fontSize: 11,
                                         color: muted,
@@ -302,8 +303,8 @@ class _KnownTrackVersions extends StatelessWidget {
                                             'prefer-version-${track.id}',
                                           ),
                                           tooltip: preferred
-                                              ? 'Версия по умолчанию'
-                                              : 'Выбрать по умолчанию',
+                                              ? tr("Версия по умолчанию")
+                                              : tr("Выбрать по умолчанию"),
                                           onPressed: () => app.library
                                               .preferTrackVariant(track.id),
                                           icon: Icon(
@@ -328,8 +329,8 @@ class _KnownTrackVersions extends StatelessWidget {
                                               Navigator.pop(context);
                                             }
                                           },
-                                          child: const Text(
-                                            'Это другой трек',
+                                          child: Text(
+                                            tr("Это другой трек"),
                                             style: TextStyle(fontSize: 11),
                                           ),
                                         ),
@@ -341,7 +342,7 @@ class _KnownTrackVersions extends StatelessWidget {
                               IconButton(
                                 key: ValueKey('play-known-version-${track.id}'),
                                 onPressed: () => Navigator.pop(context, track),
-                                tooltip: 'Слушать эту версию',
+                                tooltip: tr("Слушать эту версию"),
                                 icon: const Icon(
                                   Icons.play_circle_fill_rounded,
                                   color: accent,

@@ -1,4 +1,6 @@
+import '../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../logic/app_controller.dart';
@@ -13,11 +15,22 @@ class MumpaApp extends StatelessWidget {
   const MumpaApp({super.key, required this.controller});
   final AppController controller;
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Mumpa',
-    debugShowCheckedModeBanner: false,
-    theme: mumpaTheme(),
-    home: AppScreen(app: controller),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller.library,
+    builder: (context, _) {
+      AppLanguage.current = controller.library.settings['language'] == 'en'
+          ? 'en'
+          : 'ru';
+      return MaterialApp(
+        title: 'Mumpa',
+        debugShowCheckedModeBanner: false,
+        theme: mumpaTheme(),
+        locale: Locale(AppLanguage.current),
+        supportedLocales: const [Locale('ru'), Locale('en')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        home: AppScreen(app: controller),
+      );
+    },
   );
 }
 
@@ -218,30 +231,30 @@ class _AppScreenState extends State<AppScreen> {
                             AppPage.downloads,
                           ][index],
                         ),
-                        destinations: const [
+                        destinations: [
                           NavigationDestination(
                             icon: Icon(Icons.home_outlined),
                             selectedIcon: Icon(Icons.home_rounded),
-                            label: 'Главная',
+                            label: tr("Главная"),
                           ),
                           NavigationDestination(
                             icon: Icon(Icons.search_rounded),
-                            label: 'Поиск',
+                            label: tr("Поиск"),
                           ),
                           NavigationDestination(
                             icon: Icon(Icons.library_music_outlined),
                             selectedIcon: Icon(Icons.library_music_rounded),
-                            label: 'Медиатека',
+                            label: tr("Медиатека"),
                           ),
                           NavigationDestination(
                             icon: Icon(Icons.favorite_border_rounded),
                             selectedIcon: Icon(Icons.favorite_rounded),
-                            label: 'Любимое',
+                            label: tr("Любимое"),
                           ),
                           NavigationDestination(
                             icon: Icon(Icons.download_outlined),
                             selectedIcon: Icon(Icons.download_rounded),
-                            label: 'Офлайн',
+                            label: tr("Офлайн"),
                           ),
                         ],
                       ),
@@ -282,13 +295,13 @@ class _Sidebar extends StatelessWidget {
             ],
           ),
         ),
-        _NavItem(app, 'Главная', Icons.home_outlined, AppPage.home),
-        _NavItem(app, 'Поиск', Icons.search_rounded, AppPage.search),
+        _NavItem(app, tr("Главная"), Icons.home_outlined, AppPage.home),
+        _NavItem(app, tr("Поиск"), Icons.search_rounded, AppPage.search),
         const SizedBox(height: 24),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 14, bottom: 10),
           child: Text(
-            'ТВОЯ КОЛЛЕКЦИЯ',
+            tr("ТВОЯ КОЛЛЕКЦИЯ"),
             style: TextStyle(
               color: muted,
               fontSize: 9,
@@ -299,19 +312,24 @@ class _Sidebar extends StatelessWidget {
         ),
         _NavItem(
           app,
-          'Медиатека',
+          tr("Медиатека"),
           Icons.library_music_outlined,
           AppPage.library,
         ),
-        _NavItem(app, 'Любимое', Icons.favorite_border_rounded, AppPage.liked),
-        _NavItem(app, 'Офлайн', Icons.download_outlined, AppPage.downloads),
+        _NavItem(
+          app,
+          tr("Любимое"),
+          Icons.favorite_border_rounded,
+          AppPage.liked,
+        ),
+        _NavItem(app, tr("Офлайн"), Icons.download_outlined, AppPage.downloads),
         const SizedBox(height: 20),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              const Text(
-                'ПЛЕЙЛИСТЫ',
+              Text(
+                tr("ПЛЕЙЛИСТЫ"),
                 style: TextStyle(
                   color: muted,
                   fontSize: 9,
@@ -322,12 +340,12 @@ class _Sidebar extends StatelessWidget {
               const Spacer(),
               IconButton(
                 onPressed: () async {
-                  final name = await askName(context, 'Новый плейлист');
+                  final name = await askName(context, tr("Новый плейлист"));
                   if (name != null) {
                     app.openPlaylist(await app.library.createPlaylist(name));
                   }
                 },
-                tooltip: 'Новый плейлист',
+                tooltip: tr("Новый плейлист"),
                 icon: const Icon(Icons.add_rounded, size: 18, color: muted),
                 visualDensity: VisualDensity.compact,
               ),
@@ -353,7 +371,7 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
                 subtitle: Text(
-                  '${playlist.trackIds.length} треков',
+                  tr("{0} треков", [playlist.trackIds.length]),
                   style: const TextStyle(fontSize: 9, color: muted),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -364,14 +382,14 @@ class _Sidebar extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: app.busy == null ? () => showAddMusic(context, app) : null,
           icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Добавить музыку', style: TextStyle(fontSize: 11)),
+          label: Text(tr("Добавить музыку"), style: TextStyle(fontSize: 11)),
         ),
         const SizedBox(height: 12),
-        _NavItem(app, 'Настройки', Icons.tune_rounded, AppPage.settings),
-        const Padding(
+        _NavItem(app, tr("Настройки"), Icons.tune_rounded, AppPage.settings),
+        Padding(
           padding: EdgeInsets.only(left: 14, top: 10),
           child: Text(
-            'ТВОИ ФАЙЛЫ. ТВОЙ РИТМ.',
+            tr("ТВОИ ФАЙЛЫ. ТВОЙ РИТМ."),
             style: TextStyle(
               fontSize: 8,
               color: Color(0xFF616C60),
@@ -447,7 +465,7 @@ class _TopBar extends StatelessWidget {
         IconButton(
           key: const ValueKey('navigation-back'),
           onPressed: app.canGoBack ? app.back : null,
-          tooltip: 'Назад',
+          tooltip: tr("Назад"),
           icon: const Icon(Icons.chevron_left_rounded, size: 26),
         ),
         if (desktop) const SizedBox(width: 16),
@@ -473,8 +491,8 @@ class _TopBar extends StatelessWidget {
             },
             decoration: InputDecoration(
               hintText: desktop
-                  ? 'Общий поиск: треки, альбомы, исполнители'
-                  : 'Общий поиск',
+                  ? tr("Общий поиск: треки, альбомы, исполнители")
+                  : tr("Общий поиск"),
               hintStyle: TextStyle(fontSize: desktop ? 12 : 11, color: muted),
               filled: true,
               fillColor: const Color(0xFF242A25),
@@ -495,7 +513,7 @@ class _TopBar extends StatelessWidget {
               suffixIcon: query.text.isNotEmpty
                   ? IconButton(
                       key: const ValueKey('global-search-clear'),
-                      tooltip: 'Очистить общий поиск',
+                      tooltip: tr("Очистить общий поиск"),
                       onPressed: () {
                         app.setQuery('');
                       },
@@ -533,7 +551,7 @@ class _TopBar extends StatelessWidget {
         SizedBox(width: desktop ? 16 : 4),
         IconButton(
           onPressed: app.busy == null ? () => showAddMusic(context, app) : null,
-          tooltip: 'Добавить музыку',
+          tooltip: tr("Добавить музыку"),
           icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
           visualDensity: desktop
               ? VisualDensity.standard
@@ -542,7 +560,7 @@ class _TopBar extends StatelessWidget {
         if (!desktop)
           IconButton(
             onPressed: () => app.navigate(AppPage.settings),
-            tooltip: 'Настройки',
+            tooltip: tr("Настройки"),
             icon: const Icon(Icons.tune_rounded, size: 21),
             visualDensity: VisualDensity.compact,
           ),
@@ -591,12 +609,14 @@ class _StatusBar extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            app.error ??
-                app.busy ??
-                app.playback.connectionStatus ??
-                app.message ??
-                app.library.loadWarning ??
-                '',
+            trMessage(
+              app.error ??
+                  app.busy ??
+                  app.playback.connectionStatus ??
+                  app.message ??
+                  app.library.loadWarning ??
+                  '',
+            ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 11),
@@ -606,19 +626,19 @@ class _StatusBar extends StatelessWidget {
           TextButton(
             key: const Key('cancel-opening'),
             onPressed: app.cancelOpening,
-            child: const Text('Отмена'),
+            child: Text(tr("Отмена")),
           ),
         if (app.playback.connectionStatus != null)
           TextButton(
             key: const Key('cancel-playback'),
             onPressed: app.playback.stop,
-            child: const Text('Отмена'),
+            child: Text(tr("Отмена")),
           ),
         if (app.playback.error != null && app.error == app.playback.error)
           TextButton(
             key: const Key('retry-playback'),
             onPressed: app.playback.play,
-            child: const Text('Повторить'),
+            child: Text(tr("Повторить")),
           ),
         if (app.busy == null)
           IconButton(
@@ -626,7 +646,7 @@ class _StatusBar extends StatelessWidget {
               app.library.loadWarning = null;
               app.clearMessage();
             },
-            tooltip: 'Закрыть уведомление',
+            tooltip: tr("Закрыть уведомление"),
             icon: const Icon(Icons.close_rounded, size: 17),
             visualDensity: VisualDensity.compact,
           ),

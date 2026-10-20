@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -24,12 +25,12 @@ class SearchOptionsPanel extends StatelessWidget {
         // Keep the expansion flag separate from the page's scroll offset.
         key: const PageStorageKey('search-options'),
         leading: const Icon(Icons.tune_rounded, color: muted),
-        title: const Text(
-          'Настройки поиска',
+        title: Text(
+          tr("Настройки поиска"),
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          '${app.sourceLabel} · ${app.trackSearchMode ? 'Треки' : 'Альбомы и коллекции'}${app.versionFormat == null ? '' : ' · ${app.versionFormat}'}',
+          '${app.sourceLabel} · ${app.trackSearchMode ? tr("Треки") : tr("Альбомы и коллекции")}${app.versionFormat == null ? '' : ' · ${app.versionFormat}'}',
           style: const TextStyle(fontSize: 11, color: muted),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -39,15 +40,15 @@ class SearchOptionsPanel extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Где искать',
+              Text(
+                tr("Где искать"),
                 style: TextStyle(fontSize: 12, color: muted),
               ),
               const SizedBox(height: 8),
               SearchProviderPicker(app: app),
               const SizedBox(height: 16),
-              const Text(
-                'Что искать',
+              Text(
+                tr("Что искать"),
                 style: TextStyle(fontSize: 12, color: muted),
               ),
               const SizedBox(height: 8),
@@ -57,13 +58,13 @@ class SearchOptionsPanel extends StatelessWidget {
                 children: [
                   ChoiceChip(
                     key: const ValueKey('search-releases-mode'),
-                    label: const Text('Альбомы и коллекции'),
+                    label: Text(tr("Альбомы и коллекции")),
                     selected: !app.trackSearchMode,
                     onSelected: (_) => app.setTrackSearchMode(false),
                   ),
                   ChoiceChip(
                     key: const ValueKey('search-tracks-mode'),
-                    label: const Text('Треки'),
+                    label: Text(tr("Треки")),
                     selected: app.trackSearchMode,
                     onSelected: (_) => app.setTrackSearchMode(true),
                   ),
@@ -71,14 +72,16 @@ class SearchOptionsPanel extends StatelessWidget {
               ),
               if (app.trackSearchMode) ...[
                 const SizedBox(height: 12),
-                const Text(
-                  'Ищем запись в MusicBrainz, затем проверяем файлы в раздачах твоего источника.',
+                Text(
+                  tr(
+                    "Ищем запись в MusicBrainz, затем проверяем файлы в раздачах твоего источника.",
+                  ),
                   style: TextStyle(fontSize: 12, color: muted),
                 ),
                 if (app.versionFormats.length > 1) ...[
                   const SizedBox(height: 16),
-                  const Text(
-                    'Формат найденных версий',
+                  Text(
+                    tr("Формат найденных версий"),
                     style: TextStyle(fontSize: 12, color: muted),
                   ),
                   const SizedBox(height: 8),
@@ -88,7 +91,7 @@ class SearchOptionsPanel extends StatelessWidget {
                     children: [
                       ChoiceChip(
                         key: const ValueKey('search-format-all'),
-                        label: const Text('Все форматы'),
+                        label: Text(tr("Все форматы")),
                         selected: app.versionFormat == null,
                         onSelected: (_) => app.setVersionFormat(null),
                       ),
@@ -121,7 +124,7 @@ class SearchProviderPicker extends StatelessWidget {
     children: [
       ChoiceChip(
         key: const ValueKey('source-automatic'),
-        label: const Text('Автоматически'),
+        label: Text(tr("Автоматически")),
         selected: app.usesAutomaticSource,
         onSelected: (_) => app.setSearchProvider('automatic'),
       ),
@@ -131,7 +134,7 @@ class SearchProviderPicker extends StatelessWidget {
         onSelected: (_) => app.setSearchProvider('torznab'),
       ),
       ChoiceChip(
-        label: const Text('RuTracker напрямую'),
+        label: Text(tr("RuTracker напрямую")),
         selected: !app.usesIndexer,
         onSelected: (_) => app.setSearchProvider('rutracker'),
       ),
@@ -145,14 +148,18 @@ List<Widget> sourceContent(
   bool home = false,
 }) => [
   SectionTitle(
-    app.usesAutomaticSource ? 'Музыка без настройки' : 'Музыка через Jackett',
+    app.usesAutomaticSource
+        ? tr("Музыка без настройки")
+        : tr("Музыка через Jackett"),
     subtitle: app.usesAutomaticSource
-        ? 'Knaben и RuTor · MP3 и FLAC · выбери альбом или найди исполнителя'
-        : 'RuTracker и другие подключённые музыкальные трекеры',
+        ? tr(
+            "Knaben и RuTor · MP3 и FLAC · выбери альбом или найди исполнителя",
+          )
+        : tr("RuTracker и другие подключённые музыкальные трекеры"),
     action: IconButton(
       onPressed: app.indexerLoading ? null : app.refreshSourceFeed,
       icon: const Icon(Icons.refresh_rounded),
-      tooltip: 'Обновить раздачи',
+      tooltip: tr("Обновить раздачи"),
     ),
   ),
   if (app.indexerLoading) const LinearProgressIndicator(minHeight: 2),
@@ -165,7 +172,7 @@ List<Widget> sourceContent(
           Text(app.indexerNotice!, style: const TextStyle(color: muted)),
           TextButton(
             onPressed: () => setupJackett(context, app),
-            child: const Text('Настроить RuTracker.org'),
+            child: Text(tr("Настроить RuTracker.org")),
           ),
         ],
       ),
@@ -173,17 +180,21 @@ List<Widget> sourceContent(
   if (!app.indexerConnected)
     EmptyState(
       icon: Icons.travel_explore_rounded,
-      title: 'Подключи музыкальный каталог',
+      title: tr("Подключи музыкальный каталог"),
       description: Platform.isWindows
-          ? 'Запусти Jackett, добавь RuTracker.org и укажи свой аккаунт. После этого здесь появятся реальные музыкальные раздачи.'
-          : 'Подключи Jackett с RuTracker на ПК или сервере: укажи его адрес и API key в настройках.',
+          ? tr(
+              "Запусти Jackett, добавь RuTracker.org и укажи свой аккаунт. После этого здесь появятся реальные музыкальные раздачи.",
+            )
+          : tr(
+              "Подключи Jackett с RuTracker на ПК или сервере: укажи его адрес и API key в настройках.",
+            ),
       action: FilledButton.icon(
         onPressed: app.busy == null ? () => setupJackett(context, app) : null,
         icon: const Icon(Icons.settings_rounded, size: 18),
         label: Text(
           Platform.isWindows
-              ? 'Настроить Jackett и RuTracker'
-              : 'Подключить Jackett',
+              ? tr("Настроить Jackett и RuTracker")
+              : tr("Подключить Jackett"),
         ),
       ),
     )
@@ -202,25 +213,25 @@ List<Widget> sourceContent(
             if (app.usesAutomaticSource)
               TextButton(
                 onPressed: app.refreshSourceFeed,
-                child: const Text('Повторить загрузку'),
+                child: Text(tr("Повторить загрузку")),
               )
             else
               TextButton(
                 onPressed: app.busy == null
                     ? () => setupJackett(context, app)
                     : null,
-                child: const Text('Настроить трекеры'),
+                child: Text(tr("Настроить трекеры")),
               ),
             if (!app.usesAutomaticSource)
               TextButton(
                 onPressed: () => app.setSearchProvider('automatic'),
-                child: const Text('Слушать без Jackett'),
+                child: Text(tr("Слушать без Jackett")),
               ),
             if (Platform.isWindows &&
                 app.indexerError!.toLowerCase().contains('flaresolverr'))
               TextButton(
                 onPressed: app.busy == null ? app.prepareCloudflare : null,
-                child: const Text('Подключить FlareSolverr'),
+                child: Text(tr("Подключить FlareSolverr")),
               ),
           ],
         ),
@@ -232,16 +243,20 @@ List<Widget> sourceContent(
     else if (!app.indexerLoading && app.indexerError == null)
       EmptyState(
         icon: Icons.album_outlined,
-        title: 'Музыкальных раздач пока нет',
+        title: tr("Музыкальных раздач пока нет"),
         description: app.usesAutomaticSource
-            ? 'Попробуй поискать исполнителя или альбом. Каталог доступен без аккаунта; доступность музыки зависит от пиров.'
-            : 'Убедись, что RuTracker.org добавлен и проверка трекера в Jackett проходит. Можно также поискать исполнителя по имени.',
+            ? tr(
+                "Попробуй поискать исполнителя или альбом. Каталог доступен без аккаунта; доступность музыки зависит от пиров.",
+              )
+            : tr(
+                "Убедись, что RuTracker.org добавлен и проверка трекера в Jackett проходит. Можно также поискать исполнителя по имени.",
+              ),
         action: TextButton(
           onPressed: app.usesAutomaticSource
               ? app.refreshSourceFeed
               : () => setupJackett(context, app),
           child: Text(
-            app.usesAutomaticSource ? 'Обновить' : 'Настроить трекеры',
+            app.usesAutomaticSource ? tr("Обновить") : tr("Настроить трекеры"),
           ),
         ),
       ),
@@ -257,15 +272,15 @@ List<Widget> catalogContent(
   return [
     SectionTitle(
       home
-          ? 'Открой новую музыку'
-          : app.catalogTrail.lastOrNull?.title ?? 'Жанры RuTracker',
+          ? tr("Открой новую музыку")
+          : app.catalogTrail.lastOrNull?.title ?? tr("Жанры RuTracker"),
       subtitle: home
-          ? 'Каталог RuTracker · выбери жанр или найди исполнителя'
-          : 'Музыкальные раздачи RuTracker',
+          ? tr("Каталог RuTracker · выбери жанр или найди исполнителя")
+          : tr("Музыкальные раздачи RuTracker"),
       action: IconButton(
         onPressed: app.catalogLoading ? null : app.refreshCatalog,
         icon: const Icon(Icons.refresh_rounded),
-        tooltip: 'Обновить каталог',
+        tooltip: tr("Обновить каталог"),
       ),
     ),
     if (!home && app.catalogTrail.isNotEmpty)
@@ -274,7 +289,7 @@ List<Widget> catalogContent(
         child: TextButton.icon(
           onPressed: app.catalogBack,
           icon: const Icon(Icons.arrow_back_rounded, size: 17),
-          label: const Text('Назад к жанрам'),
+          label: Text(tr("Назад к жанрам")),
         ),
       ),
     if (app.catalogLoading)
@@ -286,8 +301,8 @@ List<Widget> catalogContent(
     if (sections.isNotEmpty) _SectionGrid(app, sections),
     if (!home && app.catalogReleases.isNotEmpty) ...[
       SectionTitle(
-        'Альбомы и дискографии',
-        subtitle: '${app.catalogReleases.length} раздач',
+        tr("Альбомы и дискографии"),
+        subtitle: tr("{0} раздач", [app.catalogReleases.length]),
       ),
       ReleaseRows(app: app, releases: app.catalogReleases),
       if (app.catalogNextPath != null)
@@ -295,7 +310,7 @@ List<Widget> catalogContent(
           padding: const EdgeInsets.only(top: 16),
           child: OutlinedButton(
             onPressed: app.catalogLoading ? null : app.loadMoreCatalog,
-            child: const Text('Показать ещё'),
+            child: Text(tr("Показать ещё")),
           ),
         ),
     ],
@@ -305,12 +320,13 @@ List<Widget> catalogContent(
         (home || app.catalogReleases.isEmpty))
       EmptyState(
         icon: Icons.explore_outlined,
-        title: 'Загрузи каталог музыки',
-        description:
-            'В Mumpa доступны музыкальные разделы RuTracker. Поиск по всему каталогу требует аккаунт RuTracker.',
+        title: tr("Загрузи каталог музыки"),
+        description: tr(
+          "В Mumpa доступны музыкальные разделы RuTracker. Поиск по всему каталогу требует аккаунт RuTracker.",
+        ),
         action: FilledButton(
           onPressed: app.refreshCatalog,
-          child: const Text('Загрузить каталог'),
+          child: Text(tr("Загрузить каталог")),
         ),
       ),
   ];
@@ -347,8 +363,8 @@ class CatalogNotice extends StatelessWidget {
                 icon: const Icon(Icons.login_rounded, size: 18),
                 label: Text(
                   app.catalogNeedsLogin
-                      ? 'Войти в RuTracker'
-                      : 'Открыть RuTracker',
+                      ? tr("Войти в RuTracker")
+                      : tr("Открыть RuTracker"),
                 ),
               ),
             TextButton(
@@ -357,7 +373,7 @@ class CatalogNotice extends StatelessWidget {
                   : () => app.query.trim().isNotEmpty
                         ? app.searchSources()
                         : app.refreshCatalog(),
-              child: const Text('Повторить'),
+              child: Text(tr("Повторить")),
             ),
           ],
         ),
@@ -485,7 +501,7 @@ class ReleaseShelf extends StatelessWidget {
                   ),
                 const SizedBox(height: 4),
                 Text(
-                  '${formats.isEmpty ? 'Альбом / коллекция' : formats}${item.bytes > 0 ? ' · ${formatBytes(item.bytes)}' : ''}',
+                  '${formats.isEmpty ? tr("Альбом / коллекция") : formats}${item.bytes > 0 ? ' · ${formatBytes(item.bytes)}' : ''}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: muted, fontSize: 11),
@@ -535,7 +551,7 @@ class ReleaseRows extends SliverContent {
                 style: const TextStyle(color: muted, fontSize: 11),
               ),
             Text(
-              '${formats.isNotEmpty ? '$formats · ' : ''}${item.bytes > 0 ? '${formatBytes(item.bytes)} · ' : ''}${item.seedersKnown ? '${item.seeders} сидов' : 'Сиды неизвестны'}${item.indexerName.isNotEmpty ? ' · ${item.indexerName}' : ''}${item.category.isNotEmpty ? ' · ${item.category}' : ''}',
+              '${formats.isNotEmpty ? '$formats · ' : ''}${item.bytes > 0 ? '${formatBytes(item.bytes)} · ' : ''}${item.seedersKnown ? tr("{0} сидов", [item.seeders]) : tr("Сиды неизвестны")}${item.indexerName.isNotEmpty ? ' · ${item.indexerName}' : ''}${item.category.isNotEmpty ? ' · ${item.category}' : ''}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: muted, fontSize: 11),
@@ -641,11 +657,13 @@ class _TrackVariantContentState extends State<_TrackVariantContent> {
     return SliverMainAxisGroup(
       slivers: [
         if (variants.isEmpty)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
-                'Нет версий выбранного формата. Измени фильтр в настройках поиска.',
+                tr(
+                  "Нет версий выбранного формата. Измени фильтр в настройках поиска.",
+                ),
                 style: TextStyle(color: muted),
               ),
             ),
@@ -714,7 +732,7 @@ class _TrackVariantContentState extends State<_TrackVariantContent> {
                               ),
                               Text(
                                 '${formatBytes(variant.track.bytes)}'
-                                '${variant.release.seedersKnown ? ' · ${variant.release.seeders} сидов' : ''}',
+                                '${variant.release.seedersKnown ? tr(" · {0} сидов", [variant.release.seeders]) : ''}',
                                 style: const TextStyle(
                                   color: muted,
                                   fontSize: 10,
@@ -727,7 +745,7 @@ class _TrackVariantContentState extends State<_TrackVariantContent> {
                           onPressed: app.busy == null
                               ? () => app.playTrackVariant(variant)
                               : null,
-                          tooltip: 'Слушать эту версию',
+                          tooltip: tr("Слушать эту версию"),
                           icon: const Icon(Icons.play_arrow_rounded),
                           style: IconButton.styleFrom(
                             backgroundColor: accent,
@@ -735,17 +753,17 @@ class _TrackVariantContentState extends State<_TrackVariantContent> {
                           ),
                         ),
                         PopupMenuButton<String>(
-                          tooltip: 'Действия с версией',
+                          tooltip: tr("Действия с версией"),
                           enabled: app.busy == null,
                           onSelected: (action) {
                             if (action == 'queue') {
                               unawaited(app.enqueueTrackVariant(variant));
                             }
                           },
-                          itemBuilder: (_) => const [
+                          itemBuilder: (_) => [
                             PopupMenuItem(
                               value: 'queue',
-                              child: Text('Добавить в очередь'),
+                              child: Text(tr("Добавить в очередь")),
                             ),
                           ],
                         ),

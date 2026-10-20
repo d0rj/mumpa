@@ -1,5 +1,6 @@
 // Opt-in proof of natural queue completion with the real Windows decoder.
 // Uses original silent WAVs in a temporary profile; no external services.
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -58,7 +59,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const enabled = bool.fromEnvironment('PLAYLIST_RADIO_TEST');
   if (enabled && Platform.isWindows) {
-    MediaKit.ensureInitialized();
+    initializeAudioRuntime();
   }
   testWidgets(
     'native completion starts prepared radio and pause remains paused',

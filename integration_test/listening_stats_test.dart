@@ -1,3 +1,4 @@
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,7 +6,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/data/torrent_service.dart';
 import 'package:mumpa/domain/models.dart';
@@ -35,7 +35,7 @@ Uint8List _silence() {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   const enabled = bool.fromEnvironment('LISTENING_STATS_NATIVE');
-  if (enabled && Platform.isWindows) MediaKit.ensureInitialized();
+  if (enabled && Platform.isWindows) initializeAudioRuntime();
   testWidgets(
     'native audio counts listens once and saves the device top',
     (tester) async {

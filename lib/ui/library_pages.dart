@@ -7,13 +7,13 @@ class _HomePage extends StatelessWidget {
   Widget build(BuildContext context) => _PageBody(
     children: [
       const SizedBox(height: 12),
-      const BadgePill(
+      BadgePill(
         icon: Icons.graphic_eq_rounded,
-        label: 'МУЗЫКА В ТВОЁМ РИТМЕ',
+        label: tr("МУЗЫКА В ТВОЁМ РИТМЕ"),
       ),
       const SizedBox(height: 18),
       Text(
-        'Что сегодня слушаем?',
+        tr("Что сегодня слушаем?"),
         style: Theme.of(context).textTheme.headlineLarge,
       ),
       const SizedBox(height: 18),
@@ -27,27 +27,27 @@ class _HomePage extends StatelessWidget {
               icon: const Icon(Icons.login_rounded, size: 18),
               label: Text(
                 app.catalog.username == null
-                    ? 'Войти в RuTracker'
+                    ? tr("Войти в RuTracker")
                     : 'RuTracker · ${app.catalog.username}',
               ),
             ),
           TextButton.icon(
             onPressed: () => showAddMusic(context, app),
             icon: const Icon(Icons.folder_open_rounded, size: 18),
-            label: const Text('Моя музыка с диска'),
+            label: Text(tr("Моя музыка с диска")),
           ),
         ],
       ),
       SearchOptionsPanel(app: app),
-      const SectionTitle(
-        'Твой топ на устройстве',
-        subtitle: 'Любимые по числу прослушиваний',
+      SectionTitle(
+        tr("Твой топ на устройстве"),
+        subtitle: tr("Любимые по числу прослушиваний"),
       ),
       _DeviceTopCard(app),
       if (app.library.frequentPlaylists.isNotEmpty) ...[
-        const SectionTitle(
-          'Часто слушаешь',
-          subtitle: 'Плейлисты и коллекции по числу прослушиваний треков',
+        SectionTitle(
+          tr("Часто слушаешь"),
+          subtitle: tr("Плейлисты и коллекции по числу прослушиваний треков"),
         ),
         HorizontalMusicShelf(
           key: const ValueKey('home-frequent-playlists'),
@@ -76,7 +76,9 @@ class _HomePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Прослушиваний треков: ${app.library.playlistPlayCount(list.id)}',
+                        tr("Прослушиваний треков: {0}", [
+                          app.library.playlistPlayCount(list.id),
+                        ]),
                         style: const TextStyle(color: muted, fontSize: 11),
                       ),
                     ],
@@ -92,30 +94,32 @@ class _HomePage extends StatelessWidget {
       else
         ...catalogContent(context, app, home: true),
       if (app.recentAlbums.isNotEmpty) ...[
-        const SectionTitle('Недавно слушал'),
+        SectionTitle(tr("Недавно слушал")),
         albumGrid(app, app.recentAlbums, limit: 6),
       ],
       SectionTitle(
-        'Твоя медиатека',
-        subtitle:
-            '${app.library.mediaTracks.length} треков · ${app.albums.length} альбомов',
+        tr("Твоя медиатека"),
+        subtitle: tr("{0} треков · {1} альбомов", [
+          app.library.mediaTracks.length,
+          app.albums.length,
+        ]),
         action: TextButton(
           onPressed: () => app.navigate(AppPage.library),
-          child: const Text('Открыть всё'),
+          child: Text(tr("Открыть всё")),
         ),
       ),
       if (app.albums.isNotEmpty)
         albumGrid(app, app.albums, limit: 6)
       else
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 18),
           child: Text(
-            'Включи трек из каталога или выбери папку с локальной музыкой.',
+            tr("Включи трек из каталога или выбери папку с локальной музыкой."),
             style: TextStyle(color: muted),
           ),
         ),
       if (app.library.mediaPlaylists.isNotEmpty) ...[
-        const SectionTitle('Плейлисты'),
+        SectionTitle(tr("Плейлисты")),
         _PlaylistGrid(app, playlists: app.library.mediaPlaylists),
       ],
     ],
@@ -139,8 +143,10 @@ class _DeviceTopCard extends StatelessWidget {
       ),
       subtitle: Text(
         app.library.topTracksPlaylist.trackIds.isEmpty
-            ? 'Начни слушать — топ соберётся автоматически'
-            : '${app.library.topTracksPlaylist.trackIds.length} треков · обновляется автоматически',
+            ? tr("Начни слушать — топ соберётся автоматически")
+            : tr("{0} треков · обновляется автоматически", [
+                app.library.topTracksPlaylist.trackIds.length,
+              ]),
         style: const TextStyle(color: muted, fontSize: 12),
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
@@ -181,56 +187,56 @@ class _LibraryPage extends StatelessWidget {
     return _PageBody(
       children: [
         SectionTitle(
-          'Медиатека',
-          subtitle: 'Всё, что хочется слушать',
+          tr("Медиатека"),
+          subtitle: tr("Всё, что хочется слушать"),
           action: IconButton(
             onPressed: () => showAddMusic(context, app),
-            tooltip: 'Добавить музыку',
+            tooltip: tr("Добавить музыку"),
             icon: const Icon(Icons.add_rounded),
           ),
         ),
         LocalSearchField(
           app: app,
           scope: 'library',
-          hint: 'Поиск в медиатеке: исполнитель, альбом, трек',
+          hint: tr("Поиск в медиатеке: исполнитель, альбом, трек"),
         ),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
             _Tab(
-              'Все альбомы',
+              tr("Все альбомы"),
               app.filter == LibraryFilter.all,
               () => app.setFilter(LibraryFilter.all),
             ),
             _Tab(
-              'Офлайн',
+              tr("Офлайн"),
               app.filter == LibraryFilter.offline,
               () => app.setFilter(LibraryFilter.offline),
             ),
             _Tab(
-              'Торренты',
+              tr("Торренты"),
               app.filter == LibraryFilter.torrents,
               () => app.setFilter(LibraryFilter.torrents),
             ),
             PopupMenuButton<LibrarySort>(
               initialValue: app.sort,
               onSelected: app.setSort,
-              itemBuilder: (_) => const [
+              itemBuilder: (_) => [
                 PopupMenuItem(
                   value: LibrarySort.added,
-                  child: Text('Недавно добавленные'),
+                  child: Text(tr("Недавно добавленные")),
                 ),
                 PopupMenuItem(
                   value: LibrarySort.name,
-                  child: Text('По названию'),
+                  child: Text(tr("По названию")),
                 ),
                 PopupMenuItem(
                   value: LibrarySort.artist,
-                  child: Text('По исполнителю'),
+                  child: Text(tr("По исполнителю")),
                 ),
               ],
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(10),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -238,7 +244,7 @@ class _LibraryPage extends StatelessWidget {
                     Icon(Icons.sort_rounded, size: 16, color: muted),
                     SizedBox(width: 6),
                     Text(
-                      'Сортировка',
+                      tr("Сортировка"),
                       style: TextStyle(fontSize: 12, color: muted),
                     ),
                   ],
@@ -251,25 +257,26 @@ class _LibraryPage extends StatelessWidget {
           ..._localResultSections(app, app.librarySearchResults)
         else ...[
           if (app.albums.isEmpty)
-            const EmptyState(
+            EmptyState(
               icon: Icons.album_outlined,
-              title: 'Здесь пока тихо',
-              description:
-                  'Включи трек, добавь музыку или выбери другой фильтр.',
+              title: tr("Здесь пока тихо"),
+              description: tr(
+                "Включи трек, добавь музыку или выбери другой фильтр.",
+              ),
             )
           else
             albumGrid(app, app.albums),
           SectionTitle(
-            'Плейлисты',
+            tr("Плейлисты"),
             action: TextButton.icon(
               onPressed: () async {
-                final name = await askName(context, 'Новый плейлист');
+                final name = await askName(context, tr("Новый плейлист"));
                 if (name != null) {
                   app.openPlaylist(await app.library.createPlaylist(name));
                 }
               },
               icon: const Icon(Icons.add_rounded, size: 16),
-              label: const Text('Создать'),
+              label: Text(tr("Создать")),
             ),
           ),
           _PlaylistGrid(app),
@@ -289,19 +296,19 @@ List<Widget> _localResultSections(
       results.playlists.length +
       results.tracks.length;
   if (count == 0) {
-    return const [
+    return [
       EmptyState(
         icon: Icons.search_off_rounded,
-        title: 'Ничего не найдено в этом разделе',
-        description: 'Попробуй другой запрос или очисти поиск.',
+        title: tr("Ничего не найдено в этом разделе"),
+        description: tr("Попробуй другой запрос или очисти поиск."),
       ),
     ];
   }
   return [
     if (results.artists.isNotEmpty) ...[
       SectionTitle(
-        'Исполнители',
-        subtitle: '${results.artists.length} найдено',
+        tr("Исполнители"),
+        subtitle: tr("{0} найдено", [results.artists.length]),
       ),
       LazyRows(
         count: results.artists.length,
@@ -321,20 +328,25 @@ List<Widget> _localResultSections(
       ),
     ],
     if (results.albums.isNotEmpty) ...[
-      SectionTitle('Альбомы', subtitle: '${results.albums.length} найдено'),
+      SectionTitle(
+        tr("Альбомы"),
+        subtitle: tr("{0} найдено", [results.albums.length]),
+      ),
       albumGrid(app, results.albums),
     ],
     if (results.playlists.isNotEmpty) ...[
       SectionTitle(
-        'Плейлисты и коллекции',
-        subtitle: '${results.playlists.length} найдено',
+        tr("Плейлисты и коллекции"),
+        subtitle: tr("{0} найдено", [results.playlists.length]),
       ),
       _PlaylistGrid(app, playlists: results.playlists),
     ],
     if (results.tracks.isNotEmpty) ...[
       SectionTitle(
-        'Треки',
-        subtitle: '${app.library.matchedTracks(results.tracks).length} найдено',
+        tr("Треки"),
+        subtitle: tr("{0} найдено", [
+          app.library.matchedTracks(results.tracks).length,
+        ]),
       ),
       TrackList(app: app, tracks: results.tracks),
     ],
@@ -385,11 +397,14 @@ class _PlaylistGrid extends SliverContent {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       Text(
-                        '${list.isSystem
-                            ? 'На этом устройстве'
-                            : list.sourceHash == null
-                            ? 'Плейлист'
-                            : 'Коллекция'} · ${list.trackIds.length} треков',
+                        tr("{0} · {1} треков", [
+                          list.isSystem
+                              ? tr("На этом устройстве")
+                              : list.sourceHash == null
+                              ? tr("Плейлист")
+                              : tr("Коллекция"),
+                          list.trackIds.length,
+                        ]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: muted, fontSize: 11),
@@ -418,36 +433,37 @@ class _LikedPage extends StatelessWidget {
     final searching = normalizeMusicName(app.localQuery('liked')).isNotEmpty;
     return _PageBody(
       children: [
-        const SectionTitle(
-          'Любимое',
-          subtitle:
-              'Треки, альбомы, плейлисты и коллекции, к которым хочется возвращаться',
+        SectionTitle(
+          tr("Любимое"),
+          subtitle: tr(
+            "Треки, альбомы, плейлисты и коллекции, к которым хочется возвращаться",
+          ),
         ),
         LocalSearchField(
           app: app,
           scope: 'liked',
-          hint: 'Поиск в любимом: треки, альбомы, плейлисты',
+          hint: tr("Поиск в любимом: треки, альбомы, плейлисты"),
         ),
         if (searching)
           ..._localResultSections(app, app.likedSearchResults)
         else ...[
           if (albums.isNotEmpty) ...[
-            const SectionTitle('Любимые альбомы'),
+            SectionTitle(tr("Любимые альбомы")),
             albumGrid(app, albums),
           ],
           if (app.library.favoritePlaylists.isNotEmpty) ...[
-            const SectionTitle('Плейлисты и коллекции'),
+            SectionTitle(tr("Плейлисты и коллекции")),
             _PlaylistGrid(app, playlists: app.library.favoritePlaylists),
           ],
           SectionTitle(
-            'Любимые треки',
+            tr("Любимые треки"),
             subtitle: app.library.trackCountLabel(app.likedTracks),
             action: app.likedTracks.isEmpty
                 ? null
                 : FilledButton.icon(
                     onPressed: () => app.playCollection(app.likedTracks),
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text('Слушать'),
+                    label: Text(tr("Слушать")),
                   ),
           ),
           if (app.likedTracks.isNotEmpty)
@@ -456,12 +472,14 @@ class _LikedPage extends StatelessWidget {
             EmptyState(
               icon: Icons.favorite_border_rounded,
               title: app.library.favoritePlaylists.isEmpty && albums.isEmpty
-                  ? 'Сохрани музыку в любимое'
-                  : 'Любимых треков пока нет',
+                  ? tr("Сохрани музыку в любимое")
+                  : tr("Любимых треков пока нет"),
               description:
                   app.library.favoritePlaylists.isEmpty && albums.isEmpty
-                  ? 'Сердечко у трека, альбома, плейлиста или коллекции добавит их сюда.'
-                  : 'Нажми сердечко у трека, чтобы сохранить его здесь.',
+                  ? tr(
+                      "Сердечко у трека, альбома, плейлиста или коллекции добавит их сюда.",
+                    )
+                  : tr("Нажми сердечко у трека, чтобы сохранить его здесь."),
             ),
         ],
       ],

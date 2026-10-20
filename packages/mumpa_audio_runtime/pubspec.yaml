@@ -1,0 +1,10 @@
+name: mumpa_audio_runtime
+description: Pinned DSP-capable libmpv binaries for Mumpa.
+version: 1.0.0
+publish_to: none
+environment:
+  sdk: ^3.12.2
+dependencies:
+  code_assets: ^1.2.1
+  hooks: ^2.0.2
+  crypto: ^3.0.7

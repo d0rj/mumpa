@@ -1,5 +1,38 @@
 # Mumpa verification — 2026-10-20
 
+## Audio settings, download preferences and English
+
+- Full Flutter suite: **567 passed, 5 existing opt-in tests skipped**. The focused
+  audio/localization/settings checks also cover 320×568 and 1200×850 layouts,
+  language changes without restart, persistence, portable profile roundtrip,
+  malformed settings, repeat-one and canceled/unavailable crossfades.
+- Real Windows `libmpv v0.41.0+r17` PCM capture passed. A requested +6 dB bass
+  boost changed the 60 Hz / 1 kHz ratio by **1.983279×**. Mono left/right maximum
+  difference was **0.0**. Inputs differing by 4× in amplitude normalized to an
+  RMS ratio of **0.993294**. The +12 dB high-level test had a 180 Hz clipping
+  harmonic of **0.00000119**, verifying preamp/floating-point headroom.
+- Native crossfade ran two decoders with incoming volume between zero and the
+  master setting; Pause/Resume and live DSP changes retained the same incoming
+  decoder, queue and position (allowing native timestamp update latency).
+- Separate opt-in Windows queue-reorder and HTTP-prefetch regressions passed
+  with the new runtime. They use generated/local fixture audio and an isolated
+  profile; this does not establish public torrent peer availability.
+- Android debug APK built from `lib/main.dart`; its ARMv7, ARM64 and x86_64
+  `libmpv_audio_kit.so` assets exactly match all three pinned SHA-256 hashes.
+  No Android device was connected, so native Android listening is unverified.
+- Runtime binaries are pinned in `packages/mumpa_audio_runtime/hook/build.dart`;
+  a build fails on a download/hash mismatch. Main and native tests initialize
+  the same library. Original minimal helper packages remain available.
+- Download preferences choose already matched sources, with fallback to the
+  selected version; no transcoding or newly discovered bitrate is claimed.
+- Evidence retained in `test-output/audio-settings-native.json`,
+  `audio-settings-en.png`, `audio-runtime-apk.json`, `audio-settings-suite.log`,
+  `audio-settings-native.log`, `audio-settings-queue-regression.log`,
+  `audio-settings-prefetch-regression.log`, `audio-settings-android-build.log`
+  and `audio-settings-analyze.log`. Disposable audio/profiles are removed by
+  the integration fixture. No installed production profile or hosted release
+  was changed; these are development changes, not a newly published release.
+
 ## Portable profile metadata
 
 Settings → «Перенос профиля» exports a versioned UTF-8 JSON document and imports

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
+import '../l10n/app_localizations.dart';
 
 const audioExtensions = {
   'mp3',
@@ -26,11 +27,13 @@ String stableId(String value) =>
 String formatTime(Duration time) =>
     '${time.inMinutes}:${(time.inSeconds % 60).toString().padLeft(2, '0')}';
 String formatBytes(int bytes) {
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} КБ';
-  if (bytes < 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} МБ';
+  if (bytes < 1024 * 1024) {
+    return tr('{0} КБ', [(bytes / 1024).toStringAsFixed(0)]);
   }
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} ГБ';
+  if (bytes < 1024 * 1024 * 1024) {
+    return tr('{0} МБ', [(bytes / (1024 * 1024)).toStringAsFixed(1)]);
+  }
+  return tr('{0} ГБ', [(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)]);
 }
 
 enum TrackSource { local, torrent, demo }

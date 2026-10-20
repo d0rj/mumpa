@@ -1,3 +1,4 @@
+import 'package:mumpa/logic/audio_runtime.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -7,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:media_kit/media_kit.dart' hide Track;
 import 'package:path_provider/path_provider.dart';
 import 'package:mumpa/data/download_repository.dart';
 import 'package:mumpa/main.dart';
@@ -209,7 +209,7 @@ class TestSeeder {
 void main() {
   const outgoingPeerTest = bool.fromEnvironment('OUTGOING_PEER_TEST');
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
+  initializeAudioRuntime();
   testWidgets(
     'native local, managed torrent, range seeking, download and offline playback',
     (tester) async {

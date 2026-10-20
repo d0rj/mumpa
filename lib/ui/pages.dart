@@ -1,3 +1,4 @@
+import '../l10n/app_localizations.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'dialogs.dart';
 import 'theme.dart';
 import 'search_fields.dart';
 import 'app_update_panel.dart';
+import 'audio_settings.dart';
 
 part 'library_pages.dart';
 part 'artist_page.dart';
@@ -35,20 +37,20 @@ class ContentPage extends StatelessWidget {
     AppPage.settings => SettingsPage(key: const ValueKey('settings'), app: app),
     AppPage.album =>
       app.album == null
-          ? const EmptyState(
+          ? EmptyState(
               icon: Icons.album_outlined,
-              title: 'Альбом удалён',
-              description: 'Открой другой альбом в медиатеке.',
+              title: tr("Альбом удалён"),
+              description: tr("Открой другой альбом в медиатеке."),
             )
           : _AlbumPage(app, app.album!),
     AppPage.playlist => _TrackCollection(
       app: app,
-      title: app.playlist?.name ?? 'Плейлист',
+      title: app.playlist?.name ?? tr("Плейлист"),
       eyebrow: app.playlist?.isSystem == true
-          ? 'НА ЭТОМ УСТРОЙСТВЕ'
+          ? tr("НА ЭТОМ УСТРОЙСТВЕ")
           : app.playlist?.sourceHash != null
-          ? 'КОЛЛЕКЦИЯ'
-          : 'ПЛЕЙЛИСТ',
+          ? tr("КОЛЛЕКЦИЯ")
+          : tr("ПЛЕЙЛИСТ"),
       tracks: app.playlistTracks,
       icon: Icons.queue_music_rounded,
       playlistId: app.playlist?.id,

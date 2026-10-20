@@ -25,6 +25,21 @@ The base torrent library is `github.com/tsynik/torrent v1.2.31`, pinned in the u
 - libmpv source/licenses: https://github.com/mpv-player/mpv.
 - FFmpeg source/licenses: https://ffmpeg.org/legal.html and https://git.ffmpeg.org/ffmpeg.git.
 
+Mumpa's DSP path explicitly loads the audio-only **mpv 0.41.0 / FFmpeg 8.1.1,
+libmpv-r17** runtime distributed by `ales-drnz/mpv_audio_kit`. It includes the
+`equalizer`, `loudnorm`, `aformat` and `pan` filters missing from the older
+minimal runtime. The app continues to use the `media_kit` Dart transport and
+Android helper integration; it does not use mpv_audio_kit's player/session APIs.
+
+- Binary release and component manifest: https://github.com/ales-drnz/mpv_audio_kit/releases/tag/libmpv-r17
+- Manifest: https://github.com/ales-drnz/mpv_audio_kit/releases/download/libmpv-r17/manifest.json
+- Corresponding audio runtime build recipes/patches: https://github.com/ales-drnz/libmpv-scripts
+- SHA-256 pins and native-assets bundling: `packages/mumpa_audio_runtime/hook/build.dart`.
+
+The local bundling hook is Mumpa code. Native component licenses remain those
+of mpv, FFmpeg and their dependencies; the Flutter wrapper's license does not
+relicense those components. Binary checksums are verified before bundling.
+
 For redistribution, keep this notice, the GPL text, dependency notices and corresponding source/build information alongside the application. The local release includes a Mumpa source archive and matching engine source archive. The distributed application package does not include third-party commercial music or remotely fetched album artwork.
 
 ## MusicBrainz metadata and Cover Art Archive
