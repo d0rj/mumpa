@@ -1,4 +1,36 @@
-# Mumpa verification — 2026-10-20
+# Mumpa verification — 2026-10-21
+
+## Windows updater lifetime and MusicBrainz overload recovery
+
+- Full Flutter suite: **571 passed, 6 opt-in checks skipped**; static analysis
+  reports no issues. The focused native/metadata run includes the live catalog
+  and passed **19 tests**.
+- The real failed update retained `1.2.27+35`, a valid `1.2.28+36` download and
+  a `ready` receipt. The native runner's kill-on-close job also killed the
+  installer when Mumpa exited. The worker now explicitly breaks away; ordinary
+  service children remain in the job.
+- A Windows PowerShell 5.1 fixture starts the broker inside the same job limits
+  as the application, exits the parent after `ready`, observes `installed`,
+  verifies replacement/rollback contents and confirms an ordinary service dies.
+  Replacing only the broker with the old source reproduces the failure:
+  **Installer did not reach installed**. Both Cyrillic and quoted paths are used.
+- A direct Dart request reproduced MusicBrainz **HTTP 503** for the artist's
+  release groups. Bounded 429/503 retries respect Retry-After and cancellation;
+  tests cover recovery, exhaustion and avoiding error-cache entries.
+- A real uncached repository request for **Ежемесячные** returned MBID
+  `f646239d-504c-479d-a047-8ab4ee22c9f3`, **15 albums and 25 recordings**.
+  The 25 recordings are the existing bounded page, not the entire catalog.
+- Built the normal `lib/main.dart` Windows release and locally repaired the
+  installed app from **1.2.27+35 to 1.2.29+37**. Its own fresh `--profile-report`
+  confirmed `C:\Users\PC\.mumpa`: **10,254 tracks, 47 favorite tracks, 5 favorite
+  albums, 5 favorite playlists and 53 offline tracks**. All 53 offline files
+  retained their SHA-256; saved tracks, playlist contents, preferences and
+  settings matched the private pre-install backup. The immediately previous
+  installed app remains available for rollback. No GitHub release was published.
+- Evidence: `test-output/fixes-full-tests-assets.log`,
+  `update-metadata-analyze.log`, `update-metadata-tests-3.log`,
+  `update-job-negative-control-2.log`, `music-metadata-live.json`,
+  `fixes-windows-build-4.log`, `local-fix-installed.json`.
 
 ## Audio settings, download preferences and English
 

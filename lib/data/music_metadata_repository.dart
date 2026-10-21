@@ -18,10 +18,11 @@ class MusicMetadataRepository {
     http.Client? client,
     this.requestInterval = const Duration(milliseconds: 1100),
     this.requestTimeout = const Duration(seconds: 15),
+    this.retryDelay = const Duration(seconds: 2),
   }) : client = client ?? http.Client();
   final DiskMediaCache cache;
   final http.Client client;
-  final Duration requestInterval, requestTimeout;
+  final Duration requestInterval, requestTimeout, retryDelay;
   late final _artworkFallback = DeezerArtworkRepository(
     cache: cache,
     client: client,
@@ -143,7 +144,36 @@ class MusicMetadataRepository {
       }
     }
     try {
-      final response = await _schedule(uri, lowPriority, operation, generation);
+      var response = await _schedule(uri, lowPriority, operation, generation);
+      for (
+        var retry = 0;
+        retry < 2 && {429, 503}.contains(response.statusCode);
+        retry++
+      ) {
+        final header = response.headers['retry-after'];
+        final seconds = int.tryParse(header ?? '');
+        DateTime? retryAt;
+        if (seconds == null && header != null) {
+          try {
+            retryAt = HttpDate.parse(header);
+          } on HttpException {
+            // Ignore a malformed Retry-After header and use the backoff.
+          }
+        }
+        final requested = seconds != null
+            ? Duration(seconds: seconds)
+            : retryAt?.difference(DateTime.now().toUtc()) ?? Duration.zero;
+        // A long outage should remain an actionable error, not an unbounded
+        // loading screen. Never retry earlier than the server asks us to.
+        if (requested > const Duration(seconds: 30)) break;
+        final backoff = retryDelay * (retry + 1);
+        final delay = requested > backoff ? requested : backoff;
+        await (operation?.wait(Future<void>.delayed(delay)) ??
+            Future<void>.delayed(delay));
+        operation?.check();
+        _checkGeneration(generation);
+        response = await _schedule(uri, lowPriority, operation, generation);
+      }
       operation?.check();
       _checkGeneration(generation);
       if (response.statusCode == 503 || response.statusCode == 429) {

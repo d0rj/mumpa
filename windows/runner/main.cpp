@@ -19,11 +19,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   const HRESULT apartment = ::RoInitialize(RO_INIT_SINGLETHREADED);
   ::SetCurrentProcessExplicitAppUserModelID(L"app.mumpa.Mumpa");
-  // The bundled torrent child must not survive closing the desktop app.
+  // Service children die with the app. Only the updater explicitly requests
+  // CREATE_BREAKAWAY_FROM_JOB so it can replace files after this process exits.
   HANDLE child_job = ::CreateJobObject(nullptr, nullptr);
   if (child_job) {
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {};
-    limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    limits.BasicLimitInformation.LimitFlags =
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
     ::SetInformationJobObject(child_job, JobObjectExtendedLimitInformation, &limits, sizeof(limits));
     ::AssignProcessToJobObject(child_job, ::GetCurrentProcess());
   }

@@ -181,137 +181,197 @@ void main() {
     skip: !Platform.isWindows,
   );
 
-  test(
-    'native PS 5.1 handoff waits for the parent and preserves rollback and data',
-    () async {
-      final fixture = Directory(p.join(root.path, 'Проверка обновления'));
-      final source = Directory(p.join(fixture.path, 'source', 'Mumpa'));
-      final target = Directory(p.join(fixture.path, 'installed'));
-      final current = Directory(p.join(target.path, 'current'));
-      await Directory(
-        p.join(source.path, 'data', 'flutter_assets'),
-      ).create(recursive: true);
-      await current.create(recursive: true);
-      final compiler = File(p.join(root.path, 'compile.ps1'));
-      await compiler.writeAsString(r'''
+  for (final insideJob in [false, true]) {
+    test(
+      'native PS 5.1 handoff preserves rollback and data (app job: $insideJob)',
+      () async {
+        final fixture = Directory(p.join(root.path, 'Проверка обновления'));
+        final source = Directory(p.join(fixture.path, 'source', 'Mumpa'));
+        final target = Directory(p.join(fixture.path, 'installed'));
+        final current = Directory(p.join(target.path, 'current'));
+        await Directory(
+          p.join(source.path, 'data', 'flutter_assets'),
+        ).create(recursive: true);
+        await current.create(recursive: true);
+        final compiler = File(p.join(root.path, 'compile.ps1'));
+        await compiler.writeAsString(r'''
 param([string]$OutputPath)
-Add-Type -TypeDefinition @'
-using System;
-using System.IO;
-using System.Threading;
-using System.Reflection;
-[assembly: AssemblyVersion("1.2.27.35")]
-[assembly: AssemblyInformationalVersion("1.2.27+35")]
-public class MumpaWaitFixture {
-    public static void Main(string[] args) {
-        while (!File.Exists(args[0])) Thread.Sleep(25);
-    }
-}
-'@ -OutputAssembly $OutputPath -OutputType ConsoleApplication
+Add-Type -Path 'test/fixtures/update_job_host.cs' -OutputAssembly $OutputPath -OutputType ConsoleApplication
 ''');
-      final executable = File(p.join(source.path, 'mumpa.exe'));
-      final compiled = await Process.run(_powershell, [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        compiler.path,
-        '-OutputPath',
-        executable.path,
-      ]);
-      expect(
-        compiled.exitCode,
-        0,
-        reason: '${compiled.stdout}\n${compiled.stderr}',
-      );
-      await executable.copy(p.join(current.path, 'mumpa.exe'));
-      await File(p.join(current.path, 'generation.txt')).writeAsString('old');
-      await File(p.join(target.path, 'install.json')).writeAsString(
-        jsonEncode({'version': '1.2.26+34', 'directory': target.path}),
-      );
-      for (final name in [
-        'flutter_windows.dll',
-        'libmpv-2.dll',
-        'data/flutter_assets/fixture.bin',
-        'generation.txt',
-      ]) {
-        await File(p.join(source.path, name)).writeAsString('new');
-      }
-      final archive = Archive();
-      await for (final entry in source.list(recursive: true)) {
-        if (entry is File) {
-          final bytes = await entry.readAsBytes();
-          archive.addFile(
-            ArchiveFile(
-              'Mumpa/${p.relative(entry.path, from: source.path).replaceAll('\\', '/')}',
-              bytes.length,
-              bytes,
-            ),
-          );
+        final executable = File(p.join(source.path, 'mumpa.exe'));
+        final compiled = await Process.run(_powershell, [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-File',
+          compiler.path,
+          '-OutputPath',
+          executable.path,
+        ]);
+        expect(
+          compiled.exitCode,
+          0,
+          reason: '${compiled.stdout}\n${compiled.stderr}',
+        );
+        await executable.copy(p.join(current.path, 'mumpa.exe'));
+        await File(p.join(current.path, 'generation.txt')).writeAsString('old');
+        await File(p.join(target.path, 'install.json')).writeAsString(
+          jsonEncode({'version': '1.2.26+34', 'directory': target.path}),
+        );
+        for (final name in [
+          'flutter_windows.dll',
+          'libmpv-2.dll',
+          'data/flutter_assets/fixture.bin',
+          'generation.txt',
+        ]) {
+          await File(p.join(source.path, name)).writeAsString('new');
         }
-      }
-      final zip = File(p.join(root.path, 'package.zip'));
-      await zip.writeAsBytes(ZipEncoder().encode(archive));
-      final personalData = File(p.join(root.path, 'personal-data.json'));
-      await personalData.writeAsString('{"favorites":["keep-me"]}');
-      final beforeData = await personalData.readAsBytes();
-      final quit = File(p.join(root.path, 'parent-quit'));
-      final parent = await Process.start(p.join(current.path, 'mumpa.exe'), [
-        quit.path,
-      ]);
-      parent.stdout.drain<void>();
-      parent.stderr.drain<void>();
-      try {
+        final archive = Archive();
+        await for (final entry in source.list(recursive: true)) {
+          if (entry is File) {
+            final bytes = await entry.readAsBytes();
+            archive.addFile(
+              ArchiveFile(
+                'Mumpa/${p.relative(entry.path, from: source.path).replaceAll('\\', '/')}',
+                bytes.length,
+                bytes,
+              ),
+            );
+          }
+        }
+        final zip = File(p.join(root.path, 'package.zip'));
+        await zip.writeAsBytes(ZipEncoder().encode(archive));
+        final personalData = File(p.join(root.path, 'personal-data.json'));
+        await personalData.writeAsString('{"favorites":["keep-me"]}');
+        final beforeData = await personalData.readAsBytes();
+        final quit = File(p.join(root.path, 'parent-quit'));
         final installer = WindowsUpdateInstaller(
           Directory(p.join(fixture.path, "updates with ' quote")),
           loadScript: _loadScript,
           pollInterval: const Duration(milliseconds: 50),
         );
-        expect(
-          await installer.startAndWait(
-            package: zip,
-            sha256: sha256.convert(await zip.readAsBytes()).toString(),
-            version: '1.2.27+35',
-            parentProcessId: parent.pid,
-            installDirectory: target.path,
-            launch: false,
-            noRegistration: true,
-          ),
-          isTrue,
+        final configuration = File(
+          p.join(installer.directory.path, 'job-launch.json'),
         );
-        expect(
-          await File(p.join(current.path, 'generation.txt')).readAsString(),
-          'old',
-        );
-        expect(
-          (await _waitState(installer.receipt, 'ready'))['state'],
-          'ready',
-        );
-        await quit.writeAsString('exit');
-        expect(await parent.exitCode.timeout(const Duration(seconds: 10)), 0);
-        await _waitState(installer.receipt, 'installed');
-        expect(
-          await File(p.join(current.path, 'generation.txt')).readAsString(),
-          'new',
-        );
-        expect(
-          await File(
-            p.join(target.path, 'previous', 'generation.txt'),
-          ).readAsString(),
-          'old',
-        );
-        expect(await personalData.readAsBytes(), beforeData);
-      } finally {
-        await quit.writeAsString('exit');
-        try {
-          await parent.exitCode.timeout(const Duration(seconds: 5));
-        } on TimeoutException {
-          parent.kill();
+        final helper = p.join(installer.directory.path, 'helper');
+        if (insideJob) {
+          await installer.prepareHelpers();
+          await configuration.writeAsString(
+            jsonEncode({
+              'RunnerPath': p.join(helper, 'run-installer.ps1'),
+              'StdoutPath': p.join(installer.directory.path, 'stdout.log'),
+              'StderrPath': p.join(installer.directory.path, 'stderr.log'),
+              'Parameters': {
+                'InstallerPath': p.join(helper, 'install-windows.ps1'),
+                'ZipPath': zip.path,
+                'Sha256': sha256.convert(await zip.readAsBytes()).toString(),
+                'Version': '1.2.27+35',
+                'StatusPath': installer.receipt.path,
+                'LogPath': installer.log.path,
+                // The host's PID is filled in after it starts.
+                'WaitForProcessId': 0,
+                'InstallDirectory': target.path,
+                'Launch': false,
+                'NoRegistration': true,
+              },
+            }),
+          );
+          // Gate the broker until its own parent PID is available.
+          await File(p.join(helper, 'job-broker.ps1')).writeAsString('''\uFEFF
+param([string]\$ConfigurationPath)
+while (!(Test-Path -LiteralPath (\$ConfigurationPath + '.go'))) { Start-Sleep -Milliseconds 25 }
+& '${p.join(helper, 'start-installer.ps1').replaceAll("'", "''")}' -ConfigurationPath \$ConfigurationPath
+''');
         }
-      }
-    },
-    skip: !Platform.isWindows,
-    timeout: const Timeout(Duration(seconds: 90)),
-  );
+        final parent = await Process.start(p.join(current.path, 'mumpa.exe'), [
+          quit.path,
+          if (insideJob) ...[
+            _powershell,
+            '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${p.join(helper, 'job-broker.ps1')}" -ConfigurationPath "${configuration.path}"',
+          ],
+        ]);
+        parent.stdout.drain<void>();
+        parent.stderr.drain<void>();
+        try {
+          if (insideJob) {
+            final config =
+                jsonDecode(await configuration.readAsString()) as Map;
+            (config['Parameters'] as Map)['WaitForProcessId'] = parent.pid;
+            await configuration.writeAsString(jsonEncode(config));
+            await File('${configuration.path}.go').writeAsString('go');
+            try {
+              await _waitState(installer.receipt, 'ready');
+            } catch (_) {
+              final diagnostic = File('${quit.path}.broker');
+              if (await diagnostic.exists()) {
+                // ignore: avoid_print
+                print(await diagnostic.readAsString());
+              }
+              rethrow;
+            }
+          } else {
+            expect(
+              await installer.startAndWait(
+                package: zip,
+                sha256: sha256.convert(await zip.readAsBytes()).toString(),
+                version: '1.2.27+35',
+                parentProcessId: parent.pid,
+                installDirectory: target.path,
+                launch: false,
+                noRegistration: true,
+              ),
+              isTrue,
+            );
+          }
+          expect(
+            await File(p.join(current.path, 'generation.txt')).readAsString(),
+            'old',
+          );
+          expect(
+            (await _waitState(installer.receipt, 'ready'))['state'],
+            'ready',
+          );
+          await quit.writeAsString('exit');
+          expect(await parent.exitCode.timeout(const Duration(seconds: 10)), 0);
+          await _waitState(installer.receipt, 'installed');
+          expect(
+            await File(p.join(current.path, 'generation.txt')).readAsString(),
+            'new',
+          );
+          expect(
+            await File(
+              p.join(target.path, 'previous', 'generation.txt'),
+            ).readAsString(),
+            'old',
+          );
+          expect(await personalData.readAsBytes(), beforeData);
+          if (insideJob) {
+            final servicePid = int.parse(
+              await File('${quit.path}.service').readAsString(),
+            );
+            final services = await Process.run(_powershell, [
+              '-NoProfile',
+              '-Command',
+              'if (Get-Process -Id $servicePid -ErrorAction SilentlyContinue) { exit 1 }',
+            ]);
+            expect(
+              services.exitCode,
+              0,
+              reason: 'Ordinary service must die with app',
+            );
+          }
+        } finally {
+          await quit.writeAsString('exit');
+          try {
+            await parent.exitCode.timeout(const Duration(seconds: 5));
+          } on TimeoutException {
+            parent.kill();
+          }
+        }
+      },
+      skip: !Platform.isWindows,
+      timeout: const Timeout(Duration(seconds: 90)),
+    );
+  }
 }

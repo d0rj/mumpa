@@ -62,6 +62,96 @@ void main() {
     await root.delete(recursive: true);
   });
 
+  test('artist loading retries transient MusicBrainz overloads', () async {
+    final counts = <String, int>{};
+    final repo = MusicMetadataRepository(
+      cache: DiskMediaCache(root),
+      requestInterval: Duration.zero,
+      retryDelay: Duration.zero,
+      client: MockClient((request) async {
+        final path = request.url.path;
+        final attempt = counts.update(path, (n) => n + 1, ifAbsent: () => 1);
+        if (path.endsWith('/release-group') && attempt < 3) {
+          return http.Response(
+            '{"error":"busy"}',
+            503,
+            headers: {'retry-after': '0'},
+          );
+        }
+        final Object data = switch (path) {
+          '/ws/2/artist' => {
+            'artists': [
+              {'id': 'band', 'name': 'Ежемесячные'},
+            ],
+          },
+          '/ws/2/artist/band' => {'id': 'band', 'name': 'Ежемесячные'},
+          '/ws/2/release-group' => {
+            'release-groups': [
+              {'id': 'album', 'title': 'Альбом'},
+            ],
+          },
+          _ => {
+            'recordings': [
+              {'id': 'track', 'title': 'Трек'},
+            ],
+          },
+        };
+        return http.Response.bytes(utf8.encode(jsonEncode(data)), 200);
+      }),
+    );
+    addTearDown(repo.dispose);
+    final artist = await repo.artist('Ежемесячные');
+    expect(artist!.name, 'Ежемесячные');
+    expect(artist.albums.single.title, 'Альбом');
+    expect(artist.recordings.single.title, 'Трек');
+    expect(counts['/ws/2/release-group'], 3);
+    await repo.artist('Ежемесячные');
+    expect(counts.values.reduce((a, b) => a + b), 6);
+  });
+
+  test('rate limits have bounded retries and are never cached', () async {
+    var requests = 0;
+    final repo = MusicMetadataRepository(
+      cache: DiskMediaCache(root),
+      requestInterval: Duration.zero,
+      retryDelay: Duration.zero,
+      client: MockClient((_) async {
+        requests++;
+        return http.Response('{}', 429, headers: {'retry-after': '0'});
+      }),
+    );
+    addTearDown(repo.dispose);
+    await expectLater(repo.artist('Band'), throwsA(isA<HttpException>()));
+    expect(requests, 3);
+    await expectLater(repo.artist('Band'), throwsA(isA<HttpException>()));
+    expect(requests, 6);
+  });
+
+  test(
+    'cancellation interrupts Retry-After without issuing another request',
+    () async {
+      var requests = 0;
+      final started = Completer<void>();
+      final repo = MusicMetadataRepository(
+        cache: DiskMediaCache(root),
+        requestInterval: Duration.zero,
+        client: MockClient((_) async {
+          requests++;
+          started.complete();
+          return http.Response('{}', 503, headers: {'retry-after': '5'});
+        }),
+      );
+      addTearDown(repo.dispose);
+      final operation = SourceOperation();
+      final result = repo.artist('Band', operation: operation);
+      final assertion = expectLater(result, throwsA(isA<SourceCancelled>()));
+      await started.future;
+      operation.cancel();
+      await assertion;
+      expect(requests, 1);
+    },
+  );
+
   test(
     'parses exact info hash and UTF8 files using TorrServer IDs without starting engine',
     () {
