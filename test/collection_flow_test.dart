@@ -62,7 +62,11 @@ class RecordingDownloads extends DownloadRepository {
   final requested = <String>[];
   bool priorityUsed = false;
   @override
-  void enqueue(Iterable<Track> tracks, {bool priority = false}) {
+  void enqueue(
+    Iterable<Track> tracks, {
+    bool priority = false,
+    bool automatic = false,
+  }) {
     requested.addAll(tracks.map((t) => t.id));
     priorityUsed = priority;
   }

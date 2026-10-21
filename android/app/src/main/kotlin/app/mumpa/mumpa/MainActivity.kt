@@ -1,6 +1,14 @@
 package app.mumpa.mumpa
 
 import android.app.Activity
+import android.content.Context
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
 import android.content.Intent
 import android.provider.DocumentsContract
 import android.provider.Settings
@@ -14,6 +22,20 @@ import java.io.File
 import java.security.MessageDigest
 
 class MainActivity : AudioServiceActivity() {
+    private var deviceChannel: MethodChannel? = null
+    private fun launchData(): Map<String, String> {
+        val values = mutableMapOf<String, String>()
+        intent?.data?.let { if (it.scheme == "mumpa-transfer") values["transfer"] = it.toString() }
+        intent?.getStringExtra("mumpaPlaylist")?.let { values["playlist"] = it }
+        intent?.data = null
+        intent?.removeExtra("mumpaPlaylist")
+        return values
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        deviceChannel?.invokeMethod("launch", launchData())
+    }
     companion object {
         init {
             // Invoke JNI_OnLoad before Dart opens the DSP runtime via FFI.
@@ -27,6 +49,47 @@ class MainActivity : AudioServiceActivity() {
     private var folderResult: MethodChannel.Result? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        deviceChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.mumpa/device").apply {
+            setMethodCallHandler { call, result ->
+                try {
+                    when (call.method) {
+                        "conditions" -> {
+                            val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                            val capabilities = manager.getNetworkCapabilities(manager.activeNetwork)
+                            val battery = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                            val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                            result.success(mapOf("wifi" to (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true),
+                                "charging" to (status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL)))
+                        }
+                        "takeLaunch" -> result.success(launchData())
+                        "diagnostics" -> {
+                            val preferences = getSharedPreferences("mumpa-widget", Context.MODE_PRIVATE)
+                            val shortcuts = if (Build.VERSION.SDK_INT >= 25) getSystemService(ShortcutManager::class.java).dynamicShortcuts.map { it.id } else emptyList<String>()
+                            result.success(mapOf("title" to preferences.getString("title", ""), "playing" to preferences.getBoolean("playing", false), "shortcuts" to shortcuts))
+                        }
+                        "publish" -> {
+                            val preferences = getSharedPreferences("mumpa-widget", Context.MODE_PRIVATE)
+                            preferences.edit().putString("title", call.argument<String>("title") ?: "Mumpa")
+                                .putString("artist", call.argument<String>("artist") ?: "")
+                                .putBoolean("playing", call.argument<Boolean>("playing") == true).apply()
+                            MumpaWidget.updateAll(this@MainActivity)
+                            if (Build.VERSION.SDK_INT >= 25) {
+                                val shortcuts = call.argument<List<Map<String, String>>>("shortcuts") ?: emptyList()
+                                val manager = getSystemService(ShortcutManager::class.java)
+                                val entries = shortcuts.take(manager.maxShortcutCountPerActivity.coerceAtMost(4)).map { row ->
+                                    ShortcutInfo.Builder(this@MainActivity, row["id"]!!).setShortLabel((row["name"] ?: "Mumpa").take(40))
+                                        .setIcon(Icon.createWithResource(this@MainActivity, R.mipmap.ic_launcher))
+                                        .setIntent(Intent(this@MainActivity, MainActivity::class.java).setAction(Intent.ACTION_VIEW).putExtra("mumpaPlaylist", row["id"])).build()
+                                }
+                                try { manager.dynamicShortcuts = entries } catch (_: IllegalStateException) { /* Launcher may temporarily throttle updates. */ }
+                            }
+                            result.success(null)
+                        }
+                        else -> result.notImplemented()
+                    }
+                } catch (e: Exception) { result.error("DEVICE", e.message, null) }
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "app.mumpa/updates").setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
@@ -124,7 +187,7 @@ class MainActivity : AudioServiceActivity() {
                             if (mime == DocumentsContract.Document.MIME_TYPE_DIR) { copyTree(id,level+1,name); continue }
                             val extension = name.substringAfterLast('.',"").lowercase()
                             val isAudio = extension in setOf("mp3","flac","m4a","aac","ogg","opus","wav","aiff","aif","ape","wma","webm","alac")
-                            if (!isAudio && extension !in setOf("jpg","jpeg","png")) continue
+                            if (!isAudio && extension !in setOf("jpg","jpeg","png","lrc")) continue
                             val uri = DocumentsContract.buildDocumentUriUsingTree(tree,id)
                             val key = MessageDigest.getInstance("SHA-256").digest((tree.toString()+documentId).toByteArray()).joinToString("") { "%02x".format(it) }
                             val parent = File(dest,key.take(24)+"/"+folderName.replace(Regex("[/\\\\]"),"_")).apply { mkdirs() }

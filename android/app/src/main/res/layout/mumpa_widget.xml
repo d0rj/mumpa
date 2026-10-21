@@ -1,0 +1,9 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="#17211B">
+    <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Mumpa" android:textSize="16sp" android:textColor="#FFFFFF" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_artist" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="12sp" android:textColor="#AAB9AE" android:maxLines="1" android:ellipsize="end" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:orientation="horizontal">
+        <ImageButton android:id="@+id/widget_previous" android:layout_width="56dp" android:layout_height="48dp" android:src="@android:drawable/ic_media_previous" android:contentDescription="@string/widget_previous" android:background="@android:color/transparent" android:tint="#C9EF62" />
+        <ImageButton android:id="@+id/widget_play" android:layout_width="64dp" android:layout_height="48dp" android:src="@android:drawable/ic_media_play" android:contentDescription="@string/widget_toggle" android:background="@android:color/transparent" android:tint="#C9EF62" />
+        <ImageButton android:id="@+id/widget_next" android:layout_width="56dp" android:layout_height="48dp" android:src="@android:drawable/ic_media_next" android:contentDescription="@string/widget_next" android:background="@android:color/transparent" android:tint="#C9EF62" />
+    </LinearLayout>
+</LinearLayout>

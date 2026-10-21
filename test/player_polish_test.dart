@@ -302,7 +302,10 @@ void main() {
         final button = tester.widget<IconButton>(
           find.byKey(const ValueKey('desktop-lyrics')),
         );
-        expect(button.onPressed != null, lyrics?.trim().isNotEmpty == true);
+        expect(
+          button.onPressed,
+          isNotNull,
+        ); // Empty tags can now load LRC/LRCLIB.
         expect(tester.takeException(), isNull);
       } finally {
         await f.close(tester);
@@ -310,53 +313,54 @@ void main() {
     });
   }
 
-  testWidgets('lyrics tabs update while paused and cannot open empty text', (
-    tester,
-  ) async {
-    final f = await _fixture(tester);
-    _viewport(tester, 1200);
-    try {
-      final track = f.track('one');
-      await tester.runAsync(() => f.select(track));
-      await tester.pumpWidget(_host(PlayerBar(app: f.app, compact: false)));
-      await tester.pumpAndSettle();
-      showNowPlaying(tester.element(find.byType(PlayerBar)), f.app, tab: 2);
-      await tester.pumpAndSettle();
-      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(2));
-      expect(
-        tester.widget<TabBarView>(find.byType(TabBarView)).children,
-        hasLength(2),
-      );
-      expect(find.text('Текст'), findsNothing);
-      await tester.drag(find.byType(TabBarView), const Offset(-700, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('Текст'), findsNothing);
+  testWidgets(
+    'lyrics tabs update while paused and offer lookup for empty tags',
+    (tester) async {
+      final f = await _fixture(tester);
+      _viewport(tester, 1200);
+      try {
+        final track = f.track('one');
+        await tester.runAsync(() => f.select(track));
+        await tester.pumpWidget(_host(PlayerBar(app: f.app, compact: false)));
+        await tester.pumpAndSettle();
+        showNowPlaying(tester.element(find.byType(PlayerBar)), f.app, tab: 2);
+        await tester.pumpAndSettle();
+        expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(3));
+        expect(
+          tester.widget<TabBarView>(find.byType(TabBarView)).children,
+          hasLength(3),
+        );
+        expect(find.text('Текст'), findsOneWidget);
+        await tester.drag(find.byType(TabBarView), const Offset(-700, 0));
+        await tester.pumpAndSettle();
+        expect(find.text('Текст'), findsOneWidget);
 
-      await tester.runAsync(
-        () => f.library.upsert([
-          track.copyWith(lyrics: 'Now the tags contain lyrics'),
-        ]),
-      );
-      await tester.pumpAndSettle();
-      expect(f.playback.playing, isFalse);
-      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(3));
-      await tester.tap(find.text('Текст'));
-      await tester.pumpAndSettle();
-      expect(find.text('Now the tags contain lyrics'), findsOneWidget);
+        await tester.runAsync(
+          () => f.library.upsert([
+            track.copyWith(lyrics: 'Now the tags contain lyrics'),
+          ]),
+        );
+        await tester.pumpAndSettle();
+        expect(f.playback.playing, isFalse);
+        expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(3));
+        await tester.tap(find.text('Текст'));
+        await tester.pumpAndSettle();
+        expect(find.text('Now the tags contain lyrics'), findsOneWidget);
 
-      await tester.runAsync(
-        () => f.library.upsert([track.copyWith(lyrics: ' \n ')]),
-      );
-      await tester.pumpAndSettle();
-      final tabs = tester.widget<TabBar>(find.byType(TabBar));
-      expect(tabs.tabs, hasLength(2));
-      expect(tabs.controller!.index, 0);
-      expect(find.text('Текст'), findsNothing);
-      expect(tester.takeException(), isNull);
-    } finally {
-      await f.close(tester);
-    }
-  });
+        await tester.runAsync(
+          () => f.library.upsert([track.copyWith(lyrics: ' \n ')]),
+        );
+        await tester.pumpAndSettle();
+        final tabs = tester.widget<TabBar>(find.byType(TabBar));
+        expect(tabs.tabs, hasLength(3));
+        expect(find.text('Текст'), findsOneWidget);
+        expect(find.text('Найти текст'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await f.close(tester);
+      }
+    },
+  );
 
   for (final width in [850.0, 900.0, 1200.0]) {
     testWidgets('desktop volume has a long slider at width $width', (

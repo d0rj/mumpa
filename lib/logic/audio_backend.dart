@@ -288,9 +288,187 @@ class NativeAudioBackend extends AudioBackend {
 class SystemAudioHandler extends BaseAudioHandler {
   SystemAudioHandler(this.controller);
   final PlaybackController controller;
+  String? _lastDeviceState;
+  MediaItem _item(Track track) => MediaItem(
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    duration: track.durationMs > 0 ? track.duration : null,
+    playable: true,
+  );
+  List<Track> _tracks(String parent) {
+    final library = controller.library;
+    if (parent == 'liked') return library.favoriteTracks;
+    if (parent == 'offline') {
+      return library.mediaTracks.where((t) => t.offline).toList();
+    }
+    if (parent.startsWith('playlist:')) {
+      return (library.playlistById(parent.substring(9))?.trackIds ?? [])
+          .map(library.byId)
+          .whereType<Track>()
+          .toList();
+    }
+    if (parent.startsWith('album:')) {
+      return library.mediaAlbums
+              .where((a) => a.id == parent.substring(6))
+              .firstOrNull
+              ?.tracks ??
+          [];
+    }
+    final track = library.byId(parent);
+    return track == null ? [] : [track];
+  }
+
+  @override
+  Future<List<MediaItem>> getChildren(
+    String parentMediaId, [
+    Map<String, dynamic>? options,
+  ]) async {
+    final continuation = RegExp(
+      r'^mumpa-page:(\d+):(.*)$',
+    ).firstMatch(parentMediaId);
+    final parent = continuation?[2] ?? parentMediaId;
+    final library = controller.library;
+    final List<MediaItem> items;
+    if (parent == AudioService.browsableRootId) {
+      items = [
+        for (final entry in {
+          'liked': 'Любимое',
+          'offline': 'Офлайн',
+          'playlists': 'Плейлисты',
+          'albums': 'Альбомы',
+        }.entries)
+          MediaItem(id: entry.key, title: tr(entry.value), playable: false),
+      ];
+    } else if (parent == 'playlists') {
+      items = [
+        for (final list in [
+          library.topTracksPlaylist,
+          ...library.mediaPlaylists,
+        ])
+          MediaItem(
+            id: 'playlist:${list.id}',
+            title: list.name,
+            playable: false,
+          ),
+      ];
+    } else if (parent == 'albums') {
+      items = [
+        for (final album in library.mediaAlbums)
+          MediaItem(
+            id: 'album:${album.id}',
+            title: album.title,
+            artist: album.artist,
+            playable: false,
+          ),
+      ];
+    } else {
+      items = _tracks(parent).map(_item).toList();
+    }
+    final page =
+        (options?['android.media.browse.extra.PAGE'] as int? ??
+                int.tryParse(continuation?[1] ?? '') ??
+                0)
+            .clamp(0, 100000);
+    final size =
+        (options?['android.media.browse.extra.PAGE_SIZE'] as int? ?? 200).clamp(
+          1,
+          200,
+        );
+    return [
+      ...items.skip(page * size).take(size),
+      if (options?['android.media.browse.extra.PAGE'] == null &&
+          (page + 1) * size < items.length)
+        MediaItem(
+          id: 'mumpa-page:${page + 1}:$parent',
+          title: tr('Ещё'),
+          playable: false,
+        ),
+    ];
+  }
+
+  @override
+  Future<List<MediaItem>> search(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    final words = query
+        .toLowerCase()
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return [];
+    return controller.library.mediaTracks
+        .where(
+          (t) => words.every(
+            '${t.artist} ${t.title} ${t.album}'.toLowerCase().contains,
+          ),
+        )
+        .take(100)
+        .map(_item)
+        .toList();
+  }
+
+  @override
+  Future<void> playFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    final selected = _tracks(mediaId);
+    if (selected.isNotEmpty) {
+      await controller.playTracks(
+        selected,
+        contextPlaylistId: mediaId.startsWith('playlist:')
+            ? mediaId.substring(9)
+            : null,
+      );
+    }
+  }
+
+  @override
+  Future<void> playFromSearch(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    final found = await search(query, extras);
+    if (found.isNotEmpty) {
+      await controller.playTracks(
+        found
+            .map((m) => controller.library.byId(m.id))
+            .whereType<Track>()
+            .toList(),
+      );
+    }
+  }
+
   void publish() {
     final c = controller;
     final track = c.current;
+    if (Platform.isAndroid) {
+      final state =
+          '${track?.id}/${track?.title}/${c.playing}/${c.library.mediaPlaylists.length}';
+      if (_lastDeviceState != state) {
+        _lastDeviceState = state;
+        unawaited(
+          const MethodChannel('app.mumpa/device')
+              .invokeMethod<void>('publish', {
+                'title': track?.title ?? 'Mumpa',
+                'artist': track?.artist ?? '',
+                'playing': c.playing,
+                'shortcuts': [
+                  for (final list in [
+                    c.library.topTracksPlaylist,
+                    ...c.library.mediaPlaylists,
+                  ].take(4))
+                    {'id': list.id, 'name': list.name},
+                ],
+              })
+              .catchError((Object _) {}),
+        );
+      }
+    }
     if (track != null) {
       mediaItem.add(
         MediaItem(

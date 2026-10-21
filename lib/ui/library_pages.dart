@@ -268,15 +268,24 @@ class _LibraryPage extends StatelessWidget {
             albumGrid(app, app.albums),
           SectionTitle(
             tr("Плейлисты"),
-            action: TextButton.icon(
-              onPressed: () async {
-                final name = await askName(context, tr("Новый плейлист"));
-                if (name != null) {
-                  app.openPlaylist(await app.library.createPlaylist(name));
-                }
-              },
-              icon: const Icon(Icons.add_rounded, size: 16),
-              label: Text(tr("Создать")),
+            action: Wrap(
+              children: [
+                IconButton(
+                  onPressed: () => showLocalTools(context, app),
+                  icon: const Icon(Icons.tune, size: 16),
+                  tooltip: tr('Инструменты'),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final name = await askName(context, tr("Новый плейлист"));
+                    if (name != null) {
+                      app.openPlaylist(await app.library.createPlaylist(name));
+                    }
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: Text(tr("Создать")),
+                ),
+              ],
             ),
           ),
           _PlaylistGrid(app),

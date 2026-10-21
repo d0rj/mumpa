@@ -277,7 +277,10 @@ void main() {
         controller.setRepeat(PlayerRepeatMode.all);
         await controller.playTracks(library.tracks);
         final deadline = DateTime.now().add(const Duration(seconds: 5));
-        while (!controller.stopped && DateTime.now().isBefore(deadline)) {
+        // A failed decoder is stopped briefly before the next attempt opens.
+        // Wait for the complete bounded traversal, not that intermediate state.
+        while ((backend.attempts.length < 3 || !controller.stopped) &&
+            DateTime.now().isBefore(deadline)) {
           await Future<void>.delayed(const Duration(milliseconds: 20));
         }
         expect(backend.attempts.length, 3);

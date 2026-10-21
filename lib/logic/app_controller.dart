@@ -111,7 +111,47 @@ class AppController extends ChangeNotifier {
       playback: playback,
       downloads: downloads,
     );
+    if (Platform.isAndroid) unawaited(_initializeDeviceLinks());
   }
+  static const _deviceChannel = MethodChannel('app.mumpa/device');
+  Future<void> _initializeDeviceLinks() async {
+    _deviceChannel.setMethodCallHandler((call) async {
+      if (call.method == 'launch' && call.arguments is Map) {
+        await _handleDeviceLaunch(
+          Map<String, dynamic>.from(call.arguments as Map),
+        );
+      }
+    });
+    try {
+      final launch = await _deviceChannel.invokeMapMethod<String, dynamic>(
+        'takeLaunch',
+      );
+      if (launch != null) await _handleDeviceLaunch(launch);
+    } on PlatformException catch (_) {
+    } on MissingPluginException catch (_) {}
+    playback.system?.publish();
+  }
+
+  Future<void> _handleDeviceLaunch(Map<String, dynamic> launch) async {
+    if (_disposed) return;
+    final link = launch['transfer'];
+    if (link is String && link.startsWith('mumpa-transfer:')) {
+      pendingTransferLink = link;
+      setSettingsSection('lanTransfer');
+    }
+    final id = launch['playlist'];
+    if (id is String) {
+      final list = library.playlistById(id);
+      if (list != null) {
+        openPlaylist(list);
+        await playCollection(
+          list.trackIds.map(library.byId).whereType<Track>().toList(),
+          playlistId: list.id,
+        );
+      }
+    }
+  }
+
   final LibraryRepository library;
   final PlaybackController playback;
   final DownloadRepository downloads;
@@ -451,6 +491,7 @@ class AppController extends ChangeNotifier {
   bool get usesIndexer => searchProvider != 'rutracker';
   AppPage page = AppPage.home;
   String? settingsSection;
+  String? pendingTransferLink;
 
   void setSettingsSection(String? value) {
     if (page == AppPage.settings && settingsSection == value) return;
@@ -599,6 +640,10 @@ class AppController extends ChangeNotifier {
   String? _playbackError;
   String? _playbackStatus;
   void _onPlayback() {
+    final track = playback.current;
+    downloads.playbackProtectedIds
+      ..clear()
+      ..addAll(track == null ? <String>[] : [track.id]);
     if (_playbackStatus != playback.connectionStatus) {
       _playbackStatus = playback.connectionStatus;
       notifyListeners();
@@ -609,7 +654,6 @@ class AppController extends ChangeNotifier {
       if (_playbackError != null) error = _playbackError;
       notifyListeners();
     }
-    final track = playback.current;
     if (track == null ||
         track.id == _autoCachedId ||
         !playback.playing ||
@@ -620,7 +664,7 @@ class AppController extends ChangeNotifier {
     if (track.source == TrackSource.torrent &&
         library.localCopiesFor(track).isEmpty) {
       _autoCachedId = track.id;
-      downloads.enqueue([track], priority: true);
+      downloads.enqueue([track], priority: true, automatic: true);
     }
   }
 

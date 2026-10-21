@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import '../l10n/app_localizations.dart';
+import 'playlist_rules.dart';
 
 const audioExtensions = {
   'mp3',
@@ -92,6 +93,7 @@ class Track {
       .replaceFirst('.', '')
       .toUpperCase();
   Track copyWith({
+    String? localPath,
     String? cachedPath,
     DateTime? downloadedAt,
     bool clearCache = false,
@@ -115,7 +117,7 @@ class Track {
     album: album ?? this.album,
     albumArtist: albumArtist ?? this.albumArtist,
     source: source,
-    localPath: localPath,
+    localPath: localPath ?? this.localPath,
     artPath: artPath ?? this.artPath,
     torrentHash: torrentHash,
     torrentLink: torrentLink,
@@ -224,29 +226,37 @@ class MusicPlaylist {
     required this.name,
     this.trackIds = const [],
     this.sourceHash,
+    this.smartRule,
   });
   final String id, name;
   final List<String> trackIds;
   final String? sourceHash;
-  bool get isSystem => id == deviceTop50Id;
+  final Map<String, dynamic>? smartRule;
+  bool get isSmart => smartRule != null;
+  bool get isSystem => id == deviceTop50Id || isSmart;
   MusicPlaylist copyWith({String? name, List<String>? trackIds}) =>
       MusicPlaylist(
         id: id,
         name: name ?? this.name,
         trackIds: trackIds ?? this.trackIds,
         sourceHash: sourceHash,
+        smartRule: smartRule,
       );
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
     'trackIds': trackIds,
     if (sourceHash != null) 'sourceHash': sourceHash,
+    if (smartRule != null) 'smartRule': smartRule,
   };
   factory MusicPlaylist.fromJson(Map<String, dynamic> j) => MusicPlaylist(
     id: j['id'] as String,
     name: j['name'] as String,
     trackIds: List<String>.from(j['trackIds'] as List),
     sourceHash: j['sourceHash'] as String?,
+    smartRule: j['smartRule'] is Map
+        ? validatedSmartRule(j['smartRule'] as Map)
+        : null,
   );
 }
 

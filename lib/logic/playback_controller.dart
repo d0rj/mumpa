@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart' hide Track;
 
 import '../data/library_repository.dart';
@@ -13,6 +14,7 @@ import '../data/torrent_service.dart';
 import '../data/source_operation.dart';
 import '../data/radio_repository.dart';
 import '../domain/models.dart';
+import '../domain/local_features.dart';
 import '../domain/audio_preferences.dart';
 import 'playlist_radio.dart';
 
@@ -77,6 +79,7 @@ class PlaybackController extends ChangeNotifier {
   }) : radio = PlaylistRadio(source: radioSource) {
     radio.addListener(_onRadioChanged);
     _lastRadioEnabled = radioEnabled;
+    _lastRadioFeedback = library.radioFeedbackRevision;
     library.addListener(_onRadioSetting);
     backend.addListener(_onBackend);
     _completeSubscription = backend.completed.listen((_) {
@@ -125,6 +128,7 @@ class PlaybackController extends ChangeNotifier {
   bool _radioAllowed = false, _radioAdvancing = false;
   Completer<void>? _radioSettled;
   late bool _lastRadioEnabled;
+  late int _lastRadioFeedback;
   bool get radioEnabled => library.settings['autoplayRadio'] == true;
   bool isRadioEntry(int index) =>
       index >= 0 &&
@@ -153,8 +157,13 @@ class PlaybackController extends ChangeNotifier {
   }
 
   void _onRadioSetting() {
-    if (_closed || radioEnabled == _lastRadioEnabled) return;
+    if (_closed ||
+        radioEnabled == _lastRadioEnabled &&
+            library.radioFeedbackRevision == _lastRadioFeedback) {
+      return;
+    }
     _lastRadioEnabled = radioEnabled;
+    _lastRadioFeedback = library.radioFeedbackRevision;
     _cancelRadio();
     radio.reset(_radioSeedTracks());
     _radioAllowed = radioEnabled && playing;
@@ -235,6 +244,10 @@ class PlaybackController extends ChangeNotifier {
           prepared = radio.take(current == null ? null : radioArtist(current!));
         }
         if (prepared == null) break;
+        if (!library.acceptsRadio(prepared.track)) {
+          radio.reject(prepared.track);
+          continue;
+        }
         // Persist just the chosen file, without creating/editing a playlist.
         if (library.byId(prepared.track.id) == null) {
           await library.upsert([prepared.track]);
@@ -454,19 +467,30 @@ class PlaybackController extends ChangeNotifier {
   String? _openedId;
   int? _countedListenRequest;
   Future<void> _decoderOpening = Future.value();
+  final _listeningClock = ListeningClock();
+  final _listeningWatch = Stopwatch()..start();
   void _onBackend() {
-    if (_openedId == current?.id &&
-        current != null &&
-        backend.playing &&
-        !backend.buffering &&
-        backend.position != _initialPlaybackPosition) {
+    final track = current;
+    final opened = track != null && _openedId == track.id;
+    final active = opened && backend.playing && !backend.buffering && !loading;
+    final listened = _listeningClock.sample(
+      track?.id,
+      (opened ? backend.position : _restorePosition ?? Duration.zero)
+          .inMilliseconds,
+      active && _wantsPlayback,
+      _listeningWatch.elapsedMilliseconds,
+    );
+    if (track != null && listened > 0) {
+      library.recordListeningTime(track.id, listened);
+    }
+    if (opened && active && backend.position != _initialPlaybackPosition) {
       if (_wantsPlayback &&
           error == null &&
           _countedListenRequest != _request) {
         _countedListenRequest = _request;
         unawaited(
           library.recordListen(
-            current!.id,
+            track.id,
             playlistId: currentIsRadio ? null : _contextPlaylistId,
           ),
         );
@@ -479,8 +503,7 @@ class PlaybackController extends ChangeNotifier {
     _publishChange(controls: false);
     _prepareRadio();
     _transitions.tick();
-    if (DateTime.now().difference(_lastSave).inSeconds >= 5 &&
-        current != null) {
+    if (DateTime.now().difference(_lastSave).inSeconds >= 5 && track != null) {
       _lastSave = DateTime.now();
       unawaited(saveSession());
     }
@@ -818,6 +841,10 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> next({bool automatic = false}) async {
     if (_closed) return;
+    if (!automatic && current != null && position.inSeconds < 30) {
+      final id = current!.id;
+      library.features.skips[id] = (library.features.skips[id] ?? 0) + 1;
+    }
     if (!automatic) {
       if (_radioAdvancing) {
         final settled = _radioSettled?.future;
@@ -945,14 +972,25 @@ class PlaybackController extends ChangeNotifier {
 
   void _shuffleKeepingCurrent() {
     if (_cursor < 0) {
-      _order.shuffle(Random());
+      _order = _shuffled(_order);
       return;
     }
     final current = _order.removeAt(_cursor);
-    _order.shuffle(Random());
+    _order = _shuffled(_order, previousArtist: _original[current].artist);
     _order.insert(0, current);
     _cursor = 0;
   }
+
+  List<int> _shuffled(List<int> slots, {String? previousArtist}) =>
+      library.settings['smartShuffle'] == true
+      ? smartShuffle(
+          slots,
+          (i) => _original[i],
+          library.features,
+          Random(),
+          previousArtist: previousArtist,
+        )
+      : (List<int>.of(slots)..shuffle(Random()));
 
   void toggleShuffle() {
     _cancelRadio(preservePlayback: true);

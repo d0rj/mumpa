@@ -1,4 +1,7 @@
+import 'features_en.dart';
+
 const englishMessages = <String, String>{
+  ...featureMessages,
   'Проверь наличие новой версии.': 'Check for a new version.',
   'Для этого устройства нет пакета обновления.':
       'No update package for this device.',

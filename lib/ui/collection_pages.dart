@@ -121,6 +121,17 @@ class _AlbumPage extends StatelessWidget {
           PopupMenuButton<String>(
             tooltip: tr("Действия с альбомом"),
             onSelected: (value) async {
+              if (value == 'pin') {
+                final pinned = !album.tracks.every(
+                  (t) => app.library.features.pinned.contains(t.id),
+                );
+                await app.library.setPinned(
+                  album.tracks.map((t) => t.id),
+                  pinned,
+                );
+                if (pinned) app.downloads.enqueue(album.tracks);
+                return;
+              }
               if (value == 'remove') {
                 final confirmed = await showDialog<bool>(
                   context: context,
@@ -150,6 +161,18 @@ class _AlbumPage extends StatelessWidget {
               }
             },
             itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'pin',
+                child: Text(
+                  tr(
+                    album.tracks.every(
+                          (t) => app.library.features.pinned.contains(t.id),
+                        )
+                        ? 'Открепить офлайн'
+                        : 'Закрепить офлайн',
+                  ),
+                ),
+              ),
               PopupMenuItem(
                 value: 'remove',
                 child: Text(tr("Убрать из медиатеки")),
@@ -219,7 +242,7 @@ class _TrackCollection extends StatelessWidget {
         app.library.trackCountLabel(tracks),
         style: const TextStyle(color: muted),
       ),
-      if (app.playlist?.isSystem == true) ...[
+      if (app.playlist?.id == MusicPlaylist.deviceTop50Id) ...[
         const SizedBox(height: 8),
         Text(
           tr(
@@ -241,6 +264,26 @@ class _TrackCollection extends StatelessWidget {
             icon: const Icon(Icons.play_arrow),
             label: Text(tr("Слушать")),
           ),
+          TextButton.icon(
+            onPressed: () => exportPlaylistFile(app, tracks, title),
+            icon: const Icon(Icons.ios_share),
+            label: Text(tr('Экспорт M3U8')),
+          ),
+          if (app.playlist?.isSmart == true) ...[
+            TextButton.icon(
+              onPressed: () => editSmartPlaylist(context, app, app.playlist),
+              icon: const Icon(Icons.tune),
+              label: Text(tr('Изменить правила')),
+            ),
+            IconButton(
+              tooltip: tr('Удалить плейлист'),
+              onPressed: () async {
+                await app.library.deletePlaylist(playlistId!);
+                app.navigate(AppPage.library);
+              },
+              icon: const Icon(Icons.delete_outline),
+            ),
+          ],
           if (playlistId != null &&
               tracks.any((t) => t.source == TrackSource.torrent))
             OutlinedButton.icon(

@@ -10,6 +10,7 @@ import '../logic/app_controller.dart';
 import '../logic/playback_controller.dart';
 import 'components.dart';
 import 'theme.dart';
+import 'lyrics_view.dart';
 
 part 'now_playing.dart';
 
@@ -288,7 +289,7 @@ class PlayerBar extends StatelessWidget {
   );
 }
 
-bool _hasLyrics(Track? track) => track?.lyrics?.trim().isNotEmpty == true;
+bool _hasLyrics(Track? track) => track != null;
 
 class _Transport extends StatelessWidget {
   const _Transport(this.p, {this.large = false, this.compact = false});
@@ -782,26 +783,5 @@ class _Lyrics extends StatelessWidget {
   const _Lyrics(this.app);
   final AppController app;
   @override
-  Widget build(BuildContext context) {
-    final text = app.playback.current?.lyrics?.trim();
-    return text == null || text.isEmpty
-        ? EmptyState(
-            icon: Icons.lyrics_outlined,
-            title: tr("Текста пока нет"),
-            description: tr(
-              "Если текст песни записан в тегах файла, он появится здесь. Для торрент-трека теги читаются после полной загрузки.",
-            ),
-          )
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: SelectableText(
-              text.replaceAll(RegExp(r'\[\d{2}:\d{2}(\.\d{1,3})?\]'), ''),
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                height: 1.8,
-              ),
-            ),
-          );
-  }
+  Widget build(BuildContext context) => LyricsView(app: app);
 }

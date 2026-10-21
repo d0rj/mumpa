@@ -568,7 +568,10 @@ void main() {
     await _mount(tester, app, const Size(1200, 850));
     app.setSettingsSection('downloads');
     await tester.pumpAndSettle();
-    expect(find.byType(SwitchListTile), findsOneWidget);
+    expect(
+      find.widgetWithText(SwitchListTile, 'Скачивать прослушиваемые треки'),
+      findsOneWidget,
+    );
     expect(find.text('Лимит офлайн-загрузок, МБ'), findsOneWidget);
     expect(find.byKey(const ValueKey('clear-metadata-cache')), findsNothing);
     final dropdown = tester.widget<DropdownButtonFormField<int>>(

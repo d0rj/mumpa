@@ -97,6 +97,8 @@ extension LibraryProfileTransfer on LibraryRepository {
   }
 
   void _applyTransferredSnapshot(Map<String, dynamic> snapshot) {
+    features = LocalFeatures.fromJson(snapshot['localFeatures']);
+    radioFeedbackRevision++;
     _tracks = [
       for (final row in snapshot['tracks'] as List)
         Track.fromJson(Map<String, dynamic>.from(row as Map)),

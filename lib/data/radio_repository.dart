@@ -81,6 +81,7 @@ class RadioRepository implements RadioSource {
             .where(
               (track) =>
                   track.source != TrackSource.demo &&
+                  library.acceptsRadio(track) &&
                   _normalizedRadioArtist(track) == name &&
                   !excluded.contains(radioSongKey(track)),
             )
@@ -88,7 +89,7 @@ class RadioRepository implements RadioSource {
           ..shuffle(random);
     // Offline files do not depend on peers. Shuffle within each availability tier.
     tracks.sort((a, b) => (b.offline ? 1 : 0).compareTo(a.offline ? 1 : 0));
-    return tracks.take(4).toList();
+    return tracks.take(library.reducedRadioArtist(artist) ? 1 : 4).toList();
   }
 
   @override
@@ -159,7 +160,13 @@ class RadioRepository implements RadioSource {
         ? PublicMusicCatalog.endpoint
         : settings['indexerUrl'] as String? ?? '';
     if (direct || endpoint.isNotEmpty) {
-      for (final name in {...recommendations, ...names}.take(3)) {
+      final searchArtists = {...recommendations, ...names}.toList()
+        ..sort(
+          (a, b) => (library.reducedRadioArtist(a) ? 1 : 0).compareTo(
+            library.reducedRadioArtist(b) ? 1 : 0,
+          ),
+        );
+      for (final name in searchArtists.take(3)) {
         operation.check();
         List<SearchRelease> releases;
         try {
@@ -263,9 +270,14 @@ class RadioRepository implements RadioSource {
               album: release.title,
               artist: name,
             )..shuffle(random);
-            for (final track in tracks.take(24)) {
+            for (final track in tracks.take(
+              library.reducedRadioArtist(name) ? 1 : 24,
+            )) {
               operation.check();
-              if (emitted.add(radioSongKey(track))) yield track;
+              if (library.acceptsRadio(track) &&
+                  emitted.add(radioSongKey(track))) {
+                yield track;
+              }
             }
           } on SourceCancelled {
             operation.check();

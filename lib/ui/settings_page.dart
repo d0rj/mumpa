@@ -1,6 +1,21 @@
 part of 'pages.dart';
 
 enum _SettingsSection {
+  tools(
+    'Медиатека и плейлисты',
+    'Умные подборки, метаданные, M3U8 и поиск файлов',
+    Icons.auto_awesome,
+  ),
+  statistics(
+    'Статистика',
+    'Время, исполнители и календарь прослушиваний',
+    Icons.bar_chart,
+  ),
+  lanTransfer(
+    'Передача по Wi-Fi',
+    'Профиль и музыка между устройствами',
+    Icons.wifi,
+  ),
   playback(
     'Воспроизведение',
     'Эквалайзер, переходы, громкость, моно и радио',
@@ -337,6 +352,15 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       SectionTitle(tr(section.title), subtitle: tr(section.description)),
       _panel(switch (section) {
+        _SettingsSection.tools => [
+          SizedBox(height: 620, child: LocalTools(app: widget.app)),
+        ],
+        _SettingsSection.statistics => [
+          SizedBox(height: 650, child: ListeningStatistics(app: widget.app)),
+        ],
+        _SettingsSection.lanTransfer => [
+          SizedBox(height: 700, child: LanTransferView(app: widget.app)),
+        ],
         _SettingsSection.playback => _playbackControls(),
         _SettingsSection.language => _languageControls(),
         _SettingsSection.sources => _sourceControls(),
@@ -351,6 +375,22 @@ class _SettingsPageState extends State<SettingsPage> {
   );
 
   List<Widget> _playbackControls() => [
+    SwitchListTile(
+      title: Text(tr('Умное перемешивание')),
+      subtitle: Text(
+        tr('Разносить исполнителей и реже повторять недавно сыгранное'),
+      ),
+      value: widget.app.library.settings['smartShuffle'] == true,
+      onChanged: (v) => widget.app.library.setSetting('smartShuffle', v),
+    ),
+    SwitchListTile(
+      title: Text(tr('Автоматически искать тексты песен')),
+      subtitle: Text(
+        tr('Прямые запросы к LRCLIB; найденный текст сохраняется для офлайна'),
+      ),
+      value: widget.app.library.settings['lyricsLookup'] == true,
+      onChanged: (v) => widget.app.library.setSetting('lyricsLookup', v),
+    ),
     AudioSettings(app: widget.app),
     const Divider(height: 40),
     SwitchListTile.adaptive(
@@ -720,6 +760,31 @@ class _SettingsPageState extends State<SettingsPage> {
   ];
 
   List<Widget> _downloadControls() => [
+    if (Platform.isAndroid) ...[
+      SwitchListTile(
+        title: Text(tr('Скачивать только по Wi-Fi')),
+        value: widget.app.library.settings['downloadsWifiOnly'] == true,
+        onChanged: (v) => widget.app.library.setSetting('downloadsWifiOnly', v),
+      ),
+      SwitchListTile(
+        title: Text(tr('Скачивать только при зарядке')),
+        value: widget.app.library.settings['downloadsChargingOnly'] == true,
+        onChanged: (v) =>
+            widget.app.library.setSetting('downloadsChargingOnly', v),
+      ),
+    ],
+    SwitchListTile(
+      title: Text(tr('Освобождать автоматический кеш')),
+      subtitle: Text(
+        tr(
+          'При нехватке места удалять старые автозагрузки. Закреплённое, избранное и ручные загрузки сохраняются.',
+        ),
+      ),
+      value: widget.app.library.settings['evictAutomaticCache'] == true,
+      onChanged: (v) => widget.app.library.setSetting('evictAutomaticCache', v),
+    ),
+    if (widget.app.downloads.waitingForConditions)
+      Text(tr('Загрузки ждут Wi-Fi или подключения зарядки.')),
     SectionTitle(tr("Офлайн и кеш")),
     DropdownButtonFormField<String>(
       key: ValueKey('download-quality-${widget.app.downloads.quality}'),

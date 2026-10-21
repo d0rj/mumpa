@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import '../domain/models.dart';
+import '../domain/local_features.dart';
 import 'library_storage.dart';
 
 /// A portable metadata document. Device paths and connection credentials never
@@ -12,6 +13,9 @@ class ProfileTransfer {
   static const maxBytes = 64 * 1024 * 1024;
   final Map<String, dynamic> _profile;
   int get trackCount => (_profile['tracks'] as List).length;
+  Set<String> get trackIds => {
+    for (final track in _profile['tracks'] as List) track['id'] as String,
+  };
   int get playlistCount => (_profile['playlists'] as List).length;
   int get favoriteCount => (_profile['liked'] as List).length;
   int get albumCount => (_profile['likedAlbums'] as List).length;
@@ -122,6 +126,7 @@ class ProfileTransfer {
     );
     return {
       'version': 1,
+      'localFeatures': _portableFeatures(snapshot['localFeatures'], trackIds),
       'tracks': tracks,
       'playlists': playlists,
       'liked': refs(snapshot['liked'], trackIds),
@@ -183,6 +188,11 @@ class ProfileTransfer {
       'normalizeVolume',
       'monoAudio',
       'crossfadeEnabled',
+      'smartShuffle',
+      'lyricsLookup',
+      'downloadsWifiOnly',
+      'downloadsChargingOnly',
+      'evictAutomaticCache',
     ]) {
       if (!settings.containsKey(key)) continue;
       if (settings[key] is! bool) {
@@ -287,6 +297,7 @@ class ProfileTransfer {
     final tracks = {
       for (final row in current['tracks'] as List) row['id'] as String: row,
     };
+    final existingTrackIds = tracks.keys.toSet();
     for (final row in incoming['tracks'] as List) {
       tracks.putIfAbsent(row['id'] as String, () => row);
     }
@@ -358,6 +369,76 @@ class ProfileTransfer {
       settings.addAll(portable);
     }
     result['settings'] = settings;
+    final existingFeatures = LocalFeatures.fromJson(current['localFeatures']);
+    final incomingFeatures = LocalFeatures.fromJson(incoming['localFeatures']);
+    existingFeatures.pinned.addAll(incomingFeatures.pinned);
+    existingFeatures.blocked.addAll(incomingFeatures.blocked);
+    existingFeatures.blockedSongs.addAll(incomingFeatures.blockedSongs);
+    existingFeatures.mutedArtists.addAll(incomingFeatures.mutedArtists);
+    for (final entry in incomingFeatures.added.entries) {
+      existingFeatures.added.putIfAbsent(entry.key, () => entry.value);
+    }
+    for (final entry in incomingFeatures.lastPlayed.entries) {
+      if (existingFeatures.lastPlayed[entry.key] == null ||
+          existingFeatures.lastPlayed[entry.key]!.isBefore(entry.value)) {
+        existingFeatures.lastPlayed[entry.key] = entry.value;
+      }
+    }
+    for (final entry in incomingFeatures.edits.entries) {
+      if (!existingTrackIds.contains(entry.key)) {
+        existingFeatures.edits.putIfAbsent(entry.key, () => entry.value);
+      }
+    }
+    for (final entry in incomingFeatures.lyricOffsets.entries) {
+      existingFeatures.lyricOffsets.putIfAbsent(entry.key, () => entry.value);
+    }
+    for (final entry in incomingFeatures.skips.entries) {
+      existingFeatures.skips[entry.key] = math.max(
+        existingFeatures.skips[entry.key] ?? 0,
+        entry.value,
+      );
+    }
+    for (final entry in incomingFeatures.listening.entries) {
+      final old = existingFeatures.listening[entry.key];
+      if (old == null) {
+        existingFeatures.listening[entry.key] = entry.value;
+      } else {
+        old.plays = math.max(old.plays, entry.value.plays);
+        old.milliseconds = math.max(old.milliseconds, entry.value.milliseconds);
+      }
+    }
+    result['localFeatures'] = existingFeatures.toJson();
     return result;
+  }
+
+  static Map<String, dynamic> _portableFeatures(Object? raw, Set<String> ids) {
+    final features = LocalFeatures.fromJson(raw);
+    features.automatic.clear();
+    features.pinned.retainAll(ids);
+    features.blocked.retainAll(ids);
+    features.added.removeWhere((id, _) => !ids.contains(id));
+    features.lastPlayed.removeWhere((id, _) => !ids.contains(id));
+    features.skips.removeWhere((id, _) => !ids.contains(id));
+    features.lyricOffsets.removeWhere((id, _) => !ids.contains(id));
+    features.listening.removeWhere(
+      (_, bucket) => !ids.contains(bucket.trackId),
+    );
+    features.edits.removeWhere((id, _) => !ids.contains(id));
+    for (final edits in features.edits.values) {
+      edits.removeWhere(
+        (key, value) =>
+            ![
+              'title',
+              'artist',
+              'album',
+              'albumArtist',
+              'year',
+            ].contains(key) ||
+            (key == 'year'
+                ? value is! int || value < 1 || value > 9999
+                : value is! String || value.length > 4096),
+      );
+    }
+    return features.toJson();
   }
 }

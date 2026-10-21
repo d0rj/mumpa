@@ -8,6 +8,7 @@ import '../domain/models.dart';
 import 'library_repository.dart';
 import 'source_operation.dart';
 import 'torrent_service.dart';
+import 'download_conditions.dart';
 
 enum DownloadState { queued, downloading, paused, complete, failed }
 
@@ -31,10 +32,63 @@ class DownloadJob {
 }
 
 class DownloadRepository extends ChangeNotifier {
-  DownloadRepository(this.library, this.torrents, {int? maxConcurrentDownloads})
-    : _maxConcurrentDownloads = _readConcurrency(
-        maxConcurrentDownloads ?? library.settings['downloadConcurrency'],
+  DownloadRepository(
+    this.library,
+    this.torrents, {
+    int? maxConcurrentDownloads,
+    Future<DownloadConditions> Function()? conditionReader,
+  }) : _maxConcurrentDownloads = _readConcurrency(
+         maxConcurrentDownloads ?? library.settings['downloadConcurrency'],
+       ),
+       _conditionReader = conditionReader {
+    if (Platform.isAndroid || conditionReader != null) {
+      library.addListener(_conditionsChanged);
+      _policyAllowed = !restricted;
+      unawaited(refreshConditions());
+      _conditionsTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => unawaited(refreshConditions()),
       );
+    }
+  }
+  final Future<DownloadConditions> Function()? _conditionReader;
+  Timer? _conditionsTimer;
+  bool _policyAllowed = true, _readingConditions = false;
+  bool get restricted =>
+      library.settings['downloadsWifiOnly'] == true ||
+      library.settings['downloadsChargingOnly'] == true;
+  bool get waitingForConditions => !_policyAllowed;
+  final Set<String> playbackProtectedIds = {};
+  void _conditionsChanged() {
+    if (!_disposed) unawaited(refreshConditions());
+  }
+
+  Future<void> refreshConditions() async {
+    if (_disposed || _readingConditions) return;
+    _readingConditions = true;
+    var allowed = !restricted;
+    try {
+      if (restricted) {
+        allowed = (await (_conditionReader ?? DownloadConditions.read)())
+            .allows(library.settings);
+      }
+    } catch (_) {
+      allowed = !restricted;
+    } finally {
+      _readingConditions = false;
+    }
+    if (_disposed) return;
+    final changed = allowed != _policyAllowed;
+    _policyAllowed = allowed;
+    if (!allowed) {
+      for (final job in _active.values.toList()) {
+        _yield(job);
+      }
+    }
+    if (changed) notifyListeners();
+    if (allowed) _pump();
+  }
+
   final LibraryRepository library;
   final TorrentService torrents;
   final Map<String, DownloadJob> _jobs = {};
@@ -210,12 +264,23 @@ class DownloadRepository extends ChangeNotifier {
 
   /// A playing track gets the next slot. Only when all slots are occupied does
   /// one background transfer yield, retaining its partial file for resumption.
-  void enqueue(Iterable<Track> tracks, {bool priority = false}) {
+  void enqueue(
+    Iterable<Track> tracks, {
+    bool priority = false,
+    bool automatic = false,
+  }) {
     if (_disposed) return;
     final selected = <String>[];
     for (final original in tracks) {
       // Playback caching must cache the very decoder source being listened to.
       final track = priority ? original : trackForDownload(original);
+      if (automatic) {
+        if (!_jobs.containsKey(track.id)) {
+          library.features.automatic.add(track.id);
+        }
+      } else {
+        library.features.automatic.remove(track.id);
+      }
       // Explicit downloads and the playing track outlive a prefetch window.
       _prefetch.remove(track.id);
       final latest = library.byId(track.id) ?? track;
@@ -256,6 +321,7 @@ class DownloadRepository extends ChangeNotifier {
       }
     }
     notifyListeners();
+    unawaited(library.saveFeatures());
     _pump();
   }
 
@@ -280,6 +346,7 @@ class DownloadRepository extends ChangeNotifier {
       }
       if (existing?.state == DownloadState.failed) continue;
       _prefetch.add(track.id);
+      if (existing == null) library.features.automatic.add(track.id);
       if (active(track.id)) continue;
       final job = _jobs.putIfAbsent(track.id, () => DownloadJob(track));
       job.cancelled = false;
@@ -321,7 +388,7 @@ class DownloadRepository extends ChangeNotifier {
   }
 
   void _pump() {
-    if (_pumping || _disposed) return;
+    if (_pumping || _disposed || !_policyAllowed) return;
     _pumping = true;
     try {
       while (!_disposed && _active.length < _maxConcurrentDownloads) {
@@ -600,6 +667,12 @@ class DownloadRepository extends ChangeNotifier {
       (sum, reservation) => sum + reservation.bytes,
     );
     attempt.check();
+    if (used + reserved - (previous?.bytes ?? 0) + bytes > limitBytes &&
+        library.settings['evictAutomaticCache'] == true) {
+      final needed =
+          used + reserved - (previous?.bytes ?? 0) + bytes - limitBytes;
+      used -= await _evictAutomatic(needed);
+    }
     if (used + reserved - (previous?.bytes ?? 0) + bytes > limitBytes) {
       throw const FileSystemException(
         'Лимит офлайн-кеша достигнут. Увеличьте лимит в настройках или удалите скачанные треки.',
@@ -608,6 +681,65 @@ class DownloadRepository extends ChangeNotifier {
     candidate.bytes = bytes;
     _reservations[attempt] = candidate;
   });
+
+  Future<int> _evictAutomatic(int needed) async {
+    var freed = 0;
+    final candidates =
+        library.tracks
+            .where(
+              (t) =>
+                  library.features.automatic.contains(t.id) &&
+                  t.cachedPath != null,
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                (library.features.lastPlayed[a.id] ??
+                        a.downloadedAt ??
+                        DateTime(1970))
+                    .compareTo(
+                      library.features.lastPlayed[b.id] ??
+                          b.downloadedAt ??
+                          DateTime(1970),
+                    ),
+          );
+    for (final track in candidates) {
+      if (freed >= needed) break;
+      final path = track.cachedPath!;
+      if (!p.isWithin(library.downloads.path, path) ||
+          _active.containsKey(track.id) ||
+          playbackProtectedIds.contains(track.id) ||
+          _sharedCopy(path, track.id) ||
+          library.features.pinned.contains(track.id) ||
+          library.isTrackLiked(track.id) ||
+          library.favoriteAlbums.any(
+            (a) => a.tracks.any((t) => t.id == track.id),
+          ) ||
+          library.favoritePlaylists.any(
+            (list) => list.trackIds.contains(track.id),
+          )) {
+        continue;
+      }
+      if (await FileSystemEntity.type(path, followLinks: false) !=
+          FileSystemEntityType.file) {
+        continue;
+      }
+      final file = File(path);
+      final physicalRoot = await library.downloads.resolveSymbolicLinks();
+      if (!p.isWithin(physicalRoot, await file.resolveSymbolicLinks())) {
+        continue;
+      }
+      final size = await file.length();
+      await file.delete();
+      freed += size;
+      _jobs.remove(track.id);
+      library.features.automatic.remove(track.id);
+      await library.upsert([
+        track.copyWith(clearCache: true),
+      ], preserveCache: false);
+    }
+    return freed;
+  }
 
   Future<void> removeOffline(Track track, {bool userRequested = false}) {
     final pending = _removals[track.id];
@@ -677,8 +809,9 @@ class DownloadRepository extends ChangeNotifier {
   bool _sharedCopy(String path, String removingId) => library.tracks.any(
     (track) =>
         track.id != removingId &&
-        track.cachedPath != null &&
-        _restorePathKey(track.cachedPath!) == _restorePathKey(path),
+        [track.cachedPath, track.localPath].whereType<String>().any(
+          (other) => _restorePathKey(other) == _restorePathKey(path),
+        ),
   );
 
   Future<void> close() async {
@@ -693,6 +826,8 @@ class DownloadRepository extends ChangeNotifier {
   @override
   void dispose() {
     if (_disposed) return;
+    _conditionsTimer?.cancel();
+    library.removeListener(_conditionsChanged);
     _disposed = true;
     for (final job in _jobs.values) {
       _interrupt(job, DownloadState.paused);

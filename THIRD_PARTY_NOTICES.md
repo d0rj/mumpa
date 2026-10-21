@@ -1,5 +1,17 @@
 # Component notices and source locations
 
+## QR codes and lyrics
+
+`qr_flutter` 4.1.0 (Luke Freeman) and `qr` 3.0.2 (Dart QR project authors)
+use BSD-style three-clause licenses. Their complete notices are included in
+Flutter's generated license registry. Sources:
+[QR.Flutter](https://github.com/theyakka/qr.flutter) and
+[Dart QR](https://github.com/kevmoo/qr.dart).
+
+Optional lyrics lookup uses the [LRCLIB API](https://lrclib.net/docs) directly.
+Lyrics retain their respective rights holders; public API access does not
+relicense song lyrics. No fetched lyrics are included in the application package.
+
 Mumpa application code is GPL-3.0; see `LICENSE`. Original generated demo audio, procedural artwork and branding are part of this project. Manrope is SIL Open Font License 1.1; its notice is in `assets/fonts/OFL.txt`. Dependency versions are in `pubspec.lock`, and Flutter's generated license registry is accessible in Settings → Licenses.
 
 ## Torrent engine

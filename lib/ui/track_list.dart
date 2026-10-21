@@ -278,6 +278,28 @@ class TrackList extends SliverContent {
                     ),
                     onSelected: (action) async {
                       switch (action) {
+                        case 'editMetadata':
+                          await editTrackMetadata(context, app, t);
+                        case 'pin':
+                          final pinned = !app.library.features.pinned.contains(
+                            t.id,
+                          );
+                          await app.library.setPinned([t.id], pinned);
+                          if (pinned) app.downloads.enqueue([t]);
+                        case 'blockRadio':
+                          await app.library.radioFeedback(
+                            t,
+                            block: true,
+                            undo: !app.library.acceptsRadio(t),
+                          );
+                        case 'muteArtist':
+                          await app.library.radioFeedback(
+                            t,
+                            muteArtist: true,
+                            undo: app.library.features.mutedArtists.contains(
+                              normalizeMusicName(t.artist),
+                            ),
+                          );
                         case 'moveUp':
                           onReorder!(i, i - 1);
                         case 'moveDown':
@@ -344,6 +366,42 @@ class TrackList extends SliverContent {
                       }
                     },
                     itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'editMetadata',
+                        child: Text(tr('Изменить метаданные')),
+                      ),
+                      PopupMenuItem(
+                        value: 'pin',
+                        child: Text(
+                          tr(
+                            app.library.features.pinned.contains(t.id)
+                                ? 'Открепить офлайн'
+                                : 'Закрепить офлайн',
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'blockRadio',
+                        child: Text(
+                          tr(
+                            !app.library.acceptsRadio(t)
+                                ? 'Разрешить в радио'
+                                : 'Не предлагать этот трек',
+                          ),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'muteArtist',
+                        child: Text(
+                          tr(
+                            app.library.features.mutedArtists.contains(
+                                  normalizeMusicName(t.artist),
+                                )
+                                ? 'Обычная частота исполнителя'
+                                : 'Меньше этого исполнителя',
+                          ),
+                        ),
+                      ),
                       if (onReorder != null) ...[
                         PopupMenuItem(
                           value: 'moveUp',

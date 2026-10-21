@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../data/download_repository.dart';
+import '../data/library_repository.dart';
 import '../domain/models.dart';
 import '../domain/music_metadata.dart';
 import '../domain/collection_filter.dart';
@@ -16,6 +17,8 @@ import 'theme.dart';
 import 'search_fields.dart';
 import 'app_update_panel.dart';
 import 'audio_settings.dart';
+import 'local_tools.dart';
+import 'lan_transfer_view.dart';
 
 part 'library_pages.dart';
 part 'artist_page.dart';

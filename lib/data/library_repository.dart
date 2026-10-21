@@ -9,6 +9,9 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../domain/models.dart';
+import '../domain/local_features.dart';
+import '../domain/playlist_rules.dart';
+import '../domain/music_metadata.dart';
 import '../l10n/app_localizations.dart';
 import '../domain/torrent_album_layout.dart';
 import '../domain/collection_filter.dart';
@@ -19,6 +22,7 @@ import 'profile_transfer.dart';
 
 part 'library_metadata.dart';
 part 'library_profile_transfer.dart';
+part 'library_features.dart';
 
 Future<String> _encodeLibrarySnapshot(Map<String, dynamic> snapshot) {
   // Tiny profiles cost less to encode than starting and transferring an isolate.
@@ -31,9 +35,12 @@ Future<String> _encodeLibrarySnapshot(Map<String, dynamic> snapshot) {
 class LibraryRepository extends ChangeNotifier {
   LibraryRepository(this.root);
   final Directory root;
+  LocalFeatures features = LocalFeatures();
+  int radioFeedbackRevision = 0;
   late final _storage = LibraryStorage(root);
   List<Track> _trackItems = [];
   List<Track>? _trackSnapshot;
+  List<MusicPlaylist>? _resolvedPlaylists, _resolvedMediaPlaylists;
   Map<String, Track>? _trackIndex;
   Map<String, List<Track>>? _offlineTorrentIndex;
   LibraryViews? _views;
@@ -91,6 +98,8 @@ class LibraryRepository extends ChangeNotifier {
 
   @override
   void notifyListeners() {
+    _resolvedPlaylists = null;
+    _resolvedMediaPlaylists = null;
     _views = null;
     _topTracksPlaylist = null;
     super.notifyListeners();
@@ -98,6 +107,8 @@ class LibraryRepository extends ChangeNotifier {
 
   List<Track> get _tracks => _trackItems;
   set _tracks(List<Track> value) {
+    _resolvedPlaylists = null;
+    _resolvedMediaPlaylists = null;
     _topTracksPlaylist = null;
     _trackItems = value;
     _trackSnapshot = null;
@@ -126,13 +137,16 @@ class LibraryRepository extends ChangeNotifier {
   bool _profileImporting = false;
   String? loadWarning;
   List<Track> get tracks => _trackSnapshot ??= List.unmodifiable(_tracks);
-  List<MusicPlaylist> get playlists => _currentViews.playlists;
+  List<MusicPlaylist> get playlists => _resolvedPlaylists ??= List.unmodifiable(
+    _currentViews.playlists.map(resolveSmartPlaylist),
+  );
 
   /// Personal library views exclude sources inspected only for discovery.
   /// Keep all known records available for queues, navigation and version picks.
   List<Track> get mediaTracks => _currentViews.mediaTracks;
   List<Album> get mediaAlbums => _currentViews.mediaAlbums;
-  List<MusicPlaylist> get mediaPlaylists => _currentViews.mediaPlaylists;
+  List<MusicPlaylist> get mediaPlaylists => _resolvedMediaPlaylists ??=
+      List.unmodifiable(_currentViews.mediaPlaylists.map(resolveSmartPlaylist));
   Set<String> get liked => _currentViews.liked;
   bool isTrackLiked(String id) => _liked.contains(id);
   Set<String> get likedPlaylists => _currentViews.likedPlaylists;
@@ -237,6 +251,7 @@ class LibraryRepository extends ChangeNotifier {
   }
 
   bool isTrackProtected(String id) =>
+      features.pinned.contains(id) ||
       _liked.contains(id) ||
       byId(id)?.cachedPath != null ||
       _likedAlbums.any((ids) => ids.contains(id)) ||
@@ -251,6 +266,8 @@ class LibraryRepository extends ChangeNotifier {
     loadWarning = _storage.warning;
     if (loaded != null) {
       final j = loaded;
+      features = LocalFeatures.fromJson(j['localFeatures']);
+      radioFeedbackRevision++;
       _tracks = ((j['tracks'] as List?) ?? [])
           .map((e) => Track.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList();
@@ -309,6 +326,7 @@ class LibraryRepository extends ChangeNotifier {
     // Default applies once to new/older profiles; an explicit opt-out survives.
     _settings.putIfAbsent('autoCache', () => true);
     final upgradedLayouts = await _upgradeTorrentLayouts();
+    _tracks = _tracks.map(applyMetadataEdits).toList();
     if (upgradedLayouts || migratedDownloadDates) {
       await _save();
     }
@@ -397,6 +415,7 @@ class LibraryRepository extends ChangeNotifier {
 
   Map<String, dynamic> _snapshot() => {
     'version': 1,
+    'localFeatures': features.toJson(),
     'tracks': _tracks.map((t) => t.toJson()).toList(),
     'playlists': _playlists.map((t) => t.toJson()).toList(),
     'liked': _liked.toList(),
@@ -412,6 +431,8 @@ class LibraryRepository extends ChangeNotifier {
   };
 
   Future<void> _save() {
+    _resolvedPlaylists = null;
+    _resolvedMediaPlaylists = null;
     _saveSequence++;
     // markPlayed/settings mutate before awaiting disk I/O and notifying.
     _views = null;
@@ -455,10 +476,13 @@ class LibraryRepository extends ChangeNotifier {
           item = item.copyWith(downloadedAt: old.downloadedAt);
         }
       }
-      indexed[t.id] = item;
+      indexed[t.id] = applyMetadataEdits(item);
+      if (old == null) features.added[t.id] = DateTime.now().toUtc();
       if (addToLibrary) _retainedTrackIds.add(t.id);
     }
-    _tracks = _propagateTorrentAlbumMetadata(indexed.values);
+    _tracks = _propagateTorrentAlbumMetadata(
+      indexed.values,
+    ).map(applyMetadataEdits).toList();
     await _prepareTracks();
     notifyListeners();
     await _save();
@@ -582,6 +606,8 @@ class LibraryRepository extends ChangeNotifier {
   /// restoration and failed opens do not create extra listens.
   Future<void> recordListen(String id, {String? playlistId}) async {
     if (byId(id) == null) return;
+    features.lastPlayed[id] = DateTime.now().toUtc();
+    features.bucket(byId(id)!, DateTime.now()).plays++;
     _trackPlayCounts[id] = trackPlayCount(id) + 1;
     if (_playlists.any((p) => p.id == playlistId)) {
       _playlistPlayCounts[playlistId!] = playlistPlayCount(playlistId) + 1;

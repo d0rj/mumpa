@@ -1,5 +1,45 @@
 # Mumpa verification — 2026-10-21
 
+## Local library tools and device transfer — 1.3.0+38
+
+- Full Flutter suite: **597 passed, 6 existing opt-in checks skipped**.
+  A separate enabled live LRCLIB test passed through `LyricsRepository` and
+  saved only counts/response metadata, without redistributing the fetched text.
+  Static analysis of `lib`, `test` and `integration_test` reports no issues.
+- New checks cover dynamic playlist membership, stable active queues, dated
+  listening buckets, pause/seek accounting, metadata overrides and profile
+  reimport, moved-file suggestions, M3U8 order and known-path reuse, LRC timing,
+  offline cache/Retry-After, manual-versus-automatic download ownership,
+  Wi-Fi/charging gates and protected eviction. Malformed LAN offers, corrupted
+  audio, cancelled imports and unauthorized HTTP requests are rejected.
+- New screens fit 320 px and 1200 px; lyric-line seeking retains queue entries.
+  Android Auto's local browser/search/play callbacks and continuation beyond
+  200 collections are covered. An older decoder-failure test now waits for the
+  complete traversal instead of stopping at the transient gap between attempts.
+- The 10,001-track responsiveness regression passed with **54 lookups for ten
+  position updates**, under its unchanged limit of 120; track rows are not
+  rebuilt by the new listening clock.
+- The same isolated native scenario passed on **Windows/libmpv** and an
+  **Android 15/API 35 x86_64 emulator**. It played original PCM, observed forward
+  position, credited over three seconds of actual listening, asserted one
+  listen across Pause/Resume, retained the queue on seek, and then deliberately
+  restarted the collection using the car playback API. The report's final
+  count of two includes that deliberate second start.
+- Both native scenarios transferred a **224,044-byte** file through real
+  loopback HTTP, checked its SHA-256, and retained its edited title, pin and
+  playlist references. Android also returned real Wi-Fi/charging state and
+  verified the title persisted for the widget plus the generated native
+  playlist shortcuts. These are software/emulator checks; a real head unit,
+  physical ARM device and a transfer between two physical Wi-Fi devices were
+  not available in this session.
+- Reports: `test-output/local-features-full-tests.log`,
+  `local-features-analyze.log`, `local-features-live-lyrics.json`,
+  `local-features-native-windows.json`, `local-features-native-android.json`.
+  Test profiles are disposable and removed in `finally`; the installed
+  production profile is not used for these checks.
+- User scope excludes automatic cloud/shared-folder synchronization. Product
+  behavior and limits are documented in [LOCAL_FEATURES.md](LOCAL_FEATURES.md).
+
 ## Windows updater lifetime and MusicBrainz overload recovery
 
 - Full Flutter suite: **571 passed, 6 opt-in checks skipped**; static analysis
