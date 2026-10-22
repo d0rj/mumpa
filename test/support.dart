@@ -23,10 +23,14 @@ class FakeAudioBackend extends AudioBackend {
   @override
   Stream<String> get errors => failure.stream;
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     opened = uri;
     _playing = play;
-    _position = Duration.zero;
+    _position = start;
     notifyListeners();
   }
 

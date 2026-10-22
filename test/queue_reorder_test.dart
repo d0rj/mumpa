@@ -26,11 +26,15 @@ class _CountingAudio extends FakeAudioBackend {
   );
 
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     openedUris.add(uri);
     final gate = openGate;
     if (gate != null) await gate.future;
-    await super.open(uri, play: play);
+    await super.open(uri, play: play, start: start);
   }
 
   @override

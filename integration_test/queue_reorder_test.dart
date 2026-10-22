@@ -85,10 +85,14 @@ class _ObservedNativeAudio extends NativeAudioBackend {
 
   Map<String, int> get counts => {'open': opens, 'stop': stops, 'seek': seeks};
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     opens++;
     openedFiles.add(p.basename(Uri.parse(uri).toFilePath()));
-    await super.open(uri, play: play);
+    await super.open(uri, play: play, start: start);
   }
 
   @override

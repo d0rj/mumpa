@@ -50,14 +50,18 @@ class FailingRadioBackend extends FakeAudioBackend {
   final failing = <String>{};
   Completer<void>? decoderGate;
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     if (uri.contains('4.wav') && decoderGate != null) {
       await decoderGate!.future;
     }
     if (failing.any(uri.contains)) {
       throw const FileSystemException('Bad audio');
     }
-    await super.open(uri, play: play);
+    await super.open(uri, play: play, start: start);
   }
 }
 

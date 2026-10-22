@@ -40,9 +40,13 @@ class _UiLibrary extends LibraryRepository {
 class _Audio extends FakeAudioBackend {
   int opens = 0, stops = 0, seeks = 0;
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     opens++;
-    await super.open(uri, play: play);
+    await super.open(uri, play: play, start: start);
   }
 
   @override

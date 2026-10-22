@@ -8,7 +8,13 @@ abstract class AudioBackend extends ChangeNotifier {
   double get volume;
   Stream<void> get completed;
   Stream<String> get errors;
-  Future<void> open(String uri, {bool play = true});
+
+  /// Apply [start] while loading, before playback or an explicit seek is ready.
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  });
   Future<void> play();
   Future<void> pause();
   Future<void> stop();
@@ -75,7 +81,11 @@ class NativeAudioBackend extends AudioBackend {
   @override
   Stream<String> get errors => _errors.stream;
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     await cancelPrepared();
     await _finishFade();
     final native = player.platform;
@@ -84,7 +94,9 @@ class NativeAudioBackend extends AudioBackend {
       // for peer discovery before TorrServer can send its first audio bytes.
       await native.setProperty('network-timeout', '60');
     }
-    await player.open(Media(uri), play: play);
+    // open() only queues the native load. An immediate seek can be discarded
+    // before file-loaded; Media.start is applied by libmpv's on-load hook.
+    await player.open(Media(uri, start: start), play: play);
   }
 
   @override

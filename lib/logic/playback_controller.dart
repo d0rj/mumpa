@@ -685,15 +685,24 @@ class PlaybackController extends ChangeNotifier {
       }
       _initialPlaybackPosition = _restorePosition ?? Duration.zero;
       awaitingAudio = false;
-      final opening = backend.open(uri, play: false);
+      final opening = backend.open(
+        uri,
+        play: false,
+        start: _initialPlaybackPosition,
+      );
       _decoderOpening = opening.catchError((Object _) {});
       await connection.wait(opening).timeout(decoderStartupTimeout);
       if (request != _request) return;
       _openedId = track.id;
-      if (_restorePosition != null) {
-        final restored = _restorePosition!;
-        _restorePosition = null;
-        await backend.seek(restored);
+      final pendingSeek = _restorePosition;
+      _restorePosition = null;
+      // A manual seek while open was pending supersedes its captured start.
+      // The saved session start itself must be applied by the load, not seek.
+      if (pendingSeek != null && pendingSeek != _initialPlaybackPosition) {
+        _initialPlaybackPosition = pendingSeek;
+        await connection
+            .wait(backend.seek(pendingSeek))
+            .timeout(decoderStartupTimeout);
       }
       if (request != _request) return;
       if (play) {

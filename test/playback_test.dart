@@ -23,10 +23,14 @@ class HangingAudioBackend extends FakeAudioBackend {
   bool? requestedPlay;
   int stops = 0;
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     requestedPlay = play;
     await release.future;
-    await super.open(uri, play: play);
+    await super.open(uri, play: play, start: start);
   }
 
   @override
@@ -40,10 +44,14 @@ class SelectiveAudioBackend extends FakeAudioBackend {
   final rejected = <String>{};
   final attempts = <String>[];
   @override
-  Future<void> open(String uri, {bool play = true}) async {
+  Future<void> open(
+    String uri, {
+    bool play = true,
+    Duration start = Duration.zero,
+  }) async {
     attempts.add(uri);
     if (rejected.any(uri.contains)) throw StateError('Decoder rejected file');
-    await super.open(uri, play: play);
+    await super.open(uri, play: play, start: start);
   }
 }
 
@@ -549,7 +557,7 @@ void main() {
       expect(await player.resolve(track), Uri.file(local).toString());
     },
   );
-  test('restores session paused, then seeks when the user plays', () async {
+  test('restores session paused, then opens at the saved position', () async {
     await player.playTracks(library.tracks, index: 2);
     await player.seek(const Duration(seconds: 7));
     await player.pause();

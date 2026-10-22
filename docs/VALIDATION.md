@@ -1,4 +1,26 @@
-# Mumpa verification — 2026-10-21
+# Mumpa verification — 2026-10-22
+
+## Saved-position restoration — 1.3.1+39
+
+- A real Windows/libmpv regression reproduced the first-Play failure: the
+  first decoder timestamp was **35 ms** instead of the persisted **21,750 ms**.
+  `media_kit.open()` queues an asynchronous native load, so the immediately
+  following seek could run before the file was ready and be discarded.
+- `AudioBackend.open` now accepts the initial position. The native backend
+  passes it through `Media.start`, which libmpv applies during loading. A later
+  manual seek while opening is pending still supersedes that initial position.
+- The isolated native regression reloads the serialized profile and creates a
+  new decoder twice. Both first decoder timestamps match their saved positions;
+  playback advances, Pause/Resume preserves its position, and the selected file,
+  duplicate queue entries, shuffle order, repeat mode and playlist context remain
+  intact. The next restart uses the newly persisted position. The same path is
+  exercised with the mono DSP filter enabled.
+- Full Flutter suite: **597 passed, 7 opt-in checks skipped**. Static analysis
+  reports no issues. Deferred seeking during a pending open and queue reordering
+  are covered by the existing controller tests.
+- Evidence: `test-output/session-resume-before.log`,
+  `test-output/session-resume-native.json`, and
+  `test-output/position-fix-1.3.1/{native-after,full-tests,analyze}.log`.
 
 ## Local library tools and device transfer — 1.3.0+38
 
