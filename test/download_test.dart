@@ -7,6 +7,7 @@ import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/data/source_operation.dart';
 import 'package:mumpa/data/torrent_service.dart';
 import 'package:mumpa/domain/models.dart';
+import 'package:path/path.dart' as p;
 
 Future<void> until(bool Function() condition) async {
   final deadline = DateTime.now().add(const Duration(seconds: 10));
@@ -144,6 +145,33 @@ void main() {
       expect(library.byId(track.id)!.cachedPath, isNull);
       expect(library.byId(track.id)!.downloadedAt, isNull);
       expect(await File(cached).exists(), isFalse);
+    },
+  );
+  test(
+    'untrusted IDs cannot escape downloads or name NTFS streams/devices',
+    () async {
+      for (final id in ['../escaped', 'x:stream', 'CON']) {
+        final imported = Track.fromJson({...track.toJson(), 'id': id});
+        await library.upsert([imported]);
+        downloads.enqueue([imported]);
+        await until(
+          () => downloads.jobs.any(
+            (job) =>
+                job.track.id == id &&
+                {
+                  DownloadState.complete,
+                  DownloadState.failed,
+                }.contains(job.state),
+          ),
+        );
+        final job = downloads.jobs.singleWhere((job) => job.track.id == id);
+        expect(job.state, DownloadState.complete, reason: job.error);
+        final cached = library.byId(id)!.cachedPath!;
+        expect(p.isWithin(library.downloads.path, cached), isTrue);
+        expect(p.basename(cached), 'track-${stableId(id)}.wav');
+        expect(await File(cached).readAsBytes(), bytes);
+        await downloads.removeOffline(library.byId(id)!, userRequested: true);
+      }
     },
   );
   test(

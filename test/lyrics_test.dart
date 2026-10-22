@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,41 @@ import 'package:mumpa/domain/lyrics.dart';
 import 'package:mumpa/domain/models.dart';
 
 void main() {
+  test(
+    'late lookup preserves a user LRC imported during the request',
+    () async {
+      final root = await Directory.systemTemp.createTemp('mumpa-lyrics-race-');
+      final started = Completer<void>(), response = Completer<http.Response>();
+      final repository = LyricsRepository(
+        root,
+        client: MockClient((_) {
+          started.complete();
+          return response.future;
+        }),
+      );
+      const track = Track(
+        id: 'race',
+        title: 'Song',
+        artist: 'Band',
+        album: 'Album',
+        source: TrackSource.torrent,
+      );
+      try {
+        final loading = repository.load(track, remote: true);
+        await started.future;
+        await repository.save(track, '[00:02]User', user: true);
+        response.complete(
+          http.Response(jsonEncode({'plainLyrics': 'Remote'}), 200),
+        );
+        expect((await loading).lines.single.text, 'User');
+        expect((await repository.load(track)).lines.single.text, 'User');
+      } finally {
+        repository.close();
+        await root.delete(recursive: true);
+      }
+    },
+  );
+
   test(
     'LRC parses repeated timestamps, fractional times, offsets and binary lookup',
     () {

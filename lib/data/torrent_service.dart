@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
@@ -17,6 +16,7 @@ import 'package:xml/xml.dart';
 import '../domain/models.dart';
 import '../domain/torrent_album_layout.dart';
 import 'source_operation.dart';
+import 'bounded_http.dart';
 import 'public_music_catalog.dart';
 import 'automatic_music_catalog.dart';
 import 'torrent_network.dart';
@@ -235,9 +235,12 @@ class TorrentEngine {
             ? remaining
             : const Duration(seconds: 1);
         try {
-          final responseFuture = client
-              .get(Uri.parse('$url/echo'))
-              .timeout(requestTimeout);
+          final responseFuture = getBounded(
+            client,
+            Uri.parse('$url/echo'),
+            maxBytes: 4096,
+            timeout: requestTimeout,
+          );
           final response = process == null
               ? await responseFuture
               : await Future.any([
@@ -461,17 +464,16 @@ class TorrentService {
   }) async {
     final uri = await _uri('/torrents');
     operation?.check();
-    final request =
-        http.AbortableRequest(
-            'POST',
-            uri,
-            abortTrigger: operation?.whenCancelled,
-          )
+    http.BaseRequest request(Future<void> abort) =>
+        http.AbortableRequest('POST', uri, abortTrigger: abort)
           ..headers['Content-Type'] = 'application/json'
           ..body = jsonEncode(data);
-    final pending = client.send(request).then(http.Response.fromStream);
-    final response = await (operation?.wait(pending) ?? pending).timeout(
-      const Duration(seconds: 30),
+    final response = await sendBounded(
+      client,
+      request,
+      maxBytes: 16 * 1024 * 1024,
+      timeout: const Duration(seconds: 30),
+      operation: operation,
     );
     if (response.statusCode != 200) {
       throw HttpException(
@@ -483,9 +485,12 @@ class TorrentService {
   }
 
   Future<String> version() async {
-    final r = await client
-        .get(await _uri('/echo'))
-        .timeout(const Duration(seconds: 8));
+    final r = await getBounded(
+      client,
+      await _uri('/echo'),
+      maxBytes: 4096,
+      timeout: const Duration(seconds: 8),
+    );
     if (r.statusCode != 200) throw const HttpException('Сервер не отвечает.');
     return r.body;
   }
@@ -524,16 +529,19 @@ class TorrentService {
   }) async {
     operation?.check();
     onProgress?.call('Читаем список треков из torrent-файла…');
-    final request = http.MultipartRequest(
-      'POST',
-      await _uri('/torrent/upload'),
-    );
-    request.fields.addAll({'save': 'true', 'category': 'music'});
-    request.files.add(await http.MultipartFile.fromPath('file', path));
+    final uri = await _uri('/torrent/upload');
+    final file = await http.MultipartFile.fromPath('file', path);
+    http.BaseRequest request(Future<void> abort) =>
+        http.AbortableMultipartRequest('POST', uri, abortTrigger: abort)
+          ..fields.addAll({'save': 'true', 'category': 'music'})
+          ..files.add(file);
     operation?.check();
-    final pending = client.send(request).then(http.Response.fromStream);
-    final response = await (operation?.wait(pending) ?? pending).timeout(
-      const Duration(seconds: 20),
+    final response = await sendBounded(
+      client,
+      request,
+      maxBytes: 1024 * 1024,
+      timeout: const Duration(seconds: 20),
+      operation: operation,
     );
     operation?.check();
     if (response.statusCode != 200) {
@@ -744,7 +752,11 @@ class IndexerService {
     );
     late http.Response response;
     try {
-      response = await client.get(uri).timeout(const Duration(seconds: 8));
+      response = await getBounded(
+        client,
+        uri,
+        timeout: const Duration(seconds: 8),
+      );
     } on http.ClientException {
       throw const HttpException('Не удалось подключиться к Jackett.');
     } on TimeoutException {
@@ -795,17 +807,17 @@ class IndexerService {
           'Источник должен возвращать magnet или torrent-файл.',
         );
       }
-      http.StreamedResponse response;
+      http.Response response;
       try {
-        response = await client
-            .send(
-              http.AbortableRequest(
-                'GET',
-                uri,
-                abortTrigger: operation?.whenCancelled,
-              )..followRedirects = false,
-            )
-            .timeout(const Duration(seconds: 25));
+        response = await sendBounded(
+          client,
+          (abort) =>
+              http.AbortableRequest('GET', uri, abortTrigger: abort)
+                ..followRedirects = false,
+          maxBytes: 16 * 1024 * 1024,
+          timeout: const Duration(seconds: 25),
+          operation: operation,
+        );
       } on http.ClientException {
         operation?.check();
         throw const HttpException(
@@ -814,7 +826,6 @@ class IndexerService {
       }
       if ({301, 302, 303, 307, 308}.contains(response.statusCode)) {
         final location = response.headers['location'];
-        await response.stream.drain<void>();
         if (location == null) {
           throw const HttpException('Jackett вернул переход без адреса.');
         }
@@ -822,22 +833,11 @@ class IndexerService {
         continue;
       }
       if (response.statusCode != 200) {
-        await response.stream.drain<void>();
         throw HttpException(
           'Не удалось получить torrent-файл: HTTP ${response.statusCode}.',
         );
       }
-      final bytes = BytesBuilder(copy: false);
-      await for (final chunk in response.stream.timeout(
-        const Duration(seconds: 25),
-      )) {
-        operation?.check();
-        bytes.add(chunk);
-        if (bytes.length > 16 * 1024 * 1024) {
-          throw const FormatException('Torrent-файл превышает 16 МБ.');
-        }
-      }
-      final data = bytes.takeBytes();
+      final data = response.bodyBytes;
       if (data.isEmpty || data.first != 100 || data.last != 101) {
         throw const FormatException(
           'Jackett вернул страницу вместо torrent-файла. Проверь доступ к раздаче.',
@@ -861,17 +861,16 @@ class IndexerService {
         uri.host.isEmpty) {
       throw const FormatException('Укажи корректный HTTP/HTTPS адрес Jackett.');
     }
-    final response = await client
-        .get(
-          uri.replace(
-            queryParameters: {
-              ...uri.queryParameters,
-              't': 'caps',
-              if (key.isNotEmpty) 'apikey': key,
-            },
-          ),
-        )
-        .timeout(const Duration(seconds: 20));
+    final response = await getBounded(
+      client,
+      uri.replace(
+        queryParameters: {
+          ...uri.queryParameters,
+          't': 'caps',
+          if (key.isNotEmpty) 'apikey': key,
+        },
+      ),
+    );
     if (response.statusCode != 200) {
       throw HttpException(
         'Jackett ответил HTTP ${response.statusCode}. Проверь адрес и API key.',
@@ -905,7 +904,7 @@ class IndexerService {
       throw const FormatException('Укажите URL Torznab API в настройках.');
     }
     operation?.check();
-    final request = http.AbortableRequest(
+    http.BaseRequest request(Future<void> abort) => http.AbortableRequest(
       'GET',
       uri.replace(
         queryParameters: {
@@ -916,13 +915,16 @@ class IndexerService {
           if (key.isNotEmpty) 'apikey': key,
         },
       ),
-      abortTrigger: operation?.whenCancelled,
+      abortTrigger: abort,
     );
     late http.Response r;
     try {
-      final pending = client.send(request).then(http.Response.fromStream);
-      r = await (operation == null ? pending : operation.wait(pending)).timeout(
-        const Duration(seconds: 80),
+      r = await sendBounded(
+        client,
+        request,
+        maxBytes: 4 * 1024 * 1024,
+        timeout: const Duration(seconds: 80),
+        operation: operation,
       );
     } on http.ClientException {
       operation?.check();

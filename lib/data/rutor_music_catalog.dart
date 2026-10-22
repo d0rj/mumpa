@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 
 import '../domain/models.dart';
 import 'source_operation.dart';
+import 'bounded_http.dart';
 
 /// Anonymous music-only search. HTML is parsed as data, never executed.
 class RutorMusicCatalog {
@@ -26,30 +26,18 @@ class RutorMusicCatalog {
         pathSegments: ['search', '0', '2', '100', '2', query.trim(), ''],
       );
       try {
-        final request = http.AbortableRequest(
-          'GET',
+        final response = await getBounded(
+          client,
           uri,
-          abortTrigger: operation?.whenCancelled,
-        )..headers['accept'] = 'text/html';
-        final pending = () async {
-          final response = await client.send(request);
-          if (response.statusCode != 200) {
-            await response.stream.drain<void>();
-            throw HttpException('RuTor: HTTP ${response.statusCode}.');
-          }
-          final bytes = BytesBuilder(copy: false);
-          await for (final chunk in response.stream) {
-            operation?.check();
-            bytes.add(chunk);
-            if (bytes.length > 2 * 1024 * 1024) {
-              throw const FormatException('RuTor: слишком большой ответ.');
-            }
-          }
-          return parse(utf8.decode(bytes.takeBytes()), Uri.parse(origin));
-        }();
-        return await (operation?.wait(pending) ?? pending).timeout(
-          const Duration(seconds: 8),
+          headers: {'accept': 'text/html'},
+          maxBytes: 2 * 1024 * 1024,
+          timeout: const Duration(seconds: 8),
+          operation: operation,
         );
+        if (response.statusCode != 200) {
+          throw HttpException('RuTor: HTTP ${response.statusCode}.');
+        }
+        return parse(utf8.decode(response.bodyBytes), Uri.parse(origin));
       } on SourceCancelled {
         rethrow;
       } catch (_) {

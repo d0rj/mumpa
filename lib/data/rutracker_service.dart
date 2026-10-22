@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../domain/models.dart';
+import 'bounded_http.dart';
 
 class CatalogException implements Exception {
   const CatalogException(this.message, {this.connect = false});
@@ -32,15 +33,15 @@ class HttpCatalogTransport implements CatalogTransport {
   final http.Client _client;
   @override
   Future<String> load(Uri uri) async {
-    final response = await _client
-        .get(
-          uri,
-          headers: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
-          },
-        )
-        .timeout(const Duration(seconds: 25));
+    final response = await getBounded(
+      _client,
+      uri,
+      headers: {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+      },
+      timeout: const Duration(seconds: 25),
+    );
     if (response.statusCode == 403 || response.statusCode == 503) {
       throw const CatalogException(
         'RuTracker запрашивает проверку доступа. Открой сайт в Mumpa и пройди её.',

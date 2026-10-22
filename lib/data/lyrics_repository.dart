@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'bounded_http.dart';
+import 'source_operation.dart';
 import '../domain/lyrics.dart';
 import '../domain/models.dart';
 
@@ -10,6 +12,9 @@ class LyricsRepository {
     : _client = client ?? http.Client();
   final Directory root;
   final http.Client _client;
+  final _lifetime = SourceOperation();
+  Future<void> _writeTail = Future.value();
+  final Map<String, int> _edits = {};
   static const maxBytes = 1024 * 1024;
   static Future<void> _requestTail = Future.value();
   static DateTime _nextRequest = DateTime.fromMillisecondsSinceEpoch(0),
@@ -21,6 +26,8 @@ class LyricsRepository {
     bool remote = false,
     bool force = false,
   }) async {
+    _lifetime.check();
+    final edit = _edits[track.id] ?? 0;
     final cache = _cache(track);
     Map? saved;
     if (await cache.exists() && await cache.length() <= maxBytes) {
@@ -60,13 +67,15 @@ class LyricsRepository {
     }
     if (!remote) return Lyrics.parse(track.lyrics ?? '');
     final request = _requestTail.then((_) async {
+      _lifetime.check();
       if (DateTime.now().isBefore(_retryAfter)) {
         throw const HttpException('Сервис текстов занят. Повтори поиск позже.');
       }
       final delay = _nextRequest.difference(DateTime.now());
-      if (!delay.isNegative) await Future<void>.delayed(delay);
+      if (!delay.isNegative) await _lifetime.wait(Future<void>.delayed(delay));
+      _lifetime.check();
       try {
-        return await _lookup(track);
+        return await _lookup(track, edit);
       } finally {
         _nextRequest = DateTime.now().add(const Duration(milliseconds: 350));
       }
@@ -75,23 +84,24 @@ class LyricsRepository {
       (_) {},
       onError: (Object _, StackTrace _) {},
     );
-    return request;
+    return _lifetime.wait(request);
   }
 
-  Future<Lyrics> _lookup(Track track) async {
+  Future<Lyrics> _lookup(Track track, int edit) async {
     final uri = Uri.https('lrclib.net', '/api/get', {
       'track_name': track.title,
       'artist_name': track.artist,
       'album_name': track.album,
       if (track.durationMs > 0) 'duration': '${track.durationMs / 1000}',
     });
-    final response = await _client
-        .send(
-          http.Request('GET', uri)
-            ..headers['User-Agent'] =
-                'Mumpa/1.3.0 (https://github.com/d0rj/mumpa)',
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await getBounded(
+      _client,
+      uri,
+      maxBytes: maxBytes,
+      timeout: const Duration(seconds: 15),
+      operation: _lifetime,
+      headers: {'User-Agent': 'Mumpa/1.3.0 (https://github.com/d0rj/mumpa)'},
+    );
     if (response.statusCode == 429) {
       final retry = response.headers['retry-after'];
       _retryAfter = DateTime.now().add(
@@ -102,53 +112,57 @@ class LyricsRepository {
           _retryAfter = HttpDate.parse(retry);
         } catch (_) {}
       }
-      await response.stream
-          .take(1)
-          .drain<void>()
-          .timeout(const Duration(seconds: 15));
       throw const HttpException('Сервис текстов занят. Повтори поиск позже.');
     }
     if (response.statusCode != 200 && response.statusCode != 404) {
-      await response.stream.drain<void>();
       throw const HttpException('Не удалось получить текст песни.');
-    }
-    final data = <int>[];
-    await for (final chunk in response.stream.timeout(
-      const Duration(seconds: 15),
-    )) {
-      data.addAll(chunk);
-      if (data.length > maxBytes) {
-        throw const FormatException('Текст песни слишком большой.');
-      }
     }
     var text = '';
     if (response.statusCode == 200) {
-      final json = jsonDecode(utf8.decode(data)) as Map;
+      final json = jsonDecode(utf8.decode(response.bodyBytes)) as Map;
       text = (json['syncedLyrics'] as String?)?.trim().isNotEmpty == true
           ? json['syncedLyrics'] as String
           : json['plainLyrics'] as String? ?? '';
     }
-    await save(track, text);
+    await _save(track, text, edit: edit);
+    if ((_edits[track.id] ?? 0) != edit) return load(track);
     return Lyrics.parse(text);
   }
 
-  Future<void> save(Track track, String text, {bool user = false}) async {
-    if (utf8.encode(text).length > maxBytes) {
-      throw const FormatException('Текст песни слишком большой.');
-    }
-    final file = _cache(track);
-    await file.parent.create(recursive: true);
-    final temp = File('${file.path}.tmp');
-    await temp.writeAsString(
-      jsonEncode({
-        'text': text,
-        'user': user,
-        'time': DateTime.now().toUtc().toIso8601String(),
-      }),
-      flush: true,
-    );
-    await temp.rename(file.path);
+  Future<void> save(Track track, String text, {bool user = false}) {
+    if (user) _edits[track.id] = (_edits[track.id] ?? 0) + 1;
+    return _save(track, text, user: user);
   }
 
-  void close() => _client.close();
+  Future<void> _save(Track track, String text, {bool user = false, int? edit}) {
+    final result = _writeTail.then((_) async {
+      _lifetime.check();
+      if (edit != null && (_edits[track.id] ?? 0) != edit) return;
+      if (utf8.encode(text).length > maxBytes) {
+        throw const FormatException('Текст песни слишком большой.');
+      }
+      final file = _cache(track);
+      await file.parent.create(recursive: true);
+      final temp = File('${file.path}.tmp');
+      await temp.writeAsString(
+        jsonEncode({
+          'text': text,
+          'user': user,
+          'time': DateTime.now().toUtc().toIso8601String(),
+        }),
+        flush: true,
+      );
+      await temp.rename(file.path);
+    });
+    _writeTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
+  void close() {
+    _lifetime.cancel();
+    _client.close();
+  }
 }

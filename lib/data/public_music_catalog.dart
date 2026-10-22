@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../domain/models.dart';
 import 'source_operation.dart';
+import 'bounded_http.dart';
 
 /// Public, documented search API. No account, cookies or local helper needed.
 /// https://knaben.org/api/v1/
@@ -27,12 +28,8 @@ class PublicMusicCatalog {
     SourceOperation? operation,
   }) async {
     operation?.check();
-    final request =
-        http.AbortableRequest(
-            'POST',
-            Uri.parse(endpoint),
-            abortTrigger: operation?.whenCancelled,
-          )
+    http.BaseRequest request(Future<void> abort) =>
+        http.AbortableRequest('POST', Uri.parse(endpoint), abortTrigger: abort)
           ..headers['content-type'] = 'application/json; charset=utf-8'
           ..headers['accept'] = 'application/json'
           ..body = jsonEncode({
@@ -50,9 +47,12 @@ class PublicMusicCatalog {
             'hide_xxx': true,
           });
     try {
-      final pending = client.send(request).then(http.Response.fromStream);
-      final response = await (operation?.wait(pending) ?? pending).timeout(
-        const Duration(seconds: 20),
+      final response = await sendBounded(
+        client,
+        request,
+        maxBytes: 4 * 1024 * 1024,
+        timeout: const Duration(seconds: 20),
+        operation: operation,
       );
       operation?.check();
       if (response.statusCode != 200) {

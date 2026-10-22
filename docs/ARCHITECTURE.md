@@ -1,5 +1,19 @@
 # Mumpa architecture
 
+## Resource ownership and bounded I/O — 2026-10-22
+
+`bounded_http.dart` owns each buffered request's byte budget, total deadline,
+abort signal and body subscription. It preserves shared clients for other
+requests. `SourceOperation` exposes removable cancellation callbacks so settled
+awaits do not remain attached to a long-lived scope. Audio file writers await
+disk-buffer progress. Untrusted track IDs are mapped to safe download names.
+
+Application bootstrap releases partially acquired resources in reverse order
+and transfers ownership to AppController after composition. Browser shutdown
+waits for late creation and releases partial native resources; artwork metainfo
+uses a bounded LRU. Lyrics writes are serialized and guard user edits against
+late remote responses. Evidence and limits: [review](SECURITY_REVIEW.md).
+
 ## Audio preferences and English interface — 2026-10-20
 
 `AudioPreferences` reads bounded, backward-compatible settings: six EQ bands

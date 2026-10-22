@@ -288,6 +288,7 @@ class LanTransferClient {
               throw const FormatException('Размер файла не совпал.');
             }
             sink.add(chunk);
+            await sink.flush();
           }
         } finally {
           await sink.close();

@@ -29,6 +29,7 @@ Future<AppController> createApplication({
   bool demo = false,
   bool catalogEnabled = true,
   bool desktopIntegration = false,
+  AudioBackend Function()? audioBackendFactory,
 }) async {
   ApplicationProfile? profile;
   if (dataDirectory == null && Platform.isWindows) {
@@ -50,6 +51,7 @@ Future<AppController> createApplication({
       catalogEnabled: catalogEnabled,
       desktopIntegration: desktopIntegration,
       profileClose: profile?.close,
+      audioBackendFactory: audioBackendFactory,
     );
   } catch (_) {
     await profile?.close();
@@ -63,120 +65,152 @@ Future<AppController> _createApplication({
   required bool catalogEnabled,
   required bool desktopIntegration,
   Future<void> Function()? profileClose,
+  AudioBackend Function()? audioBackendFactory,
 }) async {
-  final root =
-      dataDirectory ??
-      Directory(p.join((await getApplicationSupportDirectory()).path, 'Mumpa'));
-  final library = LibraryRepository(root);
-  await library.load();
-  final identified = library.tracks
-      .where(
-        (track) =>
-            track.artist == 'Неизвестный исполнитель' &&
-            inferredReleaseArtist(track.album) != null,
-      )
-      .map(
-        (track) => track.copyWith(artist: inferredReleaseArtist(track.album)),
-      )
-      .toList();
-  if (identified.isNotEmpty) await library.upsert(identified);
-  // A stable executable identity prevents repeated Windows Firewall prompts
-  // when tests use isolated library/state folders.
-  final support = await getApplicationSupportDirectory();
-  final runtime = Directory(
-    p.join(
-      Platform.isWindows
-          ? ApplicationProfile.windowsRoot(
-              Platform.environment['USERPROFILE'] ?? '',
-            ).path
-          : p.join(support.path, 'Mumpa'),
-      'runtime',
-    ),
-  );
-  final engine = TorrentEngine(
-    root,
-    binaryDirectory: runtime,
-    networkInterface: () => library.settings['torrentInterface'] as String?,
-  );
-  final torrents = TorrentService(
-    sources: Directory(p.join(root.path, 'torrents')),
-    endpoint: () async {
-      final remote = library.settings['serverUrl'] as String? ?? '';
-      return remote.isEmpty ? engine.start() : remote;
-    },
-  );
-  if (demo && library.settings['demoInitialized'] != true) {
-    final tracks = <Track>[];
-    for (final (i, name) in [
-      '01 - First light.wav',
-      '02 - Slow orbit.wav',
-      '03 - After hours.wav',
-    ].indexed) {
-      // The .bin suffix lets Android compress these unchanged PCM WAV assets.
-      // Installed demo files retain their original names and exact audio bytes.
-      final asset = await rootBundle.load('assets/demo/$name.bin');
-      final file = File(p.join(root.path, 'demo', name));
-      await file.parent.create(recursive: true);
-      await file.writeAsBytes(
-        asset.buffer.asUint8List(asset.offsetInBytes, asset.lengthInBytes),
-      );
-      tracks.add(
-        Track(
-          id: 'demo-$i',
-          title: ['First light', 'Slow orbit', 'After hours'][i],
-          artist: 'Mumpa Sessions',
-          album: 'First light · Демо',
-          source: TrackSource.demo,
-          localPath: file.path,
-          bytes: asset.lengthInBytes,
-          durationMs: 24000,
-          number: i + 1,
-          year: 2026,
-        ),
-      );
-    }
-    await library.upsert(tracks);
-    await library.setSetting('demoInitialized', true);
-  }
-  final playback = PlaybackController(
-    library: library,
-    torrents: torrents,
-    backend: NativeAudioBackend(),
-  );
-  await playback.initialize();
-  final downloads = DownloadRepository(library, torrents);
-  await downloads.restore();
-  final catalog = RuTrackerService(
-    cacheDirectory: Directory(p.join(root.path, 'catalog')),
-    baseUrl:
-        library.settings['rutrackerMirror'] as String? ??
-        'https://rutracker.org/',
-    transport: BrowserCatalogTransport(Directory(p.join(root.path, 'catalog'))),
-  );
-  final controller = AppController(
-    profileClose: profileClose,
-    library: library,
-    playback: playback,
-    downloads: downloads,
-    torrents: torrents,
-    engine: engine,
-    catalog: catalog,
-    jackett: JackettService(root, binaryDirectory: runtime),
-    flaresolverr: FlareSolverrService(root, binaryDirectory: runtime),
-  );
-  if (desktopIntegration && Platform.isWindows) {
-    final shell = WindowsPlayerService(
-      playback: playback,
-      onQuit: controller.shutdown,
+  final startupCleanup = <FutureOr<void> Function()>[];
+  try {
+    final root =
+        dataDirectory ??
+        Directory(
+          p.join((await getApplicationSupportDirectory()).path, 'Mumpa'),
+        );
+    final library = LibraryRepository(root);
+    startupCleanup.addAll([library.dispose, library.flush]);
+    await library.load();
+    final identified = library.tracks
+        .where(
+          (track) =>
+              track.artist == 'Неизвестный исполнитель' &&
+              inferredReleaseArtist(track.album) != null,
+        )
+        .map(
+          (track) => track.copyWith(artist: inferredReleaseArtist(track.album)),
+        )
+        .toList();
+    if (identified.isNotEmpty) await library.upsert(identified);
+    // A stable executable identity prevents repeated Windows Firewall prompts
+    // when tests use isolated library/state folders.
+    final support = await getApplicationSupportDirectory();
+    final runtime = Directory(
+      p.join(
+        Platform.isWindows
+            ? ApplicationProfile.windowsRoot(
+                Platform.environment['USERPROFILE'] ?? '',
+              ).path
+            : p.join(support.path, 'Mumpa'),
+        'runtime',
+      ),
     );
-    controller.windowsPlayer = shell;
-    await shell.initialize();
+    final engine = TorrentEngine(
+      root,
+      binaryDirectory: runtime,
+      networkInterface: () => library.settings['torrentInterface'] as String?,
+    );
+    startupCleanup.add(engine.stop);
+    final torrents = TorrentService(
+      sources: Directory(p.join(root.path, 'torrents')),
+      endpoint: () async {
+        final remote = library.settings['serverUrl'] as String? ?? '';
+        return remote.isEmpty ? engine.start() : remote;
+      },
+    );
+    startupCleanup.add(torrents.dispose);
+    if (demo && library.settings['demoInitialized'] != true) {
+      final tracks = <Track>[];
+      for (final (i, name) in [
+        '01 - First light.wav',
+        '02 - Slow orbit.wav',
+        '03 - After hours.wav',
+      ].indexed) {
+        // The .bin suffix lets Android compress these unchanged PCM WAV assets.
+        // Installed demo files retain their original names and exact audio bytes.
+        final asset = await rootBundle.load('assets/demo/$name.bin');
+        final file = File(p.join(root.path, 'demo', name));
+        await file.parent.create(recursive: true);
+        await file.writeAsBytes(
+          asset.buffer.asUint8List(asset.offsetInBytes, asset.lengthInBytes),
+        );
+        tracks.add(
+          Track(
+            id: 'demo-$i',
+            title: ['First light', 'Slow orbit', 'After hours'][i],
+            artist: 'Mumpa Sessions',
+            album: 'First light · Демо',
+            source: TrackSource.demo,
+            localPath: file.path,
+            bytes: asset.lengthInBytes,
+            durationMs: 24000,
+            number: i + 1,
+            year: 2026,
+          ),
+        );
+      }
+      await library.upsert(tracks);
+      await library.setSetting('demoInitialized', true);
+    }
+    final backend = (audioBackendFactory ?? NativeAudioBackend.new)();
+    startupCleanup.add(backend.close);
+    final playback = PlaybackController(
+      library: library,
+      torrents: torrents,
+      backend: backend,
+    );
+    startupCleanup.removeLast();
+    startupCleanup.add(playback.close);
+    await playback.initialize();
+    final downloads = DownloadRepository(library, torrents);
+    startupCleanup.add(downloads.close);
+    await downloads.restore();
+    final catalog = RuTrackerService(
+      cacheDirectory: Directory(p.join(root.path, 'catalog')),
+      baseUrl:
+          library.settings['rutrackerMirror'] as String? ??
+          'https://rutracker.org/',
+      transport: BrowserCatalogTransport(
+        Directory(p.join(root.path, 'catalog')),
+      ),
+    );
+    startupCleanup.add(catalog.dispose);
+    final controller = AppController(
+      profileClose: profileClose,
+      library: library,
+      playback: playback,
+      downloads: downloads,
+      torrents: torrents,
+      engine: engine,
+      catalog: catalog,
+      jackett: JackettService(root, binaryDirectory: runtime),
+      flaresolverr: FlareSolverrService(root, binaryDirectory: runtime),
+    );
+    // Ownership transfers to the composed controller only after construction.
+    startupCleanup
+      ..clear()
+      ..add(library.dispose)
+      ..add(controller.shutdown);
+    if (desktopIntegration && Platform.isWindows) {
+      final shell = WindowsPlayerService(
+        playback: playback,
+        onQuit: controller.shutdown,
+      );
+      controller.windowsPlayer = shell;
+      startupCleanup.add(shell.close);
+      await shell.initialize();
+    }
+    if (catalogEnabled) {
+      if (!controller.usesIndexer) unawaited(controller.initializeCatalog());
+      unawaited(controller.initializeSources());
+    }
+    return controller;
+  } catch (_) {
+    for (final cleanup in startupCleanup.reversed) {
+      try {
+        await cleanup();
+      } catch (_) {
+        debugPrint('Mumpa startup: resource cleanup failed; continuing.');
+      }
+    }
+    rethrow;
   }
-  if (catalogEnabled) {
-    if (!controller.usesIndexer) unawaited(controller.initializeCatalog());
-    unawaited(controller.initializeSources());
-  }
-  return controller;
 }
 
 List<String> _startupArguments = const [];

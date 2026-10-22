@@ -259,7 +259,19 @@ class DownloadRepository extends ChangeNotifier {
 
   String _path(Track track) {
     final ext = p.extension(track.torrentPath ?? '').toLowerCase();
-    return p.join(library.downloads.path, '${track.id}$ext');
+    // Portable IDs are data, not filesystem names (':' is an NTFS stream).
+    // Retain the legacy path for ordinary IDs so resumable downloads survive.
+    final safeId =
+        RegExp(r'^[a-zA-Z0-9_-]{1,128}$').hasMatch(track.id) &&
+        !RegExp(
+          r'^(con|prn|aux|nul|com[0-9]|lpt[0-9])$',
+          caseSensitive: false,
+        ).hasMatch(track.id);
+    final name = safeId ? track.id : 'track-${stableId(track.id)}';
+    final extension = audioExtensions.contains(ext.replaceFirst('.', ''))
+        ? ext
+        : '.bin';
+    return p.join(library.downloads.path, '$name$extension');
   }
 
   /// A playing track gets the next slot. Only when all slots are occupied does
@@ -508,7 +520,7 @@ class DownloadRepository extends ChangeNotifier {
       if (response.statusCode == 416 &&
           offset == job.track.bytes &&
           offset > 0) {
-        await response.drain<void>();
+        await response.listen((_) {}).cancel();
         // The file was completely written before the previous process stopped.
       } else {
         if (response.statusCode != 200 && response.statusCode != 206) {
@@ -568,6 +580,8 @@ class DownloadRepository extends ChangeNotifier {
             attempt.check();
           }
           sink.add(bytes);
+          await sink.flush();
+          attempt.check();
           job.received = next;
           if (DateTime.now().difference(lastNotify).inMilliseconds > 150) {
             lastNotify = DateTime.now();

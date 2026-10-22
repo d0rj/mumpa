@@ -76,7 +76,7 @@ class MagnetMetainfoCache {
           {301, 302, 303, 307, 308}.contains(response.statusCode) &&
           redirects < 3 &&
           response.headers['location'] != null) {
-        await response.stream.drain<void>();
+        await response.stream.listen((_) {}).cancel();
         final next = uri.resolve(response.headers['location']!);
         if (next.scheme != 'https' ||
             next.port != 443 ||
@@ -94,7 +94,7 @@ class MagnetMetainfoCache {
         );
       }
       if (response.statusCode != 200) {
-        await response.stream.drain<void>();
+        await response.stream.listen((_) {}).cancel();
         throw HttpException('Metainfo cache: HTTP ${response.statusCode}');
       }
       final bytes = BytesBuilder(copy: false);

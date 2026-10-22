@@ -21,22 +21,41 @@ class BrowserCatalogTransport implements CatalogTransport {
   Uri? _lastUri;
   _AccountBrowser? _browser;
   bool _disposed = false;
+  Future<void>? _disposing;
 
-  Future<void> _initialize() => _initializing ??= _create();
+  void _checkOpen() {
+    if (_disposed) throw const CatalogException('Каталог закрыт.');
+  }
+
+  Future<void> _initialize() {
+    _checkOpen();
+    return _initializing ??= _create().catchError((
+      Object error,
+      StackTrace stack,
+    ) async {
+      await _releaseWebView();
+      _initializing = null;
+      Error.throwWithStackTrace(error, stack);
+    });
+  }
+
   Future<void> _create() async {
     if (Platform.isWindows) {
       final version = await WebViewEnvironment.getAvailableVersion();
+      _checkOpen();
       if (version == null) {
         throw const CatalogException(
           'Для каталога нужен Microsoft Edge WebView2 Runtime. Установи его и перезапусти Mumpa.',
         );
       }
       await directory.create(recursive: true);
+      _checkOpen();
       _environment = await WebViewEnvironment.create(
         settings: WebViewEnvironmentSettings(
           userDataFolder: p.join(directory.path, 'browser'),
         ),
       );
+      _checkOpen();
     }
     final created = Completer<void>();
     _headless = HeadlessInAppWebView(
@@ -87,6 +106,7 @@ class BrowserCatalogTransport implements CatalogTransport {
     );
     await _headless!.run();
     await created.future.timeout(const Duration(seconds: 20));
+    _checkOpen();
   }
 
   @override
@@ -95,8 +115,16 @@ class BrowserCatalogTransport implements CatalogTransport {
       if (_disposed) throw const CatalogException('Каталог закрыт.');
       try {
         await _initialize();
+        _checkOpen();
         _lastUri = uri;
         final pending = Completer<String>();
+        // Native callbacks can finish while loadUrl is still awaiting its ack.
+        unawaited(
+          pending.future.then<void>(
+            (_) {},
+            onError: (Object _, StackTrace _) {},
+          ),
+        );
         _pending = pending;
         await _headless!.webViewController!.loadUrl(
           urlRequest: URLRequest(url: WebUri.uri(uri)),
@@ -113,6 +141,7 @@ class BrowserCatalogTransport implements CatalogTransport {
       } on CatalogException {
         rethrow;
       } catch (_) {
+        await _releaseWebView();
         _initializing = null;
         throw const CatalogException(
           'Не удалось запустить браузер каталога. Перезапусти Mumpa и проверь WebView2 на Windows.',
@@ -127,31 +156,36 @@ class BrowserCatalogTransport implements CatalogTransport {
   Future<void> connect(Uri uri) async {
     await _tail;
     await _initialize();
+    _checkOpen();
     final browser = _AccountBrowser(webViewEnvironment: _environment);
     _browser = browser;
     final target = uri.path.endsWith('login.php') ? uri : _lastUri ?? uri;
-    await browser.openUrlRequest(
-      urlRequest: URLRequest(url: WebUri.uri(target)),
-      settings: InAppBrowserClassSettings(
-        browserSettings: InAppBrowserSettings(
-          hideUrlBar: false,
-          toolbarTopFixedTitle: 'RuTracker · после входа закрой это окно',
+    try {
+      await browser.openUrlRequest(
+        urlRequest: URLRequest(url: WebUri.uri(target)),
+        settings: InAppBrowserClassSettings(
+          browserSettings: InAppBrowserSettings(
+            hideUrlBar: false,
+            toolbarTopFixedTitle: 'RuTracker · после входа закрой это окно',
+          ),
+          webViewSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            domStorageEnabled: true,
+            saveFormData: false,
+          ),
         ),
-        webViewSettings: InAppWebViewSettings(
-          javaScriptEnabled: true,
-          domStorageEnabled: true,
-          saveFormData: false,
-        ),
-      ),
-    );
-    await browser.closed.future;
-    if (identical(_browser, browser)) _browser = null;
+      );
+      await browser.closed.future;
+    } finally {
+      if (identical(_browser, browser)) _browser = null;
+    }
   }
 
   @override
   Future<void> logout(Uri origin) async {
     await _tail;
     await _initialize();
+    _checkOpen();
     await CookieManager.instance(
       webViewEnvironment: _environment,
     ).deleteCookies(url: WebUri.uri(origin));
@@ -161,17 +195,46 @@ class BrowserCatalogTransport implements CatalogTransport {
   }
 
   @override
-  Future<void> dispose() async {
+  Future<void> dispose() => _disposing ??= _dispose();
+
+  Future<void> _dispose() async {
     _disposed = true;
-    await _browser?.close();
-    await _headless?.dispose();
+    final pending = _pending;
+    if (pending != null && !pending.isCompleted) {
+      pending.completeError(const CatalogException('Каталог закрыт.'));
+    }
+    try {
+      await _initializing;
+    } catch (_) {
+      // Failed/late creation still owns resources until it has settled.
+    }
+    final browser = _browser;
+    _browser = null;
+    try {
+      await browser?.close();
+    } finally {
+      if (browser != null && !browser.closed.isCompleted) {
+        browser.closed.complete();
+      }
+      await _releaseWebView();
+    }
+  }
+
+  Future<void> _releaseWebView() async {
+    final headless = _headless;
+    _headless = null;
     final environment = _environment;
-    if (environment != null) {
-      // flutter_inappwebview_windows 0.6.0 attaches the dispose channel to the
-      // static factory id instead of the created environment id.
-      await MethodChannel(
-        'com.pichillilorenzo/flutter_webview_environment_${environment.id}',
-      ).invokeMethod<void>('dispose');
+    _environment = null;
+    try {
+      await headless?.dispose();
+    } finally {
+      if (environment != null) {
+        // flutter_inappwebview_windows 0.6.0 attaches the dispose channel to the
+        // static factory id instead of the created environment id.
+        await MethodChannel(
+          'com.pichillilorenzo/flutter_webview_environment_${environment.id}',
+        ).invokeMethod<void>('dispose');
+      }
     }
   }
 }

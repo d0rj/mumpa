@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../domain/music_metadata.dart';
 import 'deezer_artwork_repository.dart';
+import 'bounded_http.dart';
 import 'media_cache.dart';
 import 'source_operation.dart';
 
@@ -99,22 +100,13 @@ class MusicMetadataRepository {
           _checkGeneration(request.generation);
           request.operation?.check();
           _lastRequest = DateTime.now();
-          final pending = client
-              .send(
-                http.AbortableRequest(
-                    'GET',
-                    request.uri,
-                    abortTrigger: request.operation?.whenCancelled,
-                  )
-                  ..headers.addAll({
-                    'User-Agent': _agent,
-                    'Accept': 'application/json',
-                  }),
-              )
-              .then(http.Response.fromStream);
           request.result.complete(
-            await (request.operation?.wait(pending) ?? pending).timeout(
-              requestTimeout,
+            await getBounded(
+              client,
+              request.uri,
+              timeout: requestTimeout,
+              operation: request.operation,
+              headers: {'User-Agent': _agent, 'Accept': 'application/json'},
             ),
           );
         } catch (e, stack) {

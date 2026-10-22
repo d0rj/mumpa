@@ -135,6 +135,38 @@ void main() {
   });
 
   test(
+    'metainfo retains a bounded recent set instead of every visited torrent',
+    () async {
+      late Track first, last;
+      late String lastCover;
+      for (var i = 0; i < 33; i++) {
+        await save([
+          ('2000 - Album/01.flac', 100),
+          ('2000 - Album/cover.jpg', _image.length),
+        ], title: 'Band $i - Discography');
+        final track = tracks().first;
+        if (i == 0) first = track;
+        last = track;
+        final cover = selectTorrentArtwork(info, track)!;
+        lastCover = (await cache.put(
+          'torrent-cover:${info.hash}:${cover.index}',
+          _image,
+          extension: 'png',
+        ))!;
+        expect(await artwork.cachedCover(track), lastCover);
+      }
+      for (final track in [first, last]) {
+        await File(
+          '${sources.path}/${stableId(track.torrentHash!)}.torrent',
+        ).delete();
+      }
+      expect(await artwork.cachedCover(first), isNull);
+      expect(await artwork.cachedCover(last), lastCover);
+      expect(endpointCalls, 0);
+    },
+  );
+
+  test(
     'selection respects physical album, codec and CD wrappers; flat mixed is ambiguous',
     () async {
       await save([

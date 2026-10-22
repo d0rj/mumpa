@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
+import 'bounded_http.dart';
 
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
@@ -297,7 +298,7 @@ class FlareSolverrService {
               ? remaining
               : const Duration(seconds: 2);
           final response = await Future.any([
-            client.get(Uri.parse('$base/health')).timeout(timeout),
+            getBounded(client, Uri.parse('$base/health'), timeout: timeout),
             process.exited.then<http.Response>(
               (code) => throw _SolverExited(code),
             ),
@@ -352,17 +353,17 @@ class FlareSolverrService {
     final base = await start();
     final client = _clientFactory();
     try {
-      final response = await client
-          .post(
-            Uri.parse('$base/v1'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'cmd': 'request.get',
-              'url': url.toString(),
-              'maxTimeout': maxTimeout.inMilliseconds,
-            }),
-          )
-          .timeout(maxTimeout + const Duration(seconds: 10));
+      final response = await postBounded(
+        client,
+        Uri.parse('$base/v1'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'cmd': 'request.get',
+          'url': url.toString(),
+          'maxTimeout': maxTimeout.inMilliseconds,
+        }),
+        timeout: maxTimeout + const Duration(seconds: 10),
+      );
       if (response.statusCode != 200) {
         throw const HttpException('FlareSolverr не выполнил проверку.');
       }

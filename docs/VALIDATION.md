@@ -1643,3 +1643,10 @@ Player network errors now stop waiting and surface a readable error; pressing pa
 The architecture document records the proposed boundaries. The delivered files implement them as follows: `LibraryRepository` (JSON/import/tags/artwork), `TorrentEngine` + `TorrentService` (process/API/metainfo), `DownloadRepository` (complete-file offline transfers), `PlaybackController` + `NativeAudioBackend` + `SystemAudioHandler` (queue/decoder/system audio), `AppController` (view state/actions), and responsive Flutter widgets under `lib/ui`.
 
 Actual app support directories are `artwork/`, `torrents/`, `downloads/`, `engine/` and Windows `runtime/`, alongside `library.json`/`.bak`; names in the initial architecture's illustrative tree are not runtime paths.
+
+## Проверка ресурсов и безопасности — 2026-10-22
+
+617 unit/widget-тестов прошли, 7 opt-in пропущены; анализатор без замечаний.
+Windows/libmpv прошёл проверку ошибки запуска и 30 циклов воспроизведения/закрытия
+с GC, замерами памяти и количеством живых объектов. Четыре ошибки воспроизведены
+новыми тестами на исходном коде. [Отчёт и границы проверки](SECURITY_REVIEW.md).

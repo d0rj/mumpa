@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
+import 'bounded_http.dart';
 
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
@@ -312,7 +313,7 @@ class JackettService {
       if (process.code != null) throw await process.failure();
       try {
         final response = await Future.any([
-          client.get(uri).timeout(const Duration(seconds: 2)),
+          getBounded(client, uri, timeout: const Duration(seconds: 2)),
           process.exited.then<http.Response>(
             (_) async => throw await process.failure(),
           ),
@@ -352,9 +353,11 @@ class JackettService {
           'apikey': connection.apiKey,
         },
       );
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 10));
+      final response = await getBounded(
+        client,
+        uri,
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode != 200) {
         throw HttpException('Jackett не отвечает (${response.statusCode}).');
       }
@@ -405,7 +408,7 @@ class JackettService {
       final response = await client
           .send(login)
           .timeout(const Duration(seconds: 8));
-      await response.stream.drain<void>();
+      await response.stream.listen((_) {}).cancel();
       final cookie = RegExp(
         r'Jackett=[^;,\s]+',
       ).firstMatch(response.headers['set-cookie'] ?? '')?.group(0);
@@ -416,9 +419,12 @@ class JackettService {
       }
       final uri = Uri.parse('${connection.baseUrl}/api/v2.0/server/config');
       final headers = {'cookie': cookie, 'content-type': 'application/json'};
-      final current = await client
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 8));
+      final current = await getBounded(
+        client,
+        uri,
+        headers: headers,
+        timeout: const Duration(seconds: 8),
+      );
       if (current.statusCode != 200) {
         throw const HttpException('Не удалось прочитать настройки Jackett.');
       }
@@ -456,9 +462,13 @@ class JackettService {
           config['flaresolverr_maxtimeout'] == 60000) {
         return;
       }
-      final saved = await client
-          .post(uri, headers: headers, body: jsonEncode(updated))
-          .timeout(const Duration(seconds: 15));
+      final saved = await postBounded(
+        client,
+        uri,
+        headers: headers,
+        body: jsonEncode(updated),
+        timeout: const Duration(seconds: 15),
+      );
       if (saved.statusCode != 200) {
         throw const HttpException(
           'Не удалось настроить FlareSolverr в Jackett.',

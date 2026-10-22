@@ -2088,6 +2088,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    if (Platform.isAndroid) _deviceChannel.setMethodCallHandler(null);
     prefetch.close();
     updates.dispose();
     _searchDebounce?.cancel();

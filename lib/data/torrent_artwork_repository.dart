@@ -128,6 +128,8 @@ class TorrentArtworkRepository {
   final http.Client Function() clientFactory;
   final Duration requestTimeout;
   final Map<String, TorrentInfo> _infos = {};
+  int _infoFiles = 0;
+  static const _maxInfos = 32, _maxInfoFiles = 30000;
   final Map<String, Future<TorrentInfo?>> _reading = {};
   final Map<String, Future<String?>> _pending = {};
   final List<_ArtworkJob> _queued = [];
@@ -144,13 +146,26 @@ class TorrentArtworkRepository {
   }
 
   Future<TorrentInfo?> _info(String path, String hash) async {
-    final known = _infos[hash];
-    if (known != null) return known;
+    final known = _infos.remove(hash);
+    if (known != null) {
+      _infos[hash] = known;
+      return known;
+    }
     return _reading.putIfAbsent(
       hash,
       () => _readSavedMetainfo(path, hash)
           .then((info) {
-            if (info != null && !_disposed) _infos[hash] = info;
+            if (info != null &&
+                !_disposed &&
+                info.files.length <= _maxInfoFiles) {
+              while (_infos.isNotEmpty &&
+                  (_infos.length >= _maxInfos ||
+                      _infoFiles + info.files.length > _maxInfoFiles)) {
+                _infoFiles -= _infos.remove(_infos.keys.first)!.files.length;
+              }
+              _infos[hash] = info;
+              _infoFiles += info.files.length;
+            }
             return info;
           })
           .whenComplete(() {
@@ -392,6 +407,7 @@ class TorrentArtworkRepository {
     _disposed = true;
     cancelPending();
     _infos.clear();
+    _infoFiles = 0;
   }
 }
 
