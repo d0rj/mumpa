@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'test_artifacts.dart';
 import 'package:mumpa/data/library_repository.dart';
 import 'package:mumpa/data/torrent_service.dart';
 import 'package:mumpa/domain/models.dart';
@@ -46,7 +47,7 @@ Future<void> _until(
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   initializeAudioRuntime();
   testWidgets('first Play restores the saved decoder position after restart', (
     tester,
@@ -207,9 +208,13 @@ void main() {
         library.dispose();
         library = null;
       }
-      final output = File('test-output/session-resume-native.json');
+      final output = File('${testArtifacts().path}/session-resume-native.json');
       await output.parent.create(recursive: true);
       await output.writeAsString(jsonEncode(report));
+      binding.reportData = {
+        'platform': Platform.operatingSystem,
+        'sessions': report,
+      };
       debugPrint('SAVED_POSITION: ${jsonEncode(report)}');
     } finally {
       await controller?.close();

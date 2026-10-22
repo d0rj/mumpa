@@ -19,6 +19,7 @@ import 'package:mumpa/main.dart';
 import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/logic/audio_runtime.dart';
 import 'package:mumpa/logic/playback_controller.dart';
+import 'test_artifacts.dart';
 
 class _FailingBackend extends NativeAudioBackend {
   bool released = false;
@@ -34,7 +35,10 @@ class _FailingBackend extends NativeAudioBackend {
 
 Future<Map<String, Object>> _memory(int cycle) async {
   final service = await developer.Service.getInfo();
-  final address = service.serverUri;
+  const vmHost = String.fromEnvironment('MUMPA_VM_SERVICE_HOST');
+  final address = Platform.isAndroid && vmHost.isNotEmpty
+      ? service.serverUri?.replace(host: vmHost)
+      : service.serverUri;
   final client = http.Client();
   try {
     final heap = address == null
@@ -97,16 +101,20 @@ void main() {
         ),
       );
       try {
-        final failing = _FailingBackend();
-        await expectLater(
-          createApplication(
-            dataDirectory: Directory('${root.path}/failed-startup'),
-            catalogEnabled: false,
-            audioBackendFactory: () => failing,
-          ),
-          throwsStateError,
-        );
-        expect(failing.released, isTrue);
+        // Android's AudioService is process-wide. Its full system integration
+        // is exercised by local_tools_native_test; this loop owns only decoders.
+        if (Platform.isWindows) {
+          final failing = _FailingBackend();
+          await expectLater(
+            createApplication(
+              dataDirectory: Directory('${root.path}/failed-startup'),
+              catalogEnabled: false,
+              audioBackendFactory: () => failing,
+            ),
+            throwsStateError,
+          );
+          expect(failing.released, isTrue);
+        }
         final asset = await rootBundle.load(
           'assets/demo/01 - First light.wav.bin',
         );
@@ -167,9 +175,12 @@ void main() {
           await tester.pump(const Duration(milliseconds: 100));
           samples.add(await _memory(cycle));
         }
-        binding.reportData = {'resourceLifecycle': samples};
+        binding.reportData = {
+          'platform': Platform.operatingSystem,
+          'resourceLifecycle': samples,
+        };
         final evidence = File(
-          '${Directory.current.path}/test-output/audit-native-memory.json',
+          '${testArtifacts().path}/audit-native-memory.json',
         );
         await evidence.parent.create(recursive: true);
         await evidence.writeAsString(
@@ -186,6 +197,7 @@ void main() {
         await root.delete(recursive: true);
       }
     },
-    skip: !Platform.isWindows,
+    skip: !Platform.isWindows && !Platform.isAndroid,
+    timeout: const Timeout(Duration(minutes: 5)),
   );
 }

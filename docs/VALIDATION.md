@@ -1,4 +1,57 @@
-# Mumpa verification — 2026-10-22
+# Mumpa verification — 2026-10-23
+
+## Resource and security audit — 1.3.3+41
+
+- [Security review](SECURITY_REVIEW.md) records the network-body limits,
+  cancellation and startup/shutdown ownership fixes, safe download paths,
+  bounded metainfo cache, streamed file writes and lyrics race protection.
+  The Windows native lifecycle regression completed 30 decoder cycles.
+- Final Flutter unit/widget suite: **617 passed, 7 opt-in checks skipped**.
+  Analysis of `lib`, `test` and `integration_test` and integration-test format
+  checks pass. All **32** release-publisher checks pass.
+- A disposable Android API 35 x86_64 emulator additionally passes real local
+  playback, pause/resume, queue retention, Android media-browser callbacks,
+  device conditions and LAN transfer with audio SHA-256, metadata and pins.
+  Two native decoder restarts begin at their persisted position; paused seeks
+  are saved before shutdown and retain the selected file and queue.
+- Thirty Android decoder/application lifecycle cycles collect VM allocation
+  profiles after forced GC. From cycle 5 to 29, Dart heap is
+  **115492544 → 115878672 bytes** (+0.368 MiB), RSS is
+  **544325632 → 540073984 bytes** (-4.055 MiB). At the final sample there is
+  one AppController, PlaybackController, NativeAudioBackend, DownloadRepository,
+  LibraryRepository and Player; NativePlayer fluctuates between 1 and 3.
+  This debug/emulator measurement is a bounded regression check, not a claim
+  about release memory or physical ARM devices.
+- Native Android PCM output verifies relative bass gain **1.9833**, identical
+  mono channels, loud/quiet normalization ratio **0.9933** and clipping-harmonic
+  amplitude **0.00000119**. Crossfade overlaps two decoders; paused effect
+  changes retain the incoming decoder and its native timestamp
+  (**0.750 → 0.750 seconds**). The assertion reads libmpv's clock because
+  position-stream delivery can lag the pause command on an emulator. Resume
+  advances the same decoder, and the settings screenshot fits the phone view.
+- The Android original-content BitTorrent scenario passes native torrent
+  playback, seek and exact HTTP Range, automatic offline download with matching
+  SHA-256, managed-engine restart, offline playback with both engine and seed
+  stopped, and three peerless retries that release blocked server readers.
+  First audio starts in **3379 ms**, before the full file is fetched. Public
+  swarms and physical device/network conditions are outside this measurement.
+- Integration reports now return to the host through `integrationDriver`;
+  screenshots and private temporary evidence no longer depend on a writable
+  Android working directory. The lifecycle probe accepts
+  `--dart-define=MUMPA_VM_SERVICE_HOST=10.0.2.2` to reach the host-forwarded VM
+  service from Android. Windows keeps its direct address. Evidence is under
+  `test-output/android-audit/<test-name>/report.json`.
+
+Repeat a selected emulator test with its serial from `flutter devices`:
+
+```powershell
+$env:MUMPA_AUDIT_TEST = 'resource_lifecycle_test'
+flutter drive --driver integration_test/android_audit_driver.dart `
+  --target integration_test/resource_lifecycle_test.dart -d emulator-5580 `
+  --dart-define=MUMPA_VM_SERVICE_HOST=10.0.2.2
+```
+
+Use an isolated AVD/profile, and remove the temporary AVD after the run.
 
 ## Seek persistence and Windows accessibility — 1.3.2+40
 

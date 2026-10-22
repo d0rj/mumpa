@@ -23,6 +23,7 @@ import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/logic/playback_controller.dart';
 import 'package:mumpa/ui/app_screen.dart';
 import 'package:path/path.dart' as p;
+import 'test_artifacts.dart';
 
 Uint8List _wav({double amplitude = .1, int seconds = 10}) {
   const rate = 48000;
@@ -166,7 +167,7 @@ double _tone(List<double> values, int hz) {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
     'native PCM proves EQ, mono and normalization; crossfade preserves transport',
     (tester) async {
@@ -200,7 +201,15 @@ void main() {
         expect(eqRatio, greaterThan(1.7));
         final high = File(p.join(root.path, 'high.wav'));
         await high.writeAsBytes(_wav(amplitude: .3));
-        final boosted = await _renderPcm(root, 'boosted', high, AudioPreferences(equalizerEnabled: true, gains: const [12, 0, 0, 0, 0, 0]));
+        final boosted = await _renderPcm(
+          root,
+          'boosted',
+          high,
+          AudioPreferences(
+            equalizerEnabled: true,
+            gains: const [12, 0, 0, 0, 0, 0],
+          ),
+        );
         final clippingHarmonic = _tone(boosted, 180);
         expect(clippingHarmonic, lessThan(.001));
         final mono = await _renderPcm(
@@ -308,6 +317,11 @@ void main() {
         await player.setVolume(0);
         await tester.pump(const Duration(milliseconds: 150));
         final pausedAt = player.position;
+        final pausedNative = selectedPlayer.platform as NativePlayer;
+        expect(await pausedNative.getProperty('pause'), 'yes');
+        final nativePausedAt = double.parse(
+          await pausedNative.getProperty('time-pos'),
+        );
         expect(backend.transitioning, isFalse);
         await player.setAudioSetting('equalizerEnabled', true);
         await player.setAudioSetting(
@@ -317,10 +331,19 @@ void main() {
         await player.setAudioSetting('monoAudio', true);
         await player.setAudioSetting('normalizeVolume', true);
         expect(backend.player, same(selectedPlayer));
-        expect(
-          (player.position - pausedAt).inMilliseconds.abs(),
-          lessThan(150),
+        // Position stream events can still carry a pre-pause timestamp. Read
+        // the decoder clock directly to distinguish that delay from a seek.
+        final nativeAfterEffects = double.parse(
+          await pausedNative.getProperty('time-pos'),
         );
+        expect((nativeAfterEffects - nativePausedAt).abs(), lessThan(.15));
+        expect(await pausedNative.getProperty('pause'), 'yes');
+        report['pausedEffects'] = {
+          'nativeBeforeSeconds': nativePausedAt,
+          'nativeAfterSeconds': nativeAfterEffects,
+          'controllerBeforeMs': pausedAt.inMilliseconds,
+          'controllerAfterMs': player.position.inMilliseconds,
+        };
         expect(player.index, 1);
         expect(player.playing, isFalse);
         await player.play();
@@ -349,7 +372,7 @@ void main() {
                     as RenderRepaintBoundary)
                 .toImage(pixelRatio: 1);
         final png = await image.toByteData(format: ui.ImageByteFormat.png);
-        final output = Directory('test-output')..createSync();
+        final output = testArtifacts()..createSync(recursive: true);
         await File(
           p.join(output.path, 'audio-settings-en.png'),
         ).writeAsBytes(png!.buffer.asUint8List());
@@ -362,6 +385,13 @@ void main() {
         await File(
           p.join(output.path, 'audio-settings-native.json'),
         ).writeAsString(const JsonEncoder.withIndent('  ').convert(report));
+        binding.reportData = {
+          'platform': Platform.operatingSystem,
+          ...report,
+          'artifacts': {
+            'audio-settings-en.png': base64Encode(png.buffer.asUint8List()),
+          },
+        };
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         if (app != null) {
