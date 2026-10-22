@@ -730,7 +730,11 @@ class _MissingFilesState extends State<_MissingFiles> {
         }
       });
     }
-    if (mounted) setState(() => missing = _scan());
+    if (mounted) {
+      setState(() {
+        missing = _scan();
+      });
+    }
   }
 
   @override
@@ -761,7 +765,11 @@ class _MissingFilesState extends State<_MissingFiles> {
                   trailing: const Icon(Icons.folder_open),
                   onTap: () async {
                     await relinkTrackFile(widget.app, track);
-                    if (mounted) setState(() => missing = _scan());
+                    if (mounted) {
+                      setState(() {
+                        missing = _scan();
+                      });
+                    }
                   },
                 ),
             ],

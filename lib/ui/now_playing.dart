@@ -494,11 +494,13 @@ class _NowPlayingVolume extends StatelessWidget {
     ),
     child: Semantics(
       label: tr("Громкость"),
-      child: Slider(
-        key: const ValueKey('now-playing-volume'),
-        value: player.volume.clamp(0, 1),
-        semanticFormatterCallback: (value) => '${(value * 100).round()}%',
-        onChanged: player.setVolume,
+      child: AccessibleSlider(
+        child: Slider(
+          key: const ValueKey('now-playing-volume'),
+          value: player.volume.clamp(0, 1),
+          semanticFormatterCallback: (value) => '${(value * 100).round()}%',
+          onChanged: player.setVolume,
+        ),
       ),
     ),
   );

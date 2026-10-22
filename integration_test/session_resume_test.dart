@@ -160,6 +160,34 @@ void main() {
         expect(persisted['order'], session['order']);
         expect(persisted['unshuffledOrder'], session['unshuffledOrder']);
         expect(library.trackPlayCount('selected-version'), cycle);
+        // Read the actual file before Close can hide an early, stale snapshot.
+        final resumeAt = controller.position;
+        await controller.seek(const Duration(milliseconds: 11250));
+        await library.flush();
+        final afterBack =
+            jsonDecode(
+                  await File(
+                    '${library.root.path}/library.json',
+                  ).readAsString(),
+                )
+                as Map;
+        expect(
+          afterBack['settings']['playback']['position'],
+          closeTo(11250, 250),
+        );
+        await controller.seek(resumeAt);
+        await library.flush();
+        final afterForward =
+            jsonDecode(
+                  await File(
+                    '${library.root.path}/library.json',
+                  ).readAsString(),
+                )
+                as Map;
+        expect(
+          afterForward['settings']['playback']['position'],
+          closeTo(resumeAt.inMilliseconds, 250),
+        );
         report.add({
           'restart': cycle,
           'savedMs': saved,
@@ -167,6 +195,10 @@ void main() {
           'persistedMs': persisted['position'],
           'queue': controller.queueEntryKeys,
           'pauseResumePreserved': true,
+          'pausedSeekSavedBeforeCloseMs':
+              afterBack['settings']['playback']['position'],
+          'forwardSeekSavedBeforeCloseMs':
+              afterForward['settings']['playback']['position'],
         });
         audio.removeListener(observe);
         await controller.close();

@@ -1,5 +1,37 @@
 # Mumpa verification — 2026-10-22
 
+## Seek persistence and Windows accessibility — 1.3.2+40
+
+- A paused native seek can acknowledge before its new timeline arrives. The
+  controller now retains the requested position for display and session writers
+  until the decoder publishes it. Seeking a restored, unopened track is also
+  persisted immediately. Older seek acknowledgements cannot overwrite a newer
+  seek or replacement queue; failed seeks release the pending position, volume
+  notifications cannot confirm it, and requested positions stay in bounds.
+- The Windows/libmpv restart regression additionally reads `library.json`
+  immediately after backward and forward paused seeks, before closing the
+  controller. Both restart cycles retain the queue, selected file and mono DSP.
+- Material sliders use a local overlay boundary to avoid Flutter 3.44's orphan
+  semantics nodes during route/dialog changes (Flutter issue 190357). A wire
+  semantics regression reproduced an unreachable node with the original slider
+  and verifies that every updated node remains reachable with the wrapper.
+  Slider callbacks, keyboard controls and native accessibility remain enabled.
+- Ordinary debug startup and both missing-file refresh paths no longer return
+  Futures from `setState` callbacks. The file-repair widget regressions exercise
+  manual selection and folder confirmation, assert that repaired entries vanish,
+  and retain their IDs, favorites and playlist references.
+- Full Flutter suite: **608 passed, 7 opt-in checks skipped**; static analysis
+  reports no issues. The native restart test also passes independently.
+- A normal Windows UI session on an isolated profile manually reassigned a
+  missing WAV, enabled automatic eviction with a 64 MiB quota, and downloaded
+  an 8 MiB file. Only the old 40 MiB automatic copy was evicted; pinned, liked
+  and manual copies retained their SHA-256 hashes. The download's hash matched
+  the controlled loopback HTTP source. This check does not use a public swarm.
+- Evidence: `test-output/remaining-fixes-1.3.2/` contains the full-suite,
+  analyzer, native-session and UI reports. Installed-profile preservation and
+  Windows-to-Android emulator checks are recorded there separately. A second
+  physical device was unavailable; physical Wi-Fi transfer remains unverified.
+
 ## Saved-position restoration — 1.3.1+39
 
 - A real Windows/libmpv regression reproduced the first-Play failure: the

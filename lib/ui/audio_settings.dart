@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../domain/audio_preferences.dart';
 import '../logic/app_controller.dart';
 import 'theme.dart';
+import 'accessible_slider.dart';
 
 class AudioSettings extends StatelessWidget {
   const AudioSettings({super.key, required this.app});
@@ -74,20 +75,22 @@ class AudioSettings extends StatelessWidget {
                       Expanded(
                         child: RotatedBox(
                           quarterTurns: 3,
-                          child: Slider(
-                            key: ValueKey('equalizer-band-$i'),
-                            min: -12,
-                            max: 12,
-                            divisions: 24,
-                            value: prefs.gains[i],
-                            label: '${prefs.gains[i].round()} dB',
-                            onChanged: prefs.equalizerEnabled
-                                ? (v) {
-                                    final gains = prefs.gains.toList();
-                                    gains[i] = v;
-                                    _set('equalizerGains', gains);
-                                  }
-                                : null,
+                          child: AccessibleSlider(
+                            child: Slider(
+                              key: ValueKey('equalizer-band-$i'),
+                              min: -12,
+                              max: 12,
+                              divisions: 24,
+                              value: prefs.gains[i],
+                              label: '${prefs.gains[i].round()} dB',
+                              onChanged: prefs.equalizerEnabled
+                                  ? (v) {
+                                      final gains = prefs.gains.toList();
+                                      gains[i] = v;
+                                      _set('equalizerGains', gains);
+                                    }
+                                  : null,
+                            ),
                           ),
                         ),
                       ),
@@ -122,14 +125,16 @@ class AudioSettings extends StatelessWidget {
         ),
         if (crossfade) ...[
           Text(tr("Длительность перехода: {0} с", [seconds.round()])),
-          Slider(
-            key: const ValueKey('crossfade-duration'),
-            min: 1,
-            max: 12,
-            divisions: 11,
-            value: seconds,
-            label: tr("{0} с", [seconds.round()]),
-            onChanged: (v) => _set('crossfadeSeconds', v),
+          AccessibleSlider(
+            child: Slider(
+              key: const ValueKey('crossfade-duration'),
+              min: 1,
+              max: 12,
+              divisions: 11,
+              value: seconds,
+              label: tr("{0} с", [seconds.round()]),
+              onChanged: (v) => _set('crossfadeSeconds', v),
+            ),
           ),
         ],
         Text(

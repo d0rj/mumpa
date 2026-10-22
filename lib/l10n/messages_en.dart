@@ -334,8 +334,8 @@ const englishMessages = <String, String>{
   'Крестик скрывает Mumpa в трее, и музыка продолжает играть. Нажми значок в трее, чтобы вернуть окно. Кнопки на колонках и под превью на панели задач управляют плеером.':
       'Closing the window hides Mumpa in the system tray and keeps music playing. Click the tray icon to restore it. Speaker buttons and taskbar preview controls operate the player.',
   'ЛОКАЛЬНЫЙ ФАЙЛ': 'LOCAL FILE',
-  'Лайкнутые и скачанные треки не удаляются автоматически или при удалении альбома. Офлайн-копию можно удалить только вручную с подтверждением. Лимит места останавливает новые загрузки, сохраняя существующие файлы.':
-      'Liked and downloaded tracks are kept when an album is removed. Offline copies can only be deleted manually with confirmation. The storage limit stops new downloads and preserves existing files.',
+  'Закреплённое, избранное и ручные загрузки сохраняются. Если включено освобождение автоматического кеша, старые автозагрузки могут удаляться при нехватке места. Если места всё ещё недостаточно, новые загрузки останавливаются.':
+      'Pinned items, favorites and manual downloads are preserved. When automatic cache eviction is enabled, old automatic downloads may be removed to free space. New downloads stop if there is still not enough space.',
   'Лайкнутые и скачанные треки, избранные альбомы и треки избранных плейлистов останутся в библиотеке. Исходные музыкальные файлы сохранятся.':
       'Liked and downloaded tracks, favorite albums and tracks from favorite playlists stay in your library. Original music files are preserved.',
   'Лимит кеша обложек и метаданных': 'Artwork and metadata cache limit',

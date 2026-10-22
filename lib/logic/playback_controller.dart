@@ -331,9 +331,16 @@ class PlaybackController extends ChangeNotifier {
   bool get buffering =>
       loading ||
       (_openedId == current?.id && current != null && backend.buffering);
-  Duration get position => _openedId == current?.id && current != null
-      ? backend.position
-      : _restorePosition ?? Duration.zero;
+  Duration get position {
+    final seeking = _pendingSeek;
+    if (seeking != null && seeking.request == _request && current != null) {
+      return seeking.position;
+    }
+    return _openedId == current?.id && current != null
+        ? backend.position
+        : _restorePosition ?? Duration.zero;
+  }
+
   Duration get duration =>
       _openedId == current?.id &&
           current != null &&
@@ -464,6 +471,9 @@ class PlaybackController extends ChangeNotifier {
   }
 
   Duration? _restorePosition;
+  ({int request, int intent, Duration position, Duration previous})?
+  _pendingSeek;
+  int _seekIntent = 0;
   String? _openedId;
   int? _countedListenRequest;
   Future<void> _decoderOpening = Future.value();
@@ -472,6 +482,15 @@ class PlaybackController extends ChangeNotifier {
   void _onBackend() {
     final track = current;
     final opened = track != null && _openedId == track.id;
+    final seeking = _pendingSeek;
+    if (seeking != null &&
+        (seeking.request != _request ||
+            opened &&
+                backend.position != seeking.previous &&
+                (backend.position - seeking.position).abs() <=
+                    const Duration(milliseconds: 250))) {
+      _pendingSeek = null;
+    }
     final active = opened && backend.playing && !backend.buffering && !loading;
     final listened = _listeningClock.sample(
       track?.id,
@@ -684,6 +703,14 @@ class PlaybackController extends ChangeNotifier {
         throw StateError(tr("Аудиофокус занят другим приложением."));
       }
       _initialPlaybackPosition = _restorePosition ?? Duration.zero;
+      if (_initialPlaybackPosition > Duration.zero) {
+        _pendingSeek = (
+          request: request,
+          intent: ++_seekIntent,
+          position: _initialPlaybackPosition,
+          previous: backend.position,
+        );
+      }
       awaitingAudio = false;
       final opening = backend.open(
         uri,
@@ -700,6 +727,12 @@ class PlaybackController extends ChangeNotifier {
       // The saved session start itself must be applied by the load, not seek.
       if (pendingSeek != null && pendingSeek != _initialPlaybackPosition) {
         _initialPlaybackPosition = pendingSeek;
+        _pendingSeek = (
+          request: request,
+          intent: ++_seekIntent,
+          position: pendingSeek,
+          previous: backend.position,
+        );
         await connection
             .wait(backend.seek(pendingSeek))
             .timeout(decoderStartupTimeout);
@@ -837,14 +870,37 @@ class PlaybackController extends ChangeNotifier {
 
   Future<void> seek(Duration value) async {
     final request = _request;
+    final intent = ++_seekIntent;
     await _transitions.cancel();
-    if (_closed || request != _request) return;
+    if (_closed || request != _request || intent != _seekIntent) return;
+    if (value < Duration.zero) value = Duration.zero;
+    if (duration > Duration.zero && value > duration) value = duration;
     if (_openedId == null) {
       _restorePosition = value;
+      _pendingSeek = null;
       notifyListeners();
+      await saveSession();
       return;
     }
-    await backend.seek(value);
+    // Native acknowledgement can precede the position event. Keep the accepted
+    // intent for the UI and all session writers until that event arrives.
+    _pendingSeek = (
+      request: request,
+      intent: intent,
+      position: value,
+      previous: backend.position,
+    );
+    notifyListeners();
+    try {
+      await backend.seek(value);
+    } catch (_) {
+      if (_pendingSeek?.intent == intent) {
+        _pendingSeek = null;
+        notifyListeners();
+      }
+      rethrow;
+    }
+    if (_closed || request != _request || intent != _seekIntent) return;
     await saveSession();
   }
 

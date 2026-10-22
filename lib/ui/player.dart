@@ -11,6 +11,7 @@ import '../logic/playback_controller.dart';
 import 'components.dart';
 import 'theme.dart';
 import 'lyrics_view.dart';
+import 'accessible_slider.dart';
 
 part 'now_playing.dart';
 
@@ -270,12 +271,14 @@ class PlayerBar extends StatelessWidget {
                     width: 152,
                     child: Semantics(
                       label: tr("Громкость"),
-                      child: Slider(
-                        key: const ValueKey('desktop-volume'),
-                        value: p.volume.clamp(0, 1),
-                        semanticFormatterCallback: (value) =>
-                            '${(value * 100).round()}%',
-                        onChanged: p.setVolume,
+                      child: AccessibleSlider(
+                        child: Slider(
+                          key: const ValueKey('desktop-volume'),
+                          value: p.volume.clamp(0, 1),
+                          semanticFormatterCallback: (value) =>
+                              '${(value * 100).round()}%',
+                          onChanged: p.setVolume,
+                        ),
                       ),
                     ),
                   ),
@@ -410,19 +413,21 @@ class _SeekBarState extends State<_SeekBar> {
             enabledThumbRadius: widget.expanded ? 7 : 5,
           ),
         ),
-        child: Slider(
-          key: widget.expanded ? const ValueKey('now-playing-seek') : null,
-          value: max > 0 ? value.clamp(0, max) : 0,
-          max: max > 0 ? max : 1,
-          semanticFormatterCallback: (value) =>
-              formatTime(Duration(milliseconds: value.toInt())),
-          onChanged: max > 0 ? (value) => setState(() => drag = value) : null,
-          onChangeEnd: max > 0
-              ? (value) {
-                  p.seek(Duration(milliseconds: value.toInt()));
-                  setState(() => drag = null);
-                }
-              : null,
+        child: AccessibleSlider(
+          child: Slider(
+            key: widget.expanded ? const ValueKey('now-playing-seek') : null,
+            value: max > 0 ? value.clamp(0, max) : 0,
+            max: max > 0 ? max : 1,
+            semanticFormatterCallback: (value) =>
+                formatTime(Duration(milliseconds: value.toInt())),
+            onChanged: max > 0 ? (value) => setState(() => drag = value) : null,
+            onChangeEnd: max > 0
+                ? (value) {
+                    p.seek(Duration(milliseconds: value.toInt()));
+                    setState(() => drag = null);
+                  }
+                : null,
+          ),
         ),
       ),
     );

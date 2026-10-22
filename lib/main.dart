@@ -217,7 +217,11 @@ class _BootstrapState extends State<_Bootstrap> {
     super.initState();
     // Present a real first frame before native decoder loading or library work.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => future = _startApplication());
+      if (mounted) {
+        setState(() {
+          future = _startApplication();
+        });
+      }
     });
   }
 
@@ -293,8 +297,9 @@ class _BootstrapState extends State<_Bootstrap> {
                     ),
                     const SizedBox(height: 20),
                     FilledButton(
-                      onPressed: () =>
-                          setState(() => future = _startApplication()),
+                      onPressed: () => setState(() {
+                        future = _startApplication();
+                      }),
                       child: const Text('Попробовать снова'),
                     ),
                   ] else

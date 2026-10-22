@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mumpa/data/library_repository.dart';
@@ -11,7 +12,57 @@ import 'package:mumpa/logic/playback_controller.dart';
 import 'package:mumpa/ui/local_tools.dart';
 import 'package:mumpa/ui/lan_transfer_view.dart';
 import 'package:mumpa/ui/lyrics_view.dart';
+import 'package:path/path.dart' as p;
 import 'support.dart';
+
+final class _MovedFile extends PlatformFile {
+  _MovedFile(this.file);
+  final File file;
+  @override
+  String get name => file.uri.pathSegments.last;
+  @override
+  Uri get uri => file.uri;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _MovedFilePicker extends FilePickerPlatform {
+  _MovedFilePicker(this.file);
+  final File file;
+  @override
+  Future<PlatformFile?> pickFile({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    DarwinOptions darwinOptions = const DarwinOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => _MovedFile(file);
+  @override
+  Future<String?> getDirectoryPath({
+    String? dialogTitle,
+    String? initialDirectory,
+    AndroidOptions androidOptions = const AndroidOptions(),
+    WindowsOptions windowsOptions = const WindowsOptions(),
+    LinuxOptions linuxOptions = const LinuxOptions(),
+    WebOptions webOptions = const WebOptions(),
+  }) async => file.parent.path;
+}
+
+Future<void> settleFileIo(WidgetTester tester, bool Function() ready) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 10));
+  while (!ready() && DateTime.now().isBefore(deadline)) {
+    await tester.runAsync(
+      () async => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
 
 Future<AppController> fixture() async {
   final root = await Directory.systemTemp.createTemp('mumpa-local-ui-');
@@ -46,6 +97,92 @@ Future<AppController> fixture() async {
 }
 
 void main() {
+  for (final folder in [false, true]) {
+    testWidgets(
+      'missing file list refreshes after ${folder ? 'folder' : 'manual'} repair',
+      (tester) async {
+        final app = (await tester.runAsync(fixture))!;
+        final originalPicker = FilePickerPlatform.instance;
+        try {
+          final moved = (await tester.runAsync(() async {
+            final old = File(app.library.tracks.single.localPath!);
+            final destination = File('${app.library.root.path}/moved/a.wav');
+            await destination.parent.create();
+            await old.rename(destination.path);
+            await app.library.toggleLike('a');
+            final list = await app.library.createPlaylist('Keep references');
+            await app.library.addToPlaylist(list.id, ['a']);
+            return destination;
+          }))!;
+          FilePickerPlatform.instance = _MovedFilePicker(moved);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(body: LocalTools(app: app)),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            await tester.ensureVisible(find.text('Найти отсутствующие файлы'));
+            await tester.tap(find.text('Найти отсутствующие файлы'));
+          });
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.runAsync(
+            () async => Future<void>.delayed(const Duration(milliseconds: 30)),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Song'), findsOneWidget);
+          await tester.runAsync(() async {
+            await tester.tap(find.text(folder ? 'Искать в папке' : 'Song'));
+            await Future<void>.delayed(Duration.zero);
+            final deadline = DateTime.now().add(const Duration(seconds: 10));
+            while (app.busy != null && DateTime.now().isBefore(deadline)) {
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+          });
+          await tester.pumpAndSettle();
+          expect(app.error, isNull);
+          if (folder) {
+            await settleFileIo(
+              tester,
+              () => find.text('Найдено совпадений: 1').evaluate().isNotEmpty,
+            );
+            expect(find.text('Найдено совпадений: 1'), findsOneWidget);
+            await tester.runAsync(() async {
+              await tester.tap(find.text('Восстановить пути'));
+              await Future<void>.delayed(Duration.zero);
+              final deadline = DateTime.now().add(const Duration(seconds: 10));
+              while (app.busy != null && DateTime.now().isBefore(deadline)) {
+                await Future<void>.delayed(const Duration(milliseconds: 10));
+              }
+            });
+            await tester.pumpAndSettle();
+          }
+          await tester.runAsync(() => app.library.flush());
+          await tester.pumpAndSettle();
+          await settleFileIo(
+            tester,
+            () => find.text('Song').evaluate().isEmpty,
+          );
+          expect(tester.takeException(), isNull);
+          expect(find.text('Song'), findsNothing);
+          expect(
+            p.normalize(app.library.byId('a')!.localPath!),
+            p.normalize(moved.path),
+          );
+          expect(app.library.isTrackLiked('a'), isTrue);
+          expect(app.library.playlists.single.trackIds, ['a']);
+        } finally {
+          FilePickerPlatform.instance = originalPicker;
+          await tester.pumpWidget(const SizedBox());
+          await tester.runAsync(() async {
+            await app.shutdown();
+            app.library.dispose();
+            await app.library.root.delete(recursive: true);
+          });
+        }
+      },
+    );
+  }
   for (final width in [320.0, 1200.0]) {
     testWidgets(
       'new tools, statistics and LAN form fit $width px and smart rules save',
