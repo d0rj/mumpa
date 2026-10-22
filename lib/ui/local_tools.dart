@@ -23,10 +23,14 @@ Future<void> showLocalTools(BuildContext context, AppController app) =>
     );
 
 class LocalTools extends StatelessWidget {
-  const LocalTools({super.key, required this.app});
+  const LocalTools({super.key, required this.app, this.embedded = false});
   final AppController app;
+  final bool embedded;
   @override
   Widget build(BuildContext context) => ListView(
+    shrinkWrap: embedded,
+    primary: embedded ? false : null,
+    physics: embedded ? const NeverScrollableScrollPhysics() : null,
     padding: const EdgeInsets.all(20),
     children: [
       Text(
@@ -327,8 +331,13 @@ class _SmartEditorState extends State<_SmartEditor> {
 }
 
 class ListeningStatistics extends StatefulWidget {
-  const ListeningStatistics({super.key, required this.app});
+  const ListeningStatistics({
+    super.key,
+    required this.app,
+    this.embedded = false,
+  });
   final AppController app;
+  final bool embedded;
   @override
   State<ListeningStatistics> createState() => _ListeningStatisticsState();
 }
@@ -362,6 +371,9 @@ class _ListeningStatisticsState extends State<ListeningStatistics> {
         ),
       }.toList()..sort((a, b) => b.compareTo(a));
       return ListView(
+        shrinkWrap: widget.embedded,
+        primary: widget.embedded ? false : null,
+        physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
         padding: const EdgeInsets.all(20),
         children: [
           Text(

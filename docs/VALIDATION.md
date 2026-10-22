@@ -6,7 +6,7 @@
   cancellation and startup/shutdown ownership fixes, safe download paths,
   bounded metainfo cache, streamed file writes and lyrics race protection.
   The Windows native lifecycle regression completed 30 decoder cycles.
-- Final Flutter unit/widget suite: **617 passed, 7 opt-in checks skipped**.
+- Final Flutter unit/widget suite: **620 passed, 7 opt-in checks skipped**.
   Analysis of `lib`, `test` and `integration_test` and integration-test format
   checks pass. All **32** release-publisher checks pass.
 - A disposable Android API 35 x86_64 emulator additionally passes real local
@@ -35,6 +35,15 @@
   stopped, and three peerless retries that release blocked server readers.
   First audio starts in **3379 ms**, before the full file is fetched. Public
   swarms and physical device/network conditions are outside this measurement.
+- Manual testing of the signed APK exposed two additional phone UI defects.
+  Fixed-height nested lists swallowed a drag inside the transfer form and hid
+  its result below the viewport. Tools, statistics and transfer panels now let
+  the settings page own scrolling; standalone dialogs retain their own scroll.
+  A new pairing intent now notifies an already open settings page, refreshes
+  its link and cancels a preceding receive operation. An intent revision also
+  handles reopening the same QR link, while ordinary rebuilds keep manual edits.
+  Three new regressions first failed on the original source: two phone widths
+  (**320/411 px**) and replacement of the link in an open form.
 - Integration reports now return to the host through `integrationDriver`;
   screenshots and private temporary evidence no longer depend on a writable
   Android working directory. The lifecycle probe accepts

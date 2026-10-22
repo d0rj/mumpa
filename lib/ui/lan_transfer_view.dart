@@ -22,16 +22,17 @@ Future<void> showLanTransfer(BuildContext context, AppController app) =>
     );
 
 class LanTransferView extends StatefulWidget {
-  const LanTransferView({super.key, required this.app});
+  const LanTransferView({super.key, required this.app, this.embedded = false});
   final AppController app;
+  final bool embedded;
   @override
   State<LanTransferView> createState() => _LanTransferViewState();
 }
 
 class _LanTransferViewState extends State<LanTransferView> {
-  late final link = TextEditingController(
-    text: widget.app.pendingTransferLink ?? '',
-  );
+  late final TextEditingController link;
+  String? _pendingLink;
+  late int _pendingRevision;
   LanTransferServer? server;
   LanTransferClient? client;
   String selection = 'profile', status = '', host = '';
@@ -39,6 +40,33 @@ class _LanTransferViewState extends State<LanTransferView> {
   int generation = 0;
   Timer? expiry;
   List<String> hosts = [];
+  @override
+  void initState() {
+    super.initState();
+    _pendingLink = widget.app.pendingTransferLink;
+    _pendingRevision = widget.app.transferLinkRevision;
+    link = TextEditingController(text: _pendingLink ?? '');
+  }
+
+  @override
+  void didUpdateWidget(covariant LanTransferView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final pending = widget.app.pendingTransferLink;
+    final revision = widget.app.transferLinkRevision;
+    if (pending == _pendingLink && revision == _pendingRevision) return;
+    _pendingLink = pending;
+    _pendingRevision = revision;
+    if (pending == null) return;
+    // A second Android pairing intent replaces an open form and cancels the
+    // previous receive operation. Ordinary rebuilds preserve manual edits.
+    ++generation;
+    client?.close();
+    client = null;
+    busy = false;
+    status = '';
+    link.text = pending;
+  }
+
   @override
   void dispose() {
     ++generation;
@@ -199,6 +227,9 @@ class _LanTransferViewState extends State<LanTransferView> {
         );
   @override
   Widget build(BuildContext context) => ListView(
+    shrinkWrap: widget.embedded,
+    primary: widget.embedded ? false : null,
+    physics: widget.embedded ? const NeverScrollableScrollPhysics() : null,
     padding: const EdgeInsets.all(20),
     children: [
       Text(

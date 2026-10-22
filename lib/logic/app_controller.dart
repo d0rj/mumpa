@@ -136,8 +136,7 @@ class AppController extends ChangeNotifier {
     if (_disposed) return;
     final link = launch['transfer'];
     if (link is String && link.startsWith('mumpa-transfer:')) {
-      pendingTransferLink = link;
-      setSettingsSection('lanTransfer');
+      openTransferLink(link);
     }
     final id = launch['playlist'];
     if (id is String) {
@@ -492,6 +491,18 @@ class AppController extends ChangeNotifier {
   AppPage page = AppPage.home;
   String? settingsSection;
   String? pendingTransferLink;
+  int _transferLinkRevision = 0;
+  int get transferLinkRevision => _transferLinkRevision;
+
+  void openTransferLink(String link) {
+    pendingTransferLink = link;
+    ++_transferLinkRevision;
+    if (page == AppPage.settings && settingsSection == 'lanTransfer') {
+      notifyListeners();
+    } else {
+      setSettingsSection('lanTransfer');
+    }
+  }
 
   void setSettingsSection(String? value) {
     if (page == AppPage.settings && settingsSection == value) return;

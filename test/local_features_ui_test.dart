@@ -10,6 +10,7 @@ import 'package:mumpa/domain/models.dart';
 import 'package:mumpa/logic/app_controller.dart';
 import 'package:mumpa/logic/playback_controller.dart';
 import 'package:mumpa/ui/local_tools.dart';
+import 'package:mumpa/ui/app_screen.dart';
 import 'package:mumpa/ui/lan_transfer_view.dart';
 import 'package:mumpa/ui/lyrics_view.dart';
 import 'package:path/path.dart' as p;
@@ -97,6 +98,90 @@ Future<AppController> fixture() async {
 }
 
 void main() {
+  for (final width in [320.0, 411.0]) {
+    testWidgets('embedded settings scroll from the LAN form at $width px', (
+      tester,
+    ) async {
+      final app = (await tester.runAsync(fixture))!;
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 732);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      try {
+        app.setSettingsSection('lanTransfer');
+        await tester.pumpWidget(MumpaApp(controller: app));
+        await tester.pumpAndSettle();
+        final outer = tester.state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(CustomScrollView),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        final before = outer.position.pixels;
+        await tester.drag(
+          find.text('Создать QR-код передачи'),
+          const Offset(0, -300),
+        );
+        await tester.pumpAndSettle();
+        expect(outer.position.pixels, greaterThan(before + 30));
+        final accept = find.text('Проверить и принять');
+        await tester.ensureVisible(accept);
+        await tester.tap(accept);
+        await tester.pumpAndSettle();
+        final error = find.text(
+          'Нужна ссылка передачи Mumpa из локальной сети.',
+        );
+        await tester.ensureVisible(error);
+        await tester.pumpAndSettle();
+        expect(error.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        await tester.runAsync(() async {
+          await app.shutdown();
+          app.library.dispose();
+          await app.library.root.delete(recursive: true);
+        });
+      }
+    });
+  }
+  testWidgets('new pairing link replaces the open LAN form once', (
+    tester,
+  ) async {
+    final app = (await tester.runAsync(fixture))!;
+    const first = 'mumpa-transfer://192.168.1.2:1234/#first';
+    const second = 'mumpa-transfer://192.168.1.3:2345/#second';
+    final field = find.descendant(
+      of: find.byType(LanTransferView),
+      matching: find.byType(TextField),
+    );
+    try {
+      app.openTransferLink(first);
+      await tester.pumpWidget(MumpaApp(controller: app));
+      await tester.pumpAndSettle();
+      expect(find.text(first), findsOneWidget);
+      await tester.enterText(field, 'manual edit');
+      await tester.pumpWidget(MumpaApp(controller: app));
+      expect(find.text('manual edit'), findsOneWidget);
+      app.openTransferLink(second);
+      await tester.pumpAndSettle();
+      expect(find.text(second), findsOneWidget);
+      expect(find.text('manual edit'), findsNothing);
+      await tester.enterText(field, 'another manual edit');
+      app.openTransferLink(second);
+      await tester.pumpAndSettle();
+      expect(find.text(second), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(() async {
+        await app.shutdown();
+        app.library.dispose();
+        await app.library.root.delete(recursive: true);
+      });
+    }
+  });
   for (final folder in [false, true]) {
     testWidgets(
       'missing file list refreshes after ${folder ? 'folder' : 'manual'} repair',

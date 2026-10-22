@@ -352,14 +352,12 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       SectionTitle(tr(section.title), subtitle: tr(section.description)),
       _panel(switch (section) {
-        _SettingsSection.tools => [
-          SizedBox(height: 620, child: LocalTools(app: widget.app)),
-        ],
+        _SettingsSection.tools => [LocalTools(app: widget.app, embedded: true)],
         _SettingsSection.statistics => [
-          SizedBox(height: 650, child: ListeningStatistics(app: widget.app)),
+          ListeningStatistics(app: widget.app, embedded: true),
         ],
         _SettingsSection.lanTransfer => [
-          SizedBox(height: 700, child: LanTransferView(app: widget.app)),
+          LanTransferView(app: widget.app, embedded: true),
         ],
         _SettingsSection.playback => _playbackControls(),
         _SettingsSection.language => _languageControls(),
