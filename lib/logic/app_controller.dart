@@ -27,6 +27,7 @@ import '../data/torrent_artwork_repository.dart';
 import '../data/track_search_service.dart';
 import '../data/windows_player_service.dart';
 import '../domain/models.dart';
+import '../domain/music_share_link.dart';
 import '../domain/music_metadata.dart';
 import '../domain/collection_filter.dart';
 import '../domain/local_music_results.dart';
@@ -37,6 +38,7 @@ import 'queue_prefetch.dart';
 export '../domain/local_music_results.dart' show LocalMusicResults;
 
 part 'app_navigation.dart';
+part 'music_sharing.dart';
 
 enum AppPage {
   home,
@@ -114,6 +116,9 @@ class AppController extends ChangeNotifier {
     if (Platform.isAndroid) unawaited(_initializeDeviceLinks());
   }
   static const _deviceChannel = MethodChannel('app.mumpa/device');
+  Future<void> _musicLinkTail = Future.value();
+  bool _musicLinksInitialized = false;
+  SourceOperation? _musicLinkOperation;
   Future<void> _initializeDeviceLinks() async {
     _deviceChannel.setMethodCallHandler((call) async {
       if (call.method == 'launch' && call.arguments is Map) {
@@ -123,10 +128,14 @@ class AppController extends ChangeNotifier {
       }
     });
     try {
-      final launch = await _deviceChannel.invokeMapMethod<String, dynamic>(
-        'takeLaunch',
+      final launches = await _deviceChannel.invokeListMethod<dynamic>(
+        'takeLaunches',
       );
-      if (launch != null) await _handleDeviceLaunch(launch);
+      for (final launch in launches ?? []) {
+        if (launch is Map) {
+          await _handleDeviceLaunch(Map<String, dynamic>.from(launch));
+        }
+      }
     } on PlatformException catch (_) {
     } on MissingPluginException catch (_) {}
     playback.system?.publish();
@@ -134,6 +143,8 @@ class AppController extends ChangeNotifier {
 
   Future<void> _handleDeviceLaunch(Map<String, dynamic> launch) async {
     if (_disposed) return;
+    final music = launch['music'];
+    if (music is String) unawaited(openMusicLink(music));
     final link = launch['transfer'];
     if (link is String && link.startsWith('mumpa-transfer:')) {
       openTransferLink(link);
@@ -266,6 +277,11 @@ class AppController extends ChangeNotifier {
     // A failed save or service must not prevent the remaining resources from
     // being released, or leave the Windows quit handshake permanently blocked.
     prefetch.close();
+    _musicLinkOperation?.cancel();
+    if (_musicLinksInitialized) {
+      const MethodChannel('app.mumpa/links').setMethodCallHandler(null);
+      _musicLinksInitialized = false;
+    }
     await _shutdownStep('downloads', downloads.close);
     await _shutdownStep('playback', playback.close);
     await _shutdownStep('torrent engine', engine.stop);
@@ -1425,6 +1441,8 @@ class AppController extends ChangeNotifier {
         message = tr("Открытие альбома отменено.");
       } else if (e is HttpException) {
         error = e.message;
+      } else if (e is FormatException) {
+        error = trMessage(e.message.toString());
       } else if (e is TimeoutException) {
         error = tr(
           "Источник не ответил вовремя. Попробуй другую раздачу или повтори запрос.",
@@ -2100,6 +2118,11 @@ class AppController extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     if (Platform.isAndroid) _deviceChannel.setMethodCallHandler(null);
+    _musicLinkOperation?.cancel();
+    if (_musicLinksInitialized) {
+      const MethodChannel('app.mumpa/links').setMethodCallHandler(null);
+      _musicLinksInitialized = false;
+    }
     prefetch.close();
     updates.dispose();
     _searchDebounce?.cancel();

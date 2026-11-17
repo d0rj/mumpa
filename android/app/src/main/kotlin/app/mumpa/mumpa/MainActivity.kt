@@ -23,9 +23,12 @@ import java.security.MessageDigest
 
 class MainActivity : AudioServiceActivity() {
     private var deviceChannel: MethodChannel? = null
+    private var deviceLinksReady = false
+    private val pendingLaunches = ArrayDeque<Map<String, String>>()
     private fun launchData(): Map<String, String> {
         val values = mutableMapOf<String, String>()
         intent?.data?.let { if (it.scheme == "mumpa-transfer") values["transfer"] = it.toString() }
+        intent?.data?.let { if (it.scheme == "mumpa") values["music"] = it.toString() }
         intent?.getStringExtra("mumpaPlaylist")?.let { values["playlist"] = it }
         intent?.data = null
         intent?.removeExtra("mumpaPlaylist")
@@ -33,8 +36,14 @@ class MainActivity : AudioServiceActivity() {
     }
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (!deviceLinksReady) {
+            val previous = launchData()
+            if (previous.isNotEmpty() && pendingLaunches.size < 32) pendingLaunches.addLast(previous)
+        }
         setIntent(intent)
-        deviceChannel?.invokeMethod("launch", launchData())
+        val launch = launchData()
+        if (deviceLinksReady) deviceChannel?.invokeMethod("launch", launch)
+        else if (pendingLaunches.size < 32) pendingLaunches.addLast(launch)
     }
     companion object {
         init {
@@ -62,6 +71,22 @@ class MainActivity : AudioServiceActivity() {
                                 "charging" to (status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL)))
                         }
                         "takeLaunch" -> result.success(launchData())
+                        "takeLaunches" -> {
+                            val launches = pendingLaunches.toMutableList()
+                            pendingLaunches.clear()
+                            launches.add(launchData())
+                            deviceLinksReady = true
+                            result.success(launches)
+                        }
+                        "shareText" -> {
+                            val text = requireNotNull(call.argument<String>("text"))
+                            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                putExtra(Intent.EXTRA_SUBJECT, call.argument<String>("title") ?: "Mumpa")
+                            }, "Mumpa"))
+                            result.success(null)
+                        }
                         "diagnostics" -> {
                             val preferences = getSharedPreferences("mumpa-widget", Context.MODE_PRIVATE)
                             val shortcuts = if (Build.VERSION.SDK_INT >= 25) getSystemService(ShortcutManager::class.java).dynamicShortcuts.map { it.id } else emptyList<String>()

@@ -1,6 +1,24 @@
 import 'features_en.dart';
 
 const englishMessages = <String, String>{
+  'Поделиться': 'Share',
+  'Поделиться музыкой': 'Share music',
+  'Выбери раздачу': 'Choose a release',
+  'Ссылка откроет Mumpa и скачает выбранную музыку. Уже скачанные файлы откроются сразу.':
+      'The link opens Mumpa and downloads the selected music. Downloaded files open immediately.',
+  'Отправить': 'Send',
+  'Копировать ссылку': 'Copy link',
+  'Ссылка скопирована.': 'Link copied.',
+  'Открываем ссылку Mumpa…': 'Opening Mumpa link…',
+  'Уже скачано — открываем музыку.': 'Already downloaded — opening music.',
+  'Добавлено в загрузки: {0}': 'Added to downloads: {0}',
+  'mumpa://share/… или magnet:?xt=urn:btih:…':
+      'mumpa://share/… or magnet:?xt=urn:btih:…',
+  'Некорректная ссылка Mumpa.': 'Invalid Mumpa link.',
+  'Раздача не соответствует ссылке Mumpa.':
+      'The torrent does not match the Mumpa link.',
+  'В раздаче нет файлов из ссылки Mumpa.':
+      'The torrent does not contain the files from the Mumpa link.',
   ...featureMessages,
   'Проверь наличие новой версии.': 'Check for a new version.',
   'Для этого устройства нет пакета обновления.':

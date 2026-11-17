@@ -148,6 +148,25 @@ void main() {
     },
   );
   test(
+    'shared exact file downloads again after its completed cache was deleted',
+    () async {
+      downloads.enqueue([track], exact: true);
+      await until(() => downloads.jobs.single.state == DownloadState.complete);
+      final cached = library.byId(track.id)!;
+      await File(cached.cachedPath!).delete();
+      await library.upsert([
+        cached.copyWith(clearCache: true),
+      ], preserveCache: false);
+      downloads.enqueue([track], exact: true);
+      await until(() => downloads.jobs.single.state == DownloadState.complete);
+      expect(requests.length, 2);
+      expect(
+        await File(library.byId(track.id)!.cachedPath!).readAsBytes(),
+        bytes,
+      );
+    },
+  );
+  test(
     'untrusted IDs cannot escape downloads or name NTFS streams/devices',
     () async {
       for (final id in ['../escaped', 'x:stream', 'CON']) {

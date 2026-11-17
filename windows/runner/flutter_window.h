@@ -5,6 +5,10 @@
 #include <flutter/flutter_view_controller.h>
 
 #include <memory>
+#include <flutter/method_channel.h>
+#include <flutter/encodable_value.h>
+#include <vector>
+#include <string>
 
 #include "win32_window.h"
 #include "windows_player_bridge.h"
@@ -30,6 +34,9 @@ class FlutterWindow : public Win32Window {
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
   std::unique_ptr<WindowsPlayerBridge> windows_player_;
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> links_;
+  std::vector<std::string> pending_links_;
+  bool links_ready_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

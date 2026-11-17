@@ -263,6 +263,7 @@ class _BootstrapState extends State<_Bootstrap> {
     await Future<void>.delayed(Duration.zero);
     initializeAudioRuntime();
     final app = await createApplication(desktopIntegration: true);
+    await app.initializeMusicLinks(_startupArguments);
     final report = _startupArguments
         .where((argument) => argument.startsWith('--profile-report='))
         .firstOrNull;

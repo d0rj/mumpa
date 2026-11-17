@@ -24,6 +24,11 @@ if (Test-Path -LiteralPath $link) {
     if ((New-Object -ComObject WScript.Shell).CreateShortcut($link).TargetPath -eq $exe) { Remove-Item -LiteralPath $link }
 }
 $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Mumpa'
+$mumpaProtocol = 'HKCU:\Software\Classes\mumpa'
+$mumpaCommand = Get-Item -LiteralPath ($mumpaProtocol + '\shell\open\command') -ErrorAction SilentlyContinue
+if ($mumpaCommand -and $mumpaCommand.GetValue('') -eq ('"' + $exe + '" "%1"')) {
+    Remove-Item -LiteralPath $mumpaProtocol -Recurse
+}
 if ((Get-ItemProperty -LiteralPath $key -ErrorAction SilentlyContinue).InstallLocation -eq $mumpaRoot) {
     Remove-Item -LiteralPath $key
 }

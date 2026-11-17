@@ -1,6 +1,7 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <flutter/standard_method_codec.h>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -32,6 +33,21 @@ bool FlutterWindow::OnCreate() {
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
   windows_player_ = std::make_unique<WindowsPlayerBridge>(
       GetHandle(), flutter_controller_->engine()->messenger());
+  links_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), "app.mumpa/links",
+      &flutter::StandardMethodCodec::GetInstance());
+  links_->SetMethodCallHandler([this](const auto& call, auto result) {
+    if (call.method_name() != "takeLinks") {
+      result->NotImplemented();
+      return;
+    }
+    flutter::EncodableList values;
+    for (const auto& link : pending_links_) values.emplace_back(link);
+    pending_links_.clear();
+    links_ready_ = true;
+    result->Success(flutter::EncodableValue(values));
+  });
+  ::SetProp(GetHandle(), L"Mumpa.MusicLinks", reinterpret_cast<HANDLE>(1));
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -51,6 +67,8 @@ void FlutterWindow::OnDestroy() {
   static bool teardown_in_progress = false;
   if (teardown_in_progress) return;
   teardown_in_progress = true;
+  ::RemoveProp(GetHandle(), L"Mumpa.MusicLinks");
+  links_ = nullptr;
   windows_player_ = nullptr;
   if (flutter_controller_) {
     MumpaPrepareWebViewShutdown();
@@ -65,6 +83,26 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == WM_COPYDATA && links_) {
+    const auto* data = reinterpret_cast<const COPYDATASTRUCT*>(lparam);
+    if (data && data->dwData == 0x4D554D50 && data->lpData &&
+        data->cbData > 1 && data->cbData <= 16001) {
+      const auto* bytes = static_cast<const char*>(data->lpData);
+      if (bytes[data->cbData - 1] != '\0') return FALSE;
+      std::string link(bytes, data->cbData - 1);
+      if (_strnicmp(link.c_str(), "mumpa:", 6) != 0 || link.find('\0') != std::string::npos) return FALSE;
+      if (links_ready_) {
+        links_->InvokeMethod("open", std::make_unique<flutter::EncodableValue>(link));
+      } else {
+        if (pending_links_.size() >= 32) return FALSE;
+        pending_links_.push_back(link);
+      }
+      ::ShowWindow(hwnd, SW_RESTORE);
+      ::SetForegroundWindow(hwnd);
+      return TRUE;
+    }
+    return FALSE;
+  }
   // Handle close-to-tray and shell commands before plugins or DefWindowProc.
   if (windows_player_) {
     auto result = windows_player_->HandleMessage(message, wparam, lparam);

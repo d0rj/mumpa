@@ -317,6 +317,15 @@ class TrackList extends SliverContent {
                           app.playback.enqueue(t);
                         case 'download':
                           app.downloads.enqueue([t]);
+                        case 'share':
+                          final link = MusicShareLink.fromTracks(
+                            [t],
+                            kind: MusicShareKind.track,
+                            title: '${t.artist} — ${t.title}',
+                          );
+                          if (link != null && context.mounted) {
+                            await showMusicShare(context, app, link);
+                          }
                         case 'revealFile':
                           await revealFile();
                         case 'removeCache':
@@ -366,6 +375,16 @@ class TrackList extends SliverContent {
                       }
                     },
                     itemBuilder: (_) => [
+                      if (MusicShareLink.fromTracks(
+                            [t],
+                            kind: MusicShareKind.track,
+                            title: t.title,
+                          ) !=
+                          null)
+                        PopupMenuItem(
+                          value: 'share',
+                          child: Text(tr('Поделиться')),
+                        ),
                       PopupMenuItem(
                         value: 'editMetadata',
                         child: Text(tr('Изменить метаданные')),

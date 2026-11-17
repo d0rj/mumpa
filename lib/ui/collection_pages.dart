@@ -103,6 +103,12 @@ class _AlbumPage extends StatelessWidget {
             label: Text(tr("Слушать")),
           ),
           AlbumFavoriteButton(app: app, album: album, label: true),
+          MusicShareButton(
+            app: app,
+            tracks: album.tracks,
+            kind: MusicShareKind.album,
+            title: '${album.artist} — ${album.title}',
+          ),
           if (album.torrent && !album.offline)
             OutlinedButton.icon(
               onPressed: () => app.downloads.enqueue(album.tracks),
@@ -269,6 +275,13 @@ class _TrackCollection extends StatelessWidget {
             icon: const Icon(Icons.ios_share),
             label: Text(tr('Экспорт M3U8')),
           ),
+          if (app.playlist?.sourceHash != null)
+            MusicShareButton(
+              app: app,
+              tracks: tracks,
+              kind: MusicShareKind.release,
+              title: title,
+            ),
           if (app.playlist?.isSmart == true) ...[
             TextButton.icon(
               onPressed: () => editSmartPlaylist(context, app, app.playlist),

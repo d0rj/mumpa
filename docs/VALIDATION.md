@@ -1,5 +1,33 @@
 # Mumpa verification — 2026-10-23
 
+## Music sharing — 1.3.4+42 (2026-10-30)
+
+- `test/music_sharing_test.dart`: 16 tests cover track/album/release links,
+  Cyrillic and emoji titles, compact file ranges, source privacy, malformed and
+  oversized input, exact downloads, offline reuse, partial albums, deleted
+  cache records, queued activations, startup arguments and clipboard UI at
+  390 px. The local HTTP download regression additionally verifies that an
+  externally deleted completed file can download again with `exact: true`.
+- Final Flutter unit/widget suite: **637 passed, 7 opt-in checks skipped**;
+  the focused sharing/download run also passes all 24 checks. Static analysis
+  reports no issues. Invalid links show a readable translated message without
+  an exception type prefix.
+- Windows native integration passes with a disposable profile: an activation
+  before Dart subscribes is retained; second-process URI activations traverse
+  `WM_COPYDATA` and open the exact offline track, album and full collection
+  without downloads. See `integration_test/music_sharing_test.dart` and
+  `test-output/music-sharing-native-windows.json`.
+- The signed release APK resolves `mumpa://` on an Android API 35 x86_64
+  emulator on both cold start and `onNewIntent` in the current activity. Both
+  activations reach Dart and reject a malformed link before torrent traffic.
+  The emulator was stopped after the check. Report and screenshot:
+  `test-output/music-sharing-native-android.json`,
+  `test-output/music-sharing-android.png`.
+- Limitations: no physical Android device or public-peer transfer between
+  devices was tested. The link uses the `mumpa://` protocol and needs an
+  installed compatible app; some messengers require pasting the link into
+  **Add music**. There is no hosted HTTPS redirect. See [sharing](MUSIC_SHARING.md).
+
 ## Resource and security audit — 1.3.3+41
 
 - [Security review](SECURITY_REVIEW.md) records the network-body limits,

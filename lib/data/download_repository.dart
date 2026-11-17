@@ -280,12 +280,13 @@ class DownloadRepository extends ChangeNotifier {
     Iterable<Track> tracks, {
     bool priority = false,
     bool automatic = false,
+    bool exact = false,
   }) {
     if (_disposed) return;
     final selected = <String>[];
     for (final original in tracks) {
       // Playback caching must cache the very decoder source being listened to.
-      final track = priority ? original : trackForDownload(original);
+      final track = priority || exact ? original : trackForDownload(original);
       if (automatic) {
         if (!_jobs.containsKey(track.id)) {
           library.features.automatic.add(track.id);
@@ -302,7 +303,7 @@ class DownloadRepository extends ChangeNotifier {
       }
       if (_removals.containsKey(track.id)) continue;
       final job = _jobs.putIfAbsent(track.id, () => DownloadJob(latest));
-      if (job.state == DownloadState.complete) continue;
+      if (job.state == DownloadState.complete && !exact) continue;
       selected.add(track.id);
       if (_active.containsKey(track.id) &&
           job.state == DownloadState.downloading) {

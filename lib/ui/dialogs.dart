@@ -1,6 +1,7 @@
 import '../l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
+import '../domain/music_share_link.dart';
 import '../logic/app_controller.dart';
 import 'theme.dart';
 
@@ -61,7 +62,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
               ),
               const SizedBox(height: 24),
               const Text(
-                'MAGNET / TORRENT URL',
+                'MUMPA / MAGNET / TORRENT URL',
                 style: TextStyle(
                   color: muted,
                   fontSize: 10,
@@ -76,9 +77,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
                 minLines: 1,
                 maxLines: 3,
                 decoration: InputDecoration(
-                  hintText: tr(
-                    "magnet:?xt=urn:btih:… или https://…/album.torrent",
-                  ),
+                  hintText: tr("mumpa://share/… или magnet:?xt=urn:btih:…"),
                 ),
               ),
               const SizedBox(height: 14),
@@ -101,7 +100,10 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
       ),
     ),
   );
-  if (action == null) return;
+  if (action == null) {
+    link.dispose();
+    return;
+  }
   TorrentInfo? torrent;
   switch (action) {
     case 'folder':
@@ -111,6 +113,11 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
     case 'torrent':
       torrent = await app.pickTorrent();
     case 'link':
+      if (MusicShareLink.isMusicLink(link.text)) {
+        await app.openMusicLink(link.text.trim());
+        link.dispose();
+        return;
+      }
       torrent = await app.inspectTorrent(link.text.trim());
   }
   if (torrent != null && context.mounted) {
@@ -119,6 +126,7 @@ Future<void> showAddMusic(BuildContext context, AppController app) async {
       link: action == 'link' ? link.text.trim() : null,
     );
   }
+  link.dispose();
 }
 
 class _SourceOption extends StatelessWidget {

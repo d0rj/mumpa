@@ -6,6 +6,8 @@ import '../data/download_repository.dart';
 import '../data/library_repository.dart';
 import '../data/file_location_service.dart';
 import '../domain/models.dart';
+import '../domain/music_share_link.dart';
+import 'music_share.dart';
 import '../domain/music_metadata.dart';
 import '../domain/track_matching.dart';
 import '../logic/app_controller.dart';

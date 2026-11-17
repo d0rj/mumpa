@@ -66,6 +66,7 @@ class RecordingDownloads extends DownloadRepository {
     Iterable<Track> tracks, {
     bool priority = false,
     bool automatic = false,
+    bool exact = false,
   }) {
     requested.addAll(tracks.map((t) => t.id));
     priorityUsed = priority;

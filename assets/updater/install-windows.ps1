@@ -127,6 +127,11 @@ try {
         }
         foreach ($name in $values.Keys) { New-ItemProperty -LiteralPath $key -Name $name -Value $values[$name] -PropertyType String -Force | Out-Null }
         foreach ($name in @('NoModify','NoRepair')) { New-ItemProperty -LiteralPath $key -Name $name -Value 1 -PropertyType DWord -Force | Out-Null }
+        $mumpaProtocol = 'HKCU:\Software\Classes\mumpa'
+        New-Item -Path ($mumpaProtocol + '\shell\open\command') -Force | Out-Null
+        Set-Item -LiteralPath $mumpaProtocol -Value 'URL:Mumpa music'
+        New-ItemProperty -LiteralPath $mumpaProtocol -Name 'URL Protocol' -Value '' -PropertyType String -Force | Out-Null
+        Set-Item -LiteralPath ($mumpaProtocol + '\shell\open\command') -Value ('"' + (Join-Path $mumpaCurrent 'mumpa.exe') + '" "%1"')
     }
     [ordered]@{ version=$Version; installedAt=[DateTime]::UtcNow.ToString('o'); directory=$mumpaRoot } | ConvertTo-Json |
         Set-Content -LiteralPath (Join-Path $mumpaRoot 'install.json') -Encoding utf8
