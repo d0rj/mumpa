@@ -1,0 +1,2743 @@
+{
+  "checkedDate": "2026-11-17",
+  "purpose": "Public metadata regression references; positive durations are perturbed catalog durations, not measurements of user audio.",
+  "samples": [
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Кино",
+        "title": "Группа крови",
+        "album": "Группа крови",
+        "durationMs": 284250
+      },
+      "query": "Кино Группа крови",
+      "total": 16,
+      "search": [
+        {
+          "id": 448260732,
+          "title": "Группа крови",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 284,
+          "isrc": "RUB421401310",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 491201482,
+          "title": "Группа крови",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 62145332,
+            "title": "Легенда"
+          },
+          "duration": 240,
+          "isrc": "RUB421401399",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 410639582,
+          "title": "Группа крови (Английская версия)",
+          "artist": {
+            "id": 4549736,
+            "name": "Виктор Цой"
+          },
+          "album": {
+            "id": 48811912,
+            "title": "Виктор Цой и Группа Кино. Полная Дискография"
+          },
+          "duration": 284,
+          "isrc": "TCADG1798058",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1411227382,
+          "title": "Группа крови (Remix)",
+          "title_version": "",
+          "artist": {
+            "id": 125521112,
+            "name": "Паша Кореец"
+          },
+          "album": {
+            "id": 238980732,
+            "title": "Последний герой Remix. Tribute Группе Кино"
+          },
+          "duration": 394,
+          "isrc": "RUB422101818",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448260672,
+          "title": "Закрой за мной дверь, я ухожу",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 256,
+          "isrc": "RUB421401314",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448260752,
+          "title": "Война",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 244,
+          "isrc": "RUB421401317",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448260762,
+          "title": "В наших глазах",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 214,
+          "isrc": "RUB421401313",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448260682,
+          "title": "Спокойная ночь",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 364,
+          "isrc": "RUB421401318",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448260772,
+          "title": "Мама, мы все сошли с ума",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 247,
+          "isrc": "RUB421401320",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448260742,
+          "title": "Легенда",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "duration": 248,
+          "isrc": "RUB421401319",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 448260732,
+          "title": "Группа крови",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54717452,
+            "title": "Группа крови"
+          },
+          "contributors": [
+            {
+              "id": 4505880,
+              "name": "Кино",
+              "role": "Main"
+            }
+          ],
+          "duration": 284,
+          "isrc": "RUB421401310",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 491201482,
+          "title": "Группа крови",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 62145332,
+            "title": "Легенда"
+          },
+          "contributors": [
+            {
+              "id": 4505880,
+              "name": "Кино",
+              "role": "Main"
+            }
+          ],
+          "duration": 240,
+          "isrc": "RUB421401399",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 410639582,
+          "title": "Группа крови (Английская версия)",
+          "artist": {
+            "id": 4549736,
+            "name": "Виктор Цой"
+          },
+          "album": {
+            "id": 48811912,
+            "title": "Виктор Цой и Группа Кино. Полная Дискография"
+          },
+          "contributors": [
+            {
+              "id": 4549736,
+              "name": "Виктор Цой",
+              "role": "Main"
+            },
+            {
+              "id": 14234385,
+              "name": "группа Кино",
+              "role": "Main"
+            }
+          ],
+          "duration": 284,
+          "isrc": "TCADG1798058",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:448260732",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/448260732"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Кино",
+        "title": "Звезда по имени Солнце",
+        "album": "Звезда по имени Солнце",
+        "durationMs": 225250
+      },
+      "query": "Кино Звезда по имени Солнце",
+      "total": 14,
+      "search": [
+        {
+          "id": 448265892,
+          "title": "Звезда по имени Солнце",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 225,
+          "isrc": "RUB421401323",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 491201712,
+          "title": "Звезда по имени Солнце",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 62145332,
+            "title": "Легенда"
+          },
+          "duration": 204,
+          "isrc": "RUB421401336",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 410639672,
+          "title": "Звезда по имени Солнце",
+          "artist": {
+            "id": 4549736,
+            "name": "Виктор Цой"
+          },
+          "album": {
+            "id": 48811912,
+            "title": "Виктор Цой и Группа Кино. Полная Дискография"
+          },
+          "duration": 183,
+          "isrc": "TCADG1798076",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265922,
+          "title": "Печаль",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 331,
+          "isrc": "RUB421401325",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265942,
+          "title": "Сказка",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 356,
+          "isrc": "RUB421401321",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265902,
+          "title": "Песня без слов",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 303,
+          "isrc": "RUB421401322",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265932,
+          "title": "Невесёлая песня",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 256,
+          "isrc": "RUB421401326",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265862,
+          "title": "Стук (Одно лишь слово)",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 229,
+          "isrc": "RUB421401324",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265912,
+          "title": "Апрель",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 279,
+          "isrc": "RUB421401329",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 448265882,
+          "title": "Место для шага вперёд",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "duration": 217,
+          "isrc": "RUB421401327",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 448265892,
+          "title": "Звезда по имени Солнце",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 54718352,
+            "title": "Звезда по имени Солнце"
+          },
+          "contributors": [
+            {
+              "id": 4505880,
+              "name": "Кино",
+              "role": "Main"
+            }
+          ],
+          "duration": 225,
+          "isrc": "RUB421401323",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 491201712,
+          "title": "Звезда по имени Солнце",
+          "title_version": "",
+          "artist": {
+            "id": 4505880,
+            "name": "Кино"
+          },
+          "album": {
+            "id": 62145332,
+            "title": "Легенда"
+          },
+          "contributors": [
+            {
+              "id": 4505880,
+              "name": "Кино",
+              "role": "Main"
+            }
+          ],
+          "duration": 204,
+          "isrc": "RUB421401336",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 410639672,
+          "title": "Звезда по имени Солнце",
+          "artist": {
+            "id": 4549736,
+            "name": "Виктор Цой"
+          },
+          "album": {
+            "id": 48811912,
+            "title": "Виктор Цой и Группа Кино. Полная Дискография"
+          },
+          "contributors": [
+            {
+              "id": 4549736,
+              "name": "Виктор Цой",
+              "role": "Main"
+            },
+            {
+              "id": 14234385,
+              "name": "группа Кино",
+              "role": "Main"
+            }
+          ],
+          "duration": 183,
+          "isrc": "TCADG1798076",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:448265892",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/448265892"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Земфира",
+        "title": "Искала",
+        "album": "ПРОСТИ МЕНЯ МОЯ ЛЮБОВЬ",
+        "durationMs": 214250
+      },
+      "query": "Земфира Искала",
+      "total": 2,
+      "search": [
+        {
+          "id": 1520555562,
+          "title": "ИСКАЛА",
+          "title_version": "",
+          "artist": {
+            "id": 4913467,
+            "name": "Земфира"
+          },
+          "album": {
+            "id": 265249962,
+            "title": "ПРОСТИ МЕНЯ МОЯ ЛЮБОВЬ"
+          },
+          "duration": 214,
+          "isrc": "FR6V82120156",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1554904432,
+          "title": "искала (live)",
+          "title_version": "",
+          "artist": {
+            "id": 4913467,
+            "name": "Земфира"
+          },
+          "album": {
+            "id": 272968592,
+            "title": "Маленький человек. Live"
+          },
+          "duration": 237,
+          "isrc": "FRX201655282",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 1520555562,
+          "title": "ИСКАЛА",
+          "title_version": "",
+          "artist": {
+            "id": 4913467,
+            "name": "Земфира"
+          },
+          "album": {
+            "id": 265249962,
+            "title": "ПРОСТИ МЕНЯ МОЯ ЛЮБОВЬ"
+          },
+          "contributors": [
+            {
+              "id": 4913467,
+              "name": "Земфира",
+              "role": "Main"
+            }
+          ],
+          "duration": 214,
+          "isrc": "FR6V82120156",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1554904432,
+          "title": "искала (live)",
+          "title_version": "",
+          "artist": {
+            "id": 4913467,
+            "name": "Земфира"
+          },
+          "album": {
+            "id": 272968592,
+            "title": "Маленький человек. Live"
+          },
+          "contributors": [
+            {
+              "id": 4913467,
+              "name": "Земфира",
+              "role": "Main"
+            }
+          ],
+          "duration": 237,
+          "isrc": "FRX201655282",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:1520555562",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/1520555562"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "ДДТ",
+        "title": "Что такое осень",
+        "album": "Просвистела",
+        "durationMs": 299250
+      },
+      "query": "ДДТ Что такое осень",
+      "total": 7,
+      "search": [
+        {
+          "id": 2738179801,
+          "title": "Что такое осень",
+          "title_version": "",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569384251,
+            "title": "Просвистела"
+          },
+          "duration": 299,
+          "isrc": "RUB311102205",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2738181511,
+          "title": "Что такое осень (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569384561,
+            "title": "Уфа 2020 (Live)"
+          },
+          "duration": 292,
+          "isrc": "RUB312205703",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2738178721,
+          "title": "Что такое осень (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569383941,
+            "title": "Чёрный пёс Петербург (Live)"
+          },
+          "duration": 284,
+          "isrc": "RUB311101715",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2738180441,
+          "title": "Что такое осень (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569384281,
+            "title": "Live in Essen (Live)"
+          },
+          "duration": 550,
+          "isrc": "RUB311401730",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1037000222,
+          "title": "Что такое осень (Трибьют ДДТ)",
+          "title_version": "(Трибьют ДДТ)",
+          "artist": {
+            "id": 119546372,
+            "name": "Revolver"
+          },
+          "album": {
+            "id": 163916932,
+            "title": "Что такое осень (Трибьют ДДТ)"
+          },
+          "duration": 240,
+          "isrc": "QZHZ62039061",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4297903432,
+          "title": "Что такое осень (Live Remastering 2025)",
+          "title_version": "(Live Remastering 2025)",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 1101476992,
+            "title": "Чёрный Пёс Петербург (Live Remastering 2025)"
+          },
+          "duration": 284,
+          "isrc": "RUB312618914",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 3298829941,
+          "title": "Что такое осень (ДДТ Cover)",
+          "title_version": "(ДДТ Cover)",
+          "artist": {
+            "id": 9602618,
+            "name": "Vespercellos"
+          },
+          "album": {
+            "id": 734295611,
+            "title": "Это всё, что останется (ДДТ Cover)"
+          },
+          "duration": 295,
+          "isrc": "RUB312505302",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 2738179801,
+          "title": "Что такое осень",
+          "title_version": "",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569384251,
+            "title": "Просвистела"
+          },
+          "contributors": [
+            {
+              "id": 4487263,
+              "name": "ДДТ",
+              "role": "Main"
+            }
+          ],
+          "duration": 299,
+          "isrc": "RUB311102205",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2738181511,
+          "title": "Что такое осень (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569384561,
+            "title": "Уфа 2020 (Live)"
+          },
+          "contributors": [
+            {
+              "id": 4487263,
+              "name": "ДДТ",
+              "role": "Main"
+            }
+          ],
+          "duration": 292,
+          "isrc": "RUB312205703",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2738178721,
+          "title": "Что такое осень (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4487263,
+            "name": "ДДТ"
+          },
+          "album": {
+            "id": 569383941,
+            "title": "Чёрный пёс Петербург (Live)"
+          },
+          "contributors": [
+            {
+              "id": 4487263,
+              "name": "ДДТ",
+              "role": "Main"
+            }
+          ],
+          "duration": 284,
+          "isrc": "RUB311101715",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:2738179801",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/2738179801"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Би-2",
+        "title": "Полковнику никто не пишет",
+        "album": "Би-2",
+        "durationMs": 292250
+      },
+      "query": "Би-2 Полковнику никто не пишет",
+      "total": 9,
+      "search": [
+        {
+          "id": 76271131,
+          "title": "Полковнику никто не пишет",
+          "title_version": "",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 7562482,
+            "title": "Би-2"
+          },
+          "duration": 292,
+          "isrc": "UAMU11404921",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2635632952,
+          "title": "Полковнику никто не пишет (Version 2024)",
+          "title_version": "(Version 2024)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 539539522,
+            "title": "All The Best vol. 1"
+          },
+          "duration": 294,
+          "isrc": "RUA742402009",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 434093462,
+          "title": "Полковнику никто не пишет",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 52399662,
+            "title": "The Best"
+          },
+          "duration": 330,
+          "isrc": "QMPU51207566",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2216446537,
+          "title": "Полковнику никто не пишет (Mashup, Live)",
+          "title_version": "(Mashup, Live)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 423839617,
+            "title": "Mashup (Live)"
+          },
+          "duration": 304,
+          "isrc": "RUA742306410",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1457939332,
+          "title": "Полковнику никто не пишет (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 250151862,
+            "title": "Сверим сердца (official bootleg) (Live)"
+          },
+          "duration": 317,
+          "isrc": "RUA742109014",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 473445432,
+          "title": "Полковнику никто не пишет (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 59057192,
+            "title": "Концерт в Кремле (Live)"
+          },
+          "duration": 334,
+          "isrc": "RUA741803028",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 558926602,
+          "title": "Полковнику никто не пишет (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 73941072,
+            "title": "Горизонт событий @ ВТБ Арена (Live)"
+          },
+          "duration": 313,
+          "isrc": "RUA741827021",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 119543434,
+          "title": "Полковнику никто не пишет (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 12455082,
+            "title": "#16плюсTour @ Stadium Live (Live)"
+          },
+          "duration": 293,
+          "isrc": "QMDA61596254",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4364682111,
+          "title": "Полковнику никто не пишет (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 1128092791,
+            "title": "Горизонт событий с оркестром (Live)"
+          },
+          "duration": 577,
+          "isrc": "RUA742017027",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 76271131,
+          "title": "Полковнику никто не пишет",
+          "title_version": "",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 7562482,
+            "title": "Би-2"
+          },
+          "contributors": [
+            {
+              "id": 4546074,
+              "name": "Би-2",
+              "role": "Main"
+            }
+          ],
+          "duration": 292,
+          "isrc": "UAMU11404921",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2635632952,
+          "title": "Полковнику никто не пишет (Version 2024)",
+          "title_version": "(Version 2024)",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 539539522,
+            "title": "All The Best vol. 1"
+          },
+          "contributors": [
+            {
+              "id": 4546074,
+              "name": "Би-2",
+              "role": "Main"
+            }
+          ],
+          "duration": 294,
+          "isrc": "RUA742402009",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 434093462,
+          "title": "Полковнику никто не пишет",
+          "artist": {
+            "id": 4546074,
+            "name": "Би-2"
+          },
+          "album": {
+            "id": 52399662,
+            "title": "The Best"
+          },
+          "contributors": [
+            {
+              "id": 4546074,
+              "name": "Би-2",
+              "role": "Main"
+            },
+            {
+              "id": 13707505,
+              "name": "Симфонический оркестр МВД",
+              "role": "Featured"
+            }
+          ],
+          "duration": 330,
+          "isrc": "QMPU51207566",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:76271131",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/76271131"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Сплин",
+        "title": "Выхода нет",
+        "album": "Гранатовый альбом",
+        "durationMs": 227250
+      },
+      "query": "Сплин Выхода нет",
+      "total": 2,
+      "search": [
+        {
+          "id": 458840332,
+          "title": "Выхода нет",
+          "artist": {
+            "id": 4394822,
+            "name": "Сплин"
+          },
+          "album": {
+            "id": 56512522,
+            "title": "Гранатовый альбом"
+          },
+          "duration": 227,
+          "isrc": "FR10S1838004",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 3371994641,
+          "title": "Выхода нет: Сплин cover",
+          "title_version": "",
+          "artist": {
+            "id": 297309731,
+            "name": "Квадраты Малевича"
+          },
+          "album": {
+            "id": 758425451,
+            "title": "Римейкер: undefined"
+          },
+          "duration": 197,
+          "isrc": "AEA2Z2551302",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 458840332,
+          "title": "Выхода нет",
+          "artist": {
+            "id": 4394822,
+            "name": "Сплин"
+          },
+          "album": {
+            "id": 56512522,
+            "title": "Гранатовый альбом"
+          },
+          "contributors": [
+            {
+              "id": 4394822,
+              "name": "Сплин",
+              "role": "Main"
+            }
+          ],
+          "duration": 227,
+          "isrc": "FR10S1838004",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 3371994641,
+          "title": "Выхода нет: Сплин cover",
+          "title_version": "",
+          "artist": {
+            "id": 297309731,
+            "name": "Квадраты Малевича"
+          },
+          "album": {
+            "id": 758425451,
+            "title": "Римейкер: undefined"
+          },
+          "contributors": [
+            {
+              "id": 297309731,
+              "name": "Квадраты Малевича",
+              "role": "Main"
+            }
+          ],
+          "duration": 197,
+          "isrc": "AEA2Z2551302",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:458840332",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/458840332"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Король и Шут",
+        "title": "Кукла колдуна",
+        "album": "Акустический альбом",
+        "durationMs": 204250
+      },
+      "query": "Король и Шут Кукла колдуна",
+      "total": 4,
+      "search": [
+        {
+          "id": 2566497572,
+          "title": "Кукла колдуна",
+          "title_version": "",
+          "artist": {
+            "id": 4237492,
+            "name": "Король и Шут"
+          },
+          "album": {
+            "id": 518796452,
+            "title": "Акустический альбом"
+          },
+          "duration": 204,
+          "isrc": "RUB731581380",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2225231727,
+          "title": "Кукла колдуна (Из сериала «Король и Шут»)",
+          "title_version": "",
+          "artist": {
+            "id": 4237492,
+            "name": "Король и Шут"
+          },
+          "album": {
+            "id": 426306617,
+            "title": "Король и Шут (Официальный саундтрек), Часть 1"
+          },
+          "duration": 207,
+          "isrc": "SMRUS0074586",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2909847791,
+          "title": "Кукла колдуна",
+          "title_version": "",
+          "artist": {
+            "id": 184087677,
+            "name": "CAGMO"
+          },
+          "album": {
+            "id": 620076421,
+            "title": "Симфония Король и Шут"
+          },
+          "duration": 208,
+          "isrc": "RUB422402244",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2946874061,
+          "title": "Кукла колдуна (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 4237492,
+            "name": "Король и Шут"
+          },
+          "album": {
+            "id": 629324861,
+            "title": "Live 2000 (Live)"
+          },
+          "duration": 183,
+          "isrc": "DGA092451895",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 2566497572,
+          "title": "Кукла колдуна",
+          "title_version": "",
+          "artist": {
+            "id": 4237492,
+            "name": "Король и Шут"
+          },
+          "album": {
+            "id": 518796452,
+            "title": "Акустический альбом"
+          },
+          "contributors": [
+            {
+              "id": 4237492,
+              "name": "Король и Шут",
+              "role": "Main"
+            }
+          ],
+          "duration": 204,
+          "isrc": "RUB731581380",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2225231727,
+          "title": "Кукла колдуна (Из сериала «Король и Шут»)",
+          "title_version": "",
+          "artist": {
+            "id": 4237492,
+            "name": "Король и Шут"
+          },
+          "album": {
+            "id": 426306617,
+            "title": "Король и Шут (Официальный саундтрек), Часть 1"
+          },
+          "contributors": [
+            {
+              "id": 4237492,
+              "name": "Король и Шут",
+              "role": "Main"
+            }
+          ],
+          "duration": 207,
+          "isrc": "SMRUS0074586",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2909847791,
+          "title": "Кукла колдуна",
+          "title_version": "",
+          "artist": {
+            "id": 184087677,
+            "name": "CAGMO"
+          },
+          "album": {
+            "id": 620076421,
+            "title": "Симфония Король и Шут"
+          },
+          "contributors": [
+            {
+              "id": 184087677,
+              "name": "CAGMO",
+              "role": "Main"
+            }
+          ],
+          "duration": 208,
+          "isrc": "RUB422402244",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:2566497572",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/2566497572"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Мумий Тролль",
+        "title": "Владивосток 2000",
+        "album": "Mumiy Troll - The Best",
+        "durationMs": 160250
+      },
+      "query": "Мумий Тролль Владивосток 2000",
+      "total": 3,
+      "search": [
+        {
+          "id": 118155502,
+          "title": "Владивосток 2000",
+          "title_version": "",
+          "artist": {
+            "id": 296604,
+            "name": "Mumiy Troll"
+          },
+          "album": {
+            "id": 12274962,
+            "title": "Mumiy Troll - The Best"
+          },
+          "duration": 160,
+          "isrc": "US3DF1413517",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 566283882,
+          "title": "Владивосток 2000 (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 296604,
+            "name": "Mumiy Troll"
+          },
+          "album": {
+            "id": 75271952,
+            "title": "Морская.20 (Live)"
+          },
+          "duration": 171,
+          "isrc": "US3KM3000010",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 566283952,
+          "title": "Владивосток 2000 (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 296604,
+            "name": "Mumiy Troll"
+          },
+          "album": {
+            "id": 75271962,
+            "title": "Вечерний чай (Live)"
+          },
+          "duration": 182,
+          "isrc": "US3KM3100007",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 118155502,
+          "title": "Владивосток 2000",
+          "title_version": "",
+          "artist": {
+            "id": 296604,
+            "name": "Mumiy Troll"
+          },
+          "album": {
+            "id": 12274962,
+            "title": "Mumiy Troll - The Best"
+          },
+          "contributors": [
+            {
+              "id": 296604,
+              "name": "Mumiy Troll",
+              "role": "Main"
+            }
+          ],
+          "duration": 160,
+          "isrc": "US3DF1413517",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 566283882,
+          "title": "Владивосток 2000 (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 296604,
+            "name": "Mumiy Troll"
+          },
+          "album": {
+            "id": 75271952,
+            "title": "Морская.20 (Live)"
+          },
+          "contributors": [
+            {
+              "id": 296604,
+              "name": "Mumiy Troll",
+              "role": "Main"
+            }
+          ],
+          "duration": 171,
+          "isrc": "US3KM3000010",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 566283952,
+          "title": "Владивосток 2000 (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 296604,
+            "name": "Mumiy Troll"
+          },
+          "album": {
+            "id": 75271962,
+            "title": "Вечерний чай (Live)"
+          },
+          "contributors": [
+            {
+              "id": 296604,
+              "name": "Mumiy Troll",
+              "role": "Main"
+            }
+          ],
+          "duration": 182,
+          "isrc": "US3KM3100007",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:118155502",
+      "expectedAutomatic": false,
+      "referenceUrl": "https://api.deezer.com/track/118155502"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Каста",
+        "title": "Вокруг шум"
+      },
+      "query": "Каста Вокруг шум",
+      "total": 0,
+      "search": [],
+      "details": [],
+      "expectedId": null,
+      "expectedAutomatic": false
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Noize MC",
+        "title": "Выдыхай",
+        "album": "The Greatest Hits, Vol. 1",
+        "durationMs": 191250
+      },
+      "query": "Noize MC Выдыхай",
+      "total": 6,
+      "search": [
+        {
+          "id": 2223234607,
+          "title": "Выдыхай",
+          "title_version": "",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 425760437,
+            "title": "The Greatest Hits, Vol. 1"
+          },
+          "duration": 191,
+          "isrc": "RUUM71800047",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2232213557,
+          "title": "Выдыхай (Live at Stadium)",
+          "title_version": "(Live at Stadium)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 428186547,
+            "title": "Voyager-2 (Live at Stadium)"
+          },
+          "duration": 288,
+          "isrc": "RUA1D2281342",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2226955537,
+          "title": "Выдыхай (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 426820397,
+            "title": "*кустик* (Live)"
+          },
+          "duration": 216,
+          "isrc": "RUUM71800202",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2226996657,
+          "title": "Выдыхай (ЛевПрав Версия)",
+          "title_version": "(ЛевПрав Версия)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 426827487,
+            "title": "Розыгрыш (Из к/ф «Розыгрыш»)"
+          },
+          "duration": 188,
+          "isrc": "RUUM71800071",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2226955387,
+          "title": "Выдыхай (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 426820387,
+            "title": "Жечь электричество! (Live)"
+          },
+          "duration": 237,
+          "isrc": "RUUM71800187",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2232213307,
+          "title": "Выдыхай (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 428186477,
+            "title": "XV (Live)"
+          },
+          "duration": 213,
+          "isrc": "RUUM71900232",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 2223234607,
+          "title": "Выдыхай",
+          "title_version": "",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 425760437,
+            "title": "The Greatest Hits, Vol. 1"
+          },
+          "contributors": [
+            {
+              "id": 148130,
+              "name": "Noize MC",
+              "role": "Main"
+            }
+          ],
+          "duration": 191,
+          "isrc": "RUUM71800047",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2232213557,
+          "title": "Выдыхай (Live at Stadium)",
+          "title_version": "(Live at Stadium)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 428186547,
+            "title": "Voyager-2 (Live at Stadium)"
+          },
+          "contributors": [
+            {
+              "id": 148130,
+              "name": "Noize MC",
+              "role": "Main"
+            }
+          ],
+          "duration": 288,
+          "isrc": "RUA1D2281342",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2226955537,
+          "title": "Выдыхай (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 148130,
+            "name": "Noize MC"
+          },
+          "album": {
+            "id": 426820397,
+            "title": "*кустик* (Live)"
+          },
+          "contributors": [
+            {
+              "id": 148130,
+              "name": "Noize MC",
+              "role": "Main"
+            }
+          ],
+          "duration": 216,
+          "isrc": "RUUM71800202",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:2223234607",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/2223234607"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Дайте танк (!)",
+        "title": "Люди",
+        "album": "Человеко-часы",
+        "durationMs": 162250
+      },
+      "query": "Дайте танк (!) Люди",
+      "total": 1,
+      "search": [
+        {
+          "id": 1097484252,
+          "title": "Люди",
+          "title_version": "",
+          "artist": {
+            "id": 12373790,
+            "name": "Дайте танк (!)"
+          },
+          "album": {
+            "id": 177141902,
+            "title": "Человеко-часы"
+          },
+          "duration": 162,
+          "isrc": "FRX762091723",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 1097484252,
+          "title": "Люди",
+          "title_version": "",
+          "artist": {
+            "id": 12373790,
+            "name": "Дайте танк (!)"
+          },
+          "album": {
+            "id": 177141902,
+            "title": "Человеко-часы"
+          },
+          "contributors": [
+            {
+              "id": 12373790,
+              "name": "Дайте танк (!)",
+              "role": "Main"
+            }
+          ],
+          "duration": 162,
+          "isrc": "FRX762091723",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:1097484252",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/1097484252"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Oxxxymiron",
+        "title": "Город под подошвой",
+        "album": "Город под подошвой",
+        "durationMs": 246250
+      },
+      "query": "Oxxxymiron Город под подошвой",
+      "total": 1,
+      "search": [
+        {
+          "id": 786353292,
+          "title": "Город под подошвой",
+          "title_version": "",
+          "artist": {
+            "id": 291076,
+            "name": "Oxxxymiron"
+          },
+          "album": {
+            "id": 116438102,
+            "title": "Город под подошвой"
+          },
+          "duration": 246,
+          "isrc": "RUA1H1510190",
+          "explicit_lyrics": true
+        }
+      ],
+      "details": [
+        {
+          "id": 786353292,
+          "title": "Город под подошвой",
+          "title_version": "",
+          "artist": {
+            "id": 291076,
+            "name": "Oxxxymiron"
+          },
+          "album": {
+            "id": 116438102,
+            "title": "Город под подошвой"
+          },
+          "contributors": [
+            {
+              "id": 291076,
+              "name": "Oxxxymiron",
+              "role": "Main"
+            }
+          ],
+          "duration": 246,
+          "isrc": "RUA1H1510190",
+          "explicit_lyrics": true
+        }
+      ],
+      "expectedId": "deezer:786353292",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/786353292"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Daft Punk",
+        "title": "Get Lucky",
+        "album": "Random Access Memories",
+        "durationMs": 367250
+      },
+      "query": "Daft Punk Get Lucky",
+      "total": 77,
+      "search": [
+        {
+          "id": 66609426,
+          "title": "Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers)",
+          "title_version": "(Radio Edit - feat. Pharrell Williams and Nile Rodgers)",
+          "artist": {
+            "id": 27,
+            "name": "Daft Punk"
+          },
+          "album": {
+            "id": 6516139,
+            "title": "Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers)"
+          },
+          "duration": 248,
+          "isrc": "USQX91300809",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 67238735,
+          "title": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)",
+          "title_version": "(feat. Pharrell Williams and Nile Rodgers)",
+          "artist": {
+            "id": 27,
+            "name": "Daft Punk"
+          },
+          "album": {
+            "id": 6575789,
+            "title": "Random Access Memories"
+          },
+          "duration": 367,
+          "isrc": "USQX91300108",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 68265035,
+          "title": "Get Lucky - Tribute to Daft Punk",
+          "title_version": "",
+          "artist": {
+            "id": 998222,
+            "name": "Get Lucky"
+          },
+          "album": {
+            "id": 6685831,
+            "title": "Get Lucky - Tribute to Daft Punk"
+          },
+          "duration": 248,
+          "isrc": "USVEI1295801",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1819285597,
+          "title": "Get Lucky",
+          "title_version": "",
+          "artist": {
+            "id": 176017197,
+            "name": "Daft Punk Experience"
+          },
+          "album": {
+            "id": 334342767,
+            "title": "Get Lucky"
+          },
+          "duration": 204,
+          "isrc": "BXCPT2000157",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 87381241,
+          "title": "Get Lucky (Originally by Daft Punk) [Karaoke Version]",
+          "title_version": "",
+          "artist": {
+            "id": 1547232,
+            "name": "Thematic Pianos"
+          },
+          "album": {
+            "id": 8817401,
+            "title": "Get Lucky (Originally by Daft Punk) [Karaoke Version]"
+          },
+          "duration": 250,
+          "isrc": "GBW2K1111698",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 649202962,
+          "title": "Get Lucky (Daft Punk)",
+          "title_version": "",
+          "artist": {
+            "id": 5584181,
+            "name": "Charlie Parra Del Riego"
+          },
+          "album": {
+            "id": 90490632,
+            "title": "Rock and Pop hits go metal"
+          },
+          "duration": 222,
+          "isrc": "USE830935506",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 86694785,
+          "title": "Get Lucky (Backing Track Minus Lead Guitar) [In the style of Daft Punk & Pharrell Williams]",
+          "title_version": "",
+          "artist": {
+            "id": 6448376,
+            "name": "Zoom Entertainments Limited"
+          },
+          "album": {
+            "id": 8745085,
+            "title": "Backing Tracks for Guitarists, Vol. 15"
+          },
+          "duration": 257,
+          "isrc": "GBG7W1473355",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1862307467,
+          "title": "Daft Punk Medley: One More Time / Harder, Better, Faster, Stronger / Technologic / Get Lucky / Digital Love",
+          "title_version": "",
+          "artist": {
+            "id": 73334742,
+            "name": "6erBlas"
+          },
+          "album": {
+            "id": 345351177,
+            "title": "Gefühlsecht"
+          },
+          "duration": 179,
+          "isrc": "DESJ22200047",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 825146922,
+          "title": "Get Lucky (Originally performed by Daft Punk)",
+          "title_version": "(Originally performed by Daft Punk)",
+          "artist": {
+            "id": 472973,
+            "name": "Lowland"
+          },
+          "album": {
+            "id": 121675072,
+            "title": "Classical Trancelations 3 (Live in Helsinki)"
+          },
+          "duration": 290,
+          "isrc": "NLF711913449",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 78258352,
+          "title": "Get Lucky (In the Style of Daft Punk) [Karaoke] [Workout Fitness Remix]",
+          "title_version": "",
+          "artist": {
+            "id": 450944,
+            "name": "Master Dj"
+          },
+          "album": {
+            "id": 7782227,
+            "title": "Infinity X Workout"
+          },
+          "duration": 215,
+          "isrc": "AUUS00607371",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 66609426,
+          "title": "Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers)",
+          "title_version": "(Radio Edit - feat. Pharrell Williams and Nile Rodgers)",
+          "artist": {
+            "id": 27,
+            "name": "Daft Punk"
+          },
+          "album": {
+            "id": 6516139,
+            "title": "Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers)"
+          },
+          "contributors": [
+            {
+              "id": 27,
+              "name": "Daft Punk",
+              "role": "Main"
+            },
+            {
+              "id": 103,
+              "name": "Pharrell Williams",
+              "role": "Main"
+            },
+            {
+              "id": 7207,
+              "name": "Nile Rodgers",
+              "role": "Main"
+            }
+          ],
+          "duration": 248,
+          "isrc": "USQX91300809",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 67238735,
+          "title": "Get Lucky (feat. Pharrell Williams and Nile Rodgers)",
+          "title_version": "(feat. Pharrell Williams and Nile Rodgers)",
+          "artist": {
+            "id": 27,
+            "name": "Daft Punk"
+          },
+          "album": {
+            "id": 6575789,
+            "title": "Random Access Memories"
+          },
+          "contributors": [
+            {
+              "id": 27,
+              "name": "Daft Punk",
+              "role": "Main"
+            },
+            {
+              "id": 103,
+              "name": "Pharrell Williams",
+              "role": "Main"
+            },
+            {
+              "id": 7207,
+              "name": "Nile Rodgers",
+              "role": "Main"
+            }
+          ],
+          "duration": 367,
+          "isrc": "USQX91300108",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 68265035,
+          "title": "Get Lucky - Tribute to Daft Punk",
+          "title_version": "",
+          "artist": {
+            "id": 998222,
+            "name": "Get Lucky"
+          },
+          "album": {
+            "id": 6685831,
+            "title": "Get Lucky - Tribute to Daft Punk"
+          },
+          "contributors": [
+            {
+              "id": 998222,
+              "name": "Get Lucky",
+              "role": "Main"
+            }
+          ],
+          "duration": 248,
+          "isrc": "USVEI1295801",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:67238735",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/67238735"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Nirvana",
+        "title": "Come As You Are",
+        "album": "Nevermind (Remastered)",
+        "durationMs": 218250
+      },
+      "query": "Nirvana Come As You Are",
+      "total": 221,
+      "search": [
+        {
+          "id": 13791932,
+          "title": "Come As You Are",
+          "title_version": "",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 1262014,
+            "title": "Nevermind (Remastered)"
+          },
+          "duration": 218,
+          "isrc": "USGF19942503",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1105734,
+          "title": "Come As You Are (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 119282,
+            "title": "MTV Unplugged In New York"
+          },
+          "duration": 254,
+          "isrc": "USGF19972702",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4601805,
+          "title": "Come As You Are (1992/Live at Reading)",
+          "title_version": "(1992/Live at Reading)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 423223,
+            "title": "Live at Reading"
+          },
+          "duration": 216,
+          "isrc": "USUM70995569",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1200386822,
+          "title": "Come As You Are (Rehearsal)",
+          "title_version": "(Rehearsal)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 198283732,
+            "title": "MTV Unplugged In New York (25th Anniversary)"
+          },
+          "duration": 285,
+          "isrc": "USUM71915124",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 739433222,
+          "title": "Come As You Are (Live & Loud)",
+          "title_version": "(Live & Loud)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 108708552,
+            "title": "Live And Loud (Live)"
+          },
+          "duration": 226,
+          "isrc": "USUM71310621",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1166335,
+          "title": "Come As You Are (Boom Box Version)",
+          "title_version": "(Boom Box Version)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 124899,
+            "title": "Sliver - The Best Of The Box"
+          },
+          "duration": 249,
+          "isrc": "USUM70504711",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4295565132,
+          "title": "Come As You Are (Del Mar ’91)",
+          "title_version": "(Del Mar ’91)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 1100443252,
+            "title": "Broadcast Edition (Nirvana & Metallica – Del Mar ’91 / Woodstock ’94)"
+          },
+          "duration": 216,
+          "isrc": "NLRD51425985",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2506654411,
+          "title": "Come As You Are (Live In Los Angeles, Great Western Forum - December 30, 1993)",
+          "title_version": "(Live In Los Angeles, Great Western Forum - December 30, 1993)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 502510791,
+            "title": "In Utero (30th Anniversary Super Deluxe)"
+          },
+          "duration": 212,
+          "isrc": "USUM72303630",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2506654751,
+          "title": "Come As You Are (Live In Seattle, Seattle Center Arena - January 7, 1994)",
+          "title_version": "(Live In Seattle, Seattle Center Arena - January 7, 1994)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 502510791,
+            "title": "In Utero (30th Anniversary Super Deluxe)"
+          },
+          "duration": 213,
+          "isrc": "USUM72303713",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 628540012,
+          "title": "Come As You Are (Live 1993 Broadcast Remastered)",
+          "title_version": "",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 86503252,
+            "title": "Legendary FM Broadcasts - The Hollywood Festival, Rio de Janeiro Brazil 27th January 1993"
+          },
+          "duration": 263,
+          "isrc": "GBSMU6016878",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 13791932,
+          "title": "Come As You Are",
+          "title_version": "",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 1262014,
+            "title": "Nevermind (Remastered)"
+          },
+          "contributors": [
+            {
+              "id": 415,
+              "name": "Nirvana",
+              "role": "Main"
+            }
+          ],
+          "duration": 218,
+          "isrc": "USGF19942503",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1105734,
+          "title": "Come As You Are (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 119282,
+            "title": "MTV Unplugged In New York"
+          },
+          "contributors": [
+            {
+              "id": 415,
+              "name": "Nirvana",
+              "role": "Main"
+            }
+          ],
+          "duration": 254,
+          "isrc": "USGF19972702",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4601805,
+          "title": "Come As You Are (1992/Live at Reading)",
+          "title_version": "(1992/Live at Reading)",
+          "artist": {
+            "id": 415,
+            "name": "Nirvana"
+          },
+          "album": {
+            "id": 423223,
+            "title": "Live at Reading"
+          },
+          "contributors": [
+            {
+              "id": 415,
+              "name": "Nirvana",
+              "role": "Main"
+            }
+          ],
+          "duration": 216,
+          "isrc": "USUM70995569",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:13791932",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/13791932"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Queen",
+        "title": "The Show Must Go On",
+        "album": "Greatest Hits II",
+        "durationMs": 264250
+      },
+      "query": "Queen The Show Must Go On",
+      "total": 128,
+      "search": [
+        {
+          "id": 4092326741,
+          "title": "The Show Must Go On",
+          "title_version": "",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 1007454451,
+            "title": "Greatest Hits II"
+          },
+          "duration": 264,
+          "isrc": "GBUM71029636",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1091028222,
+          "title": "The Show Must Go On (Live At The O2, London, UK, 04/07/2018)",
+          "title_version": "(Live At The O2, London, UK, 04/07/2018)",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 175651492,
+            "title": "Live Around The World (Deluxe)"
+          },
+          "duration": 254,
+          "isrc": "GBUM72004135",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4092336401,
+          "title": "The Show Must Go On (feat. Elton John) (Live From Theatre National de Chaillot, Paris / 1997)",
+          "title_version": "(Live From Theatre National de Chaillot, Paris / 1997)",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 1007458691,
+            "title": "The Platinum Collection"
+          },
+          "duration": 275,
+          "isrc": "GBUM71103752",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4092322831,
+          "title": "The Show Must Go On (Live In Sheffield / 2005)",
+          "title_version": "(Live In Sheffield / 2005)",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 1007453691,
+            "title": "Return of the Champions"
+          },
+          "duration": 274,
+          "isrc": "GBUM71201956",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 3096489,
+          "title": "Kashif: The Queen Symphony: I. Adagio misterioso (Radio Gaga - The Show Must Go On - One Vision - I Was Born to Love You) [Orch. K",
+          "title_version": "",
+          "artist": {
+            "id": 210767,
+            "name": "Tolga Kashif"
+          },
+          "album": {
+            "id": 299650,
+            "title": "The Queen Symphony"
+          },
+          "duration": 642,
+          "isrc": "GBAYC0203085",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 588530992,
+          "title": "The Show Must Go On (a tribute to Queen)",
+          "title_version": "(a tribute to Queen)",
+          "artist": {
+            "id": 4165465,
+            "name": "The Miracle"
+          },
+          "album": {
+            "id": 79124302,
+            "title": "The Show Must Go On (a tribute to Queen)"
+          },
+          "duration": 251,
+          "isrc": "FICNT1700001",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 716974622,
+          "title": "The Show Must Go On (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 3921031,
+            "name": "Queen Machine"
+          },
+          "album": {
+            "id": 104589822,
+            "title": "Smukfest 2018"
+          },
+          "duration": 292,
+          "isrc": "DKZK51900606",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 65630017,
+          "title": "The Show Must Go On (Karaoke Version) (Originally Performed By Queen)",
+          "title_version": "(Originally Performed By Queen)",
+          "artist": {
+            "id": 3793191,
+            "name": "Unversal sound machine"
+          },
+          "album": {
+            "id": 6434404,
+            "title": "Hits des années 80 : tubes internationaux (Karaoke Playbacks)"
+          },
+          "duration": 251,
+          "isrc": "FR6V81657668",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4246037081,
+          "title": "The Show Must Go On",
+          "title_version": "",
+          "artist": {
+            "id": 1277446,
+            "name": "One Vision"
+          },
+          "album": {
+            "id": 1063077671,
+            "title": "Gold of Queen"
+          },
+          "duration": 241,
+          "isrc": "QT6HT2675746",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2516935831,
+          "title": "The Show Must Go On (Live in Skanderborg ’23)",
+          "title_version": "(Live in Skanderborg ’23)",
+          "artist": {
+            "id": 3921031,
+            "name": "Queen Machine"
+          },
+          "album": {
+            "id": 505488791,
+            "title": "A Show in the Woods: Live in Skanderborg ’23"
+          },
+          "duration": 288,
+          "isrc": "GBLPF6778999",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 4092326741,
+          "title": "The Show Must Go On",
+          "title_version": "",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 1007454451,
+            "title": "Greatest Hits II"
+          },
+          "contributors": [
+            {
+              "id": 412,
+              "name": "Queen",
+              "role": "Main"
+            }
+          ],
+          "duration": 264,
+          "isrc": "GBUM71029636",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 1091028222,
+          "title": "The Show Must Go On (Live At The O2, London, UK, 04/07/2018)",
+          "title_version": "(Live At The O2, London, UK, 04/07/2018)",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 175651492,
+            "title": "Live Around The World (Deluxe)"
+          },
+          "contributors": [
+            {
+              "id": 412,
+              "name": "Queen",
+              "role": "Main"
+            },
+            {
+              "id": 247379,
+              "name": "Adam Lambert",
+              "role": "Main"
+            }
+          ],
+          "duration": 254,
+          "isrc": "GBUM72004135",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 4092336401,
+          "title": "The Show Must Go On (feat. Elton John) (Live From Theatre National de Chaillot, Paris / 1997)",
+          "title_version": "(Live From Theatre National de Chaillot, Paris / 1997)",
+          "artist": {
+            "id": 412,
+            "name": "Queen"
+          },
+          "album": {
+            "id": 1007458691,
+            "title": "The Platinum Collection"
+          },
+          "contributors": [
+            {
+              "id": 412,
+              "name": "Queen",
+              "role": "Main"
+            },
+            {
+              "id": 413,
+              "name": "Elton John",
+              "role": "Featured"
+            }
+          ],
+          "duration": 275,
+          "isrc": "GBUM71103752",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:4092326741",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/4092326741"
+    },
+    {
+      "origin": "public",
+      "track": {
+        "artist": "Radiohead",
+        "title": "Creep",
+        "album": "Pablo Honey",
+        "durationMs": 238250
+      },
+      "query": "Radiohead Creep",
+      "total": 119,
+      "search": [
+        {
+          "id": 138547415,
+          "title": "Creep",
+          "title_version": "",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 14880711,
+            "title": "Pablo Honey"
+          },
+          "duration": 238,
+          "isrc": "GBAYE9200070",
+          "explicit_lyrics": true
+        },
+        {
+          "id": 2215315187,
+          "title": "Creep (Acoustic)",
+          "title_version": "(Acoustic)",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "duration": 258,
+          "isrc": "GBAYE9300465",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2215315177,
+          "title": "Blow Out (Remix)",
+          "title_version": "(Remix)",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "duration": 258,
+          "isrc": "GBAYE9300436",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 138544263,
+          "title": "Fake Plastic Trees",
+          "title_version": "",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 14880317,
+            "title": "The Bends"
+          },
+          "duration": 290,
+          "isrc": "GBAYE9400056",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 65823405,
+          "title": "Creep",
+          "title_version": "",
+          "artist": {
+            "id": 4037109,
+            "name": "Daniela Andrade"
+          },
+          "album": {
+            "id": 6453025,
+            "title": "Covers, Vol. 1"
+          },
+          "duration": 214,
+          "isrc": "TCABN1306674",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2215315147,
+          "title": "Inside My Head",
+          "title_version": "",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "duration": 191,
+          "isrc": "GBAYE9200468",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 3472538191,
+          "title": "2 + 2 = 5 (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 792320571,
+            "title": "Hail to the Thief (Live Recordings 2003-2009)"
+          },
+          "duration": 216,
+          "isrc": "GBBKS2500285",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2215315157,
+          "title": "Million Dollar Question",
+          "title_version": "",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "duration": 198,
+          "isrc": "GBAYE9200469",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2215315167,
+          "title": "Yes I Am",
+          "title_version": "",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "duration": 265,
+          "isrc": "GBAYE9300698",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 3472538291,
+          "title": "Scatterbrain (Live)",
+          "title_version": "(Live)",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 792320571,
+            "title": "Hail to the Thief (Live Recordings 2003-2009)"
+          },
+          "duration": 206,
+          "isrc": "GBBKS2500295",
+          "explicit_lyrics": false
+        }
+      ],
+      "details": [
+        {
+          "id": 138547415,
+          "title": "Creep",
+          "title_version": "",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 14880711,
+            "title": "Pablo Honey"
+          },
+          "contributors": [
+            {
+              "id": 399,
+              "name": "Radiohead",
+              "role": "Main"
+            }
+          ],
+          "duration": 238,
+          "isrc": "GBAYE9200070",
+          "explicit_lyrics": true
+        },
+        {
+          "id": 2215315187,
+          "title": "Creep (Acoustic)",
+          "title_version": "(Acoustic)",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "contributors": [
+            {
+              "id": 399,
+              "name": "Radiohead",
+              "role": "Main"
+            }
+          ],
+          "duration": 258,
+          "isrc": "GBAYE9300465",
+          "explicit_lyrics": false
+        },
+        {
+          "id": 2215315177,
+          "title": "Blow Out (Remix)",
+          "title_version": "(Remix)",
+          "artist": {
+            "id": 399,
+            "name": "Radiohead"
+          },
+          "album": {
+            "id": 423524437,
+            "title": "Creep EP"
+          },
+          "contributors": [
+            {
+              "id": 399,
+              "name": "Radiohead",
+              "role": "Main"
+            }
+          ],
+          "duration": 258,
+          "isrc": "GBAYE9300436",
+          "explicit_lyrics": false
+        }
+      ],
+      "expectedId": "deezer:138547415",
+      "expectedAutomatic": true,
+      "referenceUrl": "https://api.deezer.com/track/138547415"
+    }
+  ]
+}

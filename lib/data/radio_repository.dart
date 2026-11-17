@@ -14,10 +14,13 @@ import 'public_music_catalog.dart';
 import 'torrent_metainfo.dart';
 import 'torrent_service.dart';
 
-String radioArtist(Track track) => track.albumArtist?.trim().isNotEmpty == true
-    ? track.albumArtist!
-    : track.artist;
+String radioArtist(Track track) =>
+    track.catalogLink?.recording.catalogArtist ??
+    (track.albumArtist?.trim().isNotEmpty == true
+        ? track.albumArtist!
+        : track.artist);
 String _normalizedRadioArtist(Track track) {
+  if (track.catalogLink != null) return normalizeMusicName(radioArtist(track));
   final names = normalizedTrackArtistNames(track);
   return names[1].isEmpty ? names[0] : names[1];
 }
@@ -125,12 +128,19 @@ class RadioRepository implements RadioSource {
     for (final name in names) {
       try {
         operation.check();
-        final artist = await operation.wait(
-          metadata.artist(name, operation: operation),
-        );
-        if (artist == null) continue;
+        final knownId = seeds
+            .where((t) => radioArtist(t) == name)
+            .map((t) => t.catalogLink?.recording.musicBrainzArtistId)
+            .whereType<String>()
+            .firstOrNull;
+        final artistId =
+            knownId ??
+            (await operation.wait(
+              metadata.artist(name, operation: operation),
+            ))?.id;
+        if (artistId == null) continue;
         final artists = await operation.wait(
-          similar.similarArtists(artist.id, operation: operation),
+          similar.similarArtists(artistId, operation: operation),
         );
         for (final item in artists.take(3)) {
           if (!recommendations.contains(item.name)) {

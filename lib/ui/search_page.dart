@@ -101,7 +101,7 @@ class _SearchPage extends StatelessWidget {
             ),
           ),
         SectionTitle(
-          tr("Треки в MusicBrainz"),
+          tr("Треки в музыкальных каталогах"),
           subtitle: app.searching
               ? tr("Ищем…")
               : app.recordingResults.isNotEmpty

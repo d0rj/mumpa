@@ -20,6 +20,8 @@ import '../data/source_operation.dart';
 import '../data/public_music_catalog.dart';
 import '../data/media_cache.dart';
 import '../data/music_metadata_repository.dart';
+import '../data/catalog_repository.dart';
+import 'catalog_enrichment.dart';
 import '../data/similar_artists_repository.dart';
 import '../data/radio_repository.dart';
 import '../domain/similar_artist.dart';
@@ -69,6 +71,7 @@ class AppController extends ChangeNotifier {
     JackettService? jackett,
     FlareSolverrService? flaresolverr,
     MusicMetadataRepository? metadata,
+    CatalogRepository? musicCatalog,
     SimilarArtistsRepository? similarArtists,
     RadioSource? radioSource,
   }) : indexer = indexer ?? IndexerService(),
@@ -87,6 +90,8 @@ class AppController extends ChangeNotifier {
                    1024,
              ),
            ) {
+    this.musicCatalog =
+        musicCatalog ?? CatalogRepository(musicBrainz: this.metadata);
     this.similarArtists =
         similarArtists ??
         SimilarArtistsRepository(
@@ -184,6 +189,8 @@ class AppController extends ChangeNotifier {
   final JackettService jackett;
   final FlareSolverrService flaresolverr;
   final MusicMetadataRepository metadata;
+  late final CatalogRepository musicCatalog;
+  late final catalogEnrichment = CatalogEnrichment(library, musicCatalog);
   late final SimilarArtistsRepository similarArtists;
   late final torrentArtwork = TorrentArtworkRepository(
     torrents: torrents,
@@ -352,15 +359,17 @@ class AppController extends ChangeNotifier {
   SourceOperation? _versionOperation;
   SourceOperation? _artistOperation;
   List<Track>? _artistTracks, _artistTrackSource;
-  String? _artistTrackName;
+  String? _artistTrackName, _artistTrackId;
   MusicArtist? _artistTrackProfile;
   List<Track> get artistTracks {
     final source = library.mediaTracks;
     if (!identical(source, _artistTrackSource) ||
         selectedArtist != _artistTrackName ||
+        _selectedArtistId != _artistTrackId ||
         !identical(artistProfile, _artistTrackProfile)) {
       _artistTrackSource = source;
       _artistTrackName = selectedArtist;
+      _artistTrackId = _selectedArtistId;
       _artistTrackProfile = artistProfile;
       final name = normalizeMusicName(selectedArtist ?? '');
       final names = {
@@ -371,9 +380,23 @@ class AppController extends ChangeNotifier {
         ],
       }..remove('');
       _artistTracks = source
-          .where(
-            (track) => normalizedTrackArtistNames(track).any(names.contains),
-          )
+          .where((track) {
+            final credits =
+                track.catalogLink?.recording.artists ?? const <CatalogArtist>[];
+            final key = _selectedArtistId == null
+                ? artistProfile?.key
+                : _selectedArtistId!.contains(':')
+                ? _selectedArtistId
+                : 'musicbrainz:$_selectedArtistId';
+            if (key != null &&
+                credits.any((a) => a.provider == key.split(':').first)) {
+              return credits.any((a) => a.key == key);
+            }
+            return credits.any(
+                  (a) => names.contains(normalizeMusicName(a.name)),
+                ) ||
+                normalizedTrackArtistNames(track).any(names.contains);
+          })
           .toList(growable: false);
     }
     return _artistTracks!;
@@ -659,6 +682,11 @@ class AppController extends ChangeNotifier {
     if (!identical(_artworkTracks, library.tracks)) {
       _artworkByAlbum = null;
       _artworkTracks = library.tracks;
+      if (playback.playing &&
+          !playback.loading &&
+          playback.position.inSeconds >= 15) {
+        catalogEnrichment.consider(playback.current);
+      }
     }
     notifyListeners();
   }
@@ -668,6 +696,11 @@ class AppController extends ChangeNotifier {
   String? _playbackStatus;
   void _onPlayback() {
     final track = playback.current;
+    if (playback.playing &&
+        !playback.loading &&
+        playback.position.inSeconds >= 15) {
+      catalogEnrichment.consider(track);
+    }
     downloads.playbackProtectedIds
       ..clear()
       ..addAll(track == null ? <String>[] : [track.id]);
@@ -1094,6 +1127,22 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  void openTrackArtist(Track track) {
+    final artists =
+        (library.byId(track.id) ?? track).catalogLink?.recording.artists;
+    final artist =
+        artists?.where((a) => a.provider == 'musicbrainz').firstOrNull ??
+        artists?.firstOrNull;
+    openArtist(
+      artist?.name ?? track.artist,
+      artistId: artist == null
+          ? null
+          : artist.provider == 'musicbrainz'
+          ? artist.id
+          : artist.key,
+    );
+  }
+
   void openArtist(String value, {String? artistId}) {
     _navigate(
       AppPage.artist,
@@ -1121,13 +1170,20 @@ class AppController extends ChangeNotifier {
     try {
       final profile = artistId == null
           ? await metadata.artist(name, operation: operation)
+          : artistId.startsWith('deezer:')
+          ? await musicCatalog.deezer.artist(
+              artistId.substring(7),
+              operation: operation,
+            )
           : await metadata.artistById(artistId, operation: operation);
       if (_disposed || id != _artistRequest) return;
       artistProfile = profile;
       if (profile == null) {
         artistError = tr("Исполнитель пока не найден в MusicBrainz.");
       } else {
-        unawaited(_loadSimilarArtists(profile, id, operation));
+        if (profile.provider == 'musicbrainz') {
+          unawaited(_loadSimilarArtists(profile, id, operation));
+        }
       }
     } catch (e) {
       if (!_disposed && id == _artistRequest) {
@@ -1191,7 +1247,8 @@ class AppController extends ChangeNotifier {
   Future<void> findRecordingVersions(MusicRecording recording) async {
     navigate(
       AppPage.search,
-      newEntry: page == AppPage.search && selectedRecording?.id != recording.id,
+      newEntry:
+          page == AppPage.search && selectedRecording?.key != recording.key,
     );
     versionFormat = null;
     cancelVersionSearch();
@@ -1217,10 +1274,7 @@ class AppController extends ChangeNotifier {
     versionLoading = true;
     notifyListeners();
     try {
-      recording = await metadata.recordingWithAlbums(
-        recording,
-        operation: operation,
-      );
+      recording = await musicCatalog.details(recording, operation: operation);
       if (!_disposed && id == _versionRequest) selectedRecording = recording;
       final service = TrackSearchService(
         indexer: indexer,
@@ -1653,12 +1707,17 @@ class AppController extends ChangeNotifier {
       searchCompleted = false;
       notifyListeners();
       try {
-        final results = await metadata.searchRecordings(
+        final results = await musicCatalog.search(
           requestedQuery,
           operation: operation,
         );
         if (!_disposed && id == _searchId) {
-          recordingResults = results;
+          recordingResults = results.recordings;
+          if (results.unavailableProviders.isNotEmpty) {
+            metadataError = tr('Часть каталогов недоступна: {0}', [
+              results.unavailableProviders.join(', '),
+            ]);
+          }
           searchCompleted = true;
         }
       } catch (e) {
@@ -2124,6 +2183,8 @@ class AppController extends ChangeNotifier {
       _musicLinksInitialized = false;
     }
     prefetch.close();
+    catalogEnrichment.dispose();
+    musicCatalog.dispose();
     updates.dispose();
     _searchDebounce?.cancel();
     ++_searchId;

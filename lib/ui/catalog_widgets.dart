@@ -575,9 +575,9 @@ class RecordingRows extends SliverContent {
     count: recordings.length,
     builder: (context, index) {
       final recording = recordings[index];
-      final selected = app.selectedRecording?.id == recording.id;
+      final selected = app.selectedRecording?.key == recording.key;
       return ListTile(
-        key: ValueKey('recording-${recording.id}'),
+        key: ValueKey('recording-${recording.key}'),
         contentPadding: const EdgeInsets.symmetric(vertical: 6),
         leading: Container(
           width: 44,
@@ -603,7 +603,14 @@ class RecordingRows extends SliverContent {
           children: [
             ArtistLink(
               artist: recording.artist,
-              onOpen: () => app.openArtist(recording.catalogArtist),
+              onOpen: () => app.openArtist(
+                recording.catalogArtist,
+                artistId: recording.artistId == null
+                    ? null
+                    : recording.provider == 'deezer'
+                    ? 'deezer:${recording.artistId}'
+                    : recording.artistId,
+              ),
               style: const TextStyle(color: muted, fontSize: 11),
             ),
             if (recording.albumTitles.isNotEmpty)
@@ -638,7 +645,7 @@ class TrackVariantRows extends SliverContent {
 
   @override
   Widget build(BuildContext context) =>
-      _TrackVariantContent(key: ValueKey(app.selectedRecording?.id), app: app);
+      _TrackVariantContent(key: ValueKey(app.selectedRecording?.key), app: app);
 }
 
 class _TrackVariantContent extends StatefulWidget {

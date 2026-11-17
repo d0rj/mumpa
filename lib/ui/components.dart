@@ -13,6 +13,7 @@ import '../domain/track_matching.dart';
 import '../logic/app_controller.dart';
 import 'theme.dart';
 import 'local_tools.dart';
+import 'catalog_match_dialog.dart';
 
 part 'artwork.dart';
 part 'track_list.dart';

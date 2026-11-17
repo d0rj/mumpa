@@ -1,4 +1,6 @@
 import 'models.dart';
+import 'catalog_identity.dart';
+export 'catalog_identity.dart';
 
 final _musicNameSeparators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 
@@ -39,57 +41,20 @@ class MusicReleaseGroup {
       );
 }
 
-class MusicRecording {
-  const MusicRecording({
-    required this.id,
-    required this.title,
-    required this.artist,
-    this.artistId,
-    this.durationMs = 0,
-    this.albumTitles = const [],
-    this.disambiguation = '',
-    this.primaryArtist = '',
-  });
-  final String id, title, artist, disambiguation;
-  final String primaryArtist;
-  String get catalogArtist => primaryArtist.isEmpty ? artist : primaryArtist;
-  final String? artistId;
-  final int durationMs;
-  final List<String> albumTitles;
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    'artist': artist,
-    'artistId': artistId,
-    'durationMs': durationMs,
-    'albumTitles': albumTitles,
-    'disambiguation': disambiguation,
-    'primaryArtist': primaryArtist,
-  };
-  factory MusicRecording.fromJson(Map<String, dynamic> j) => MusicRecording(
-    id: j['id'] as String,
-    title: j['title'] as String,
-    artist: j['artist'] as String,
-    artistId: j['artistId'] as String?,
-    durationMs: (j['durationMs'] as num?)?.toInt() ?? 0,
-    albumTitles: List<String>.unmodifiable(j['albumTitles'] as List? ?? []),
-    disambiguation: j['disambiguation'] as String? ?? '',
-    primaryArtist: j['primaryArtist'] as String? ?? '',
-  );
-}
-
 class MusicArtist {
   const MusicArtist({
     required this.id,
     required this.name,
     this.type = '',
     this.country = '',
+    this.provider = 'musicbrainz',
     this.disambiguation = '',
     this.aliases = const [],
     this.albums = const [],
     this.recordings = const [],
   });
-  final String id, name, type, country, disambiguation;
+  final String id, name, type, country, disambiguation, provider;
+  String get key => '$provider:$id';
   final List<String> aliases;
   final List<MusicReleaseGroup> albums;
   final List<MusicRecording> recordings;

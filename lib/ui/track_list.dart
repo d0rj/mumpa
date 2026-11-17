@@ -156,7 +156,7 @@ class TrackList extends SliverContent {
                         ),
                         ArtistLink(
                           artist: t.artist,
-                          onOpen: () => app.openArtist(t.artist),
+                          onOpen: () => app.openTrackArtist(t),
                           style: const TextStyle(color: muted, fontSize: 11),
                         ),
                       ],
@@ -278,6 +278,8 @@ class TrackList extends SliverContent {
                     ),
                     onSelected: (action) async {
                       switch (action) {
+                        case 'catalogMatch':
+                          await showCatalogMatchDialog(context, app, t);
                         case 'editMetadata':
                           await editTrackMetadata(context, app, t);
                         case 'pin':
@@ -358,7 +360,7 @@ class TrackList extends SliverContent {
                             );
                           }
                         case 'artist':
-                          app.openArtist(t.artist);
+                          app.openTrackArtist(t);
                         case 'album':
                           app.openTrackAlbum(t);
                         case 'removePlaylist':
@@ -385,6 +387,10 @@ class TrackList extends SliverContent {
                           value: 'share',
                           child: Text(tr('Поделиться')),
                         ),
+                      PopupMenuItem(
+                        value: 'catalogMatch',
+                        child: Text(tr('Привязка к каталогу')),
+                      ),
                       PopupMenuItem(
                         value: 'editMetadata',
                         child: Text(tr('Изменить метаданные')),

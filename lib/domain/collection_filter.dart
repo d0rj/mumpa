@@ -156,7 +156,9 @@ List<String> _searchTerms(String query) => normalizeMusicName(
 ).split(' ').where((term) => term.isNotEmpty).toList(growable: false);
 
 String _trackSearchText(Track track) =>
-    '${track.title} ${track.artist} ${track.albumArtist ?? ''} ${track.album} ${track.year ?? ''}';
+    '${track.title} ${track.artist} ${track.albumArtist ?? ''} ${track.album} ${track.year ?? ''} '
+    '${track.catalogLink?.recording.title ?? ''} '
+    '${track.catalogLink?.recording.artists.map((a) => '${a.name} ${a.aliases.join(' ')}').join(' ') ?? ''}';
 
 bool _matchesTerms(String text, List<String> terms) {
   final normalized = normalizeMusicName(text);

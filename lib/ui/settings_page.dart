@@ -932,6 +932,16 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       style: TextStyle(color: muted, fontSize: 12),
     ),
+    SwitchListTile(
+      title: Text(tr('Автоматически сопоставлять воспроизводимые треки')),
+      value: widget.app.library.settings['catalogAutoMatch'] != false,
+      onChanged: (value) =>
+          widget.app.library.setSetting('catalogAutoMatch', value),
+    ),
+    Text(
+      tr('Сохранённые привязки остаются в медиатеке после очистки кеша.'),
+      style: const TextStyle(fontSize: 12, color: muted),
+    ),
     const SizedBox(height: 12),
     DropdownButtonFormField<int>(
       key: ValueKey(

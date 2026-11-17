@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 import '../l10n/app_localizations.dart';
 import 'playlist_rules.dart';
+import 'catalog_identity.dart';
 
 const audioExtensions = {
   'mp3',
@@ -68,6 +69,8 @@ class Track {
     this.torrentAlbumPath,
     this.albumSource,
     this.albumArtistFromTags = false,
+    this.catalogLink,
+    this.catalogMatchingDisabled = false,
   });
   final String id, title, artist, album;
   final TrackSource source;
@@ -83,6 +86,10 @@ class Track {
   final TrackAlbumSource? albumSource;
   final DateTime? downloadedAt;
   final bool albumArtistFromTags;
+  final TrackCatalogLink? catalogLink;
+  final bool catalogMatchingDisabled;
+  String get catalogEvidenceKey =>
+      jsonEncode([title, artist, album, durationMs]);
   final int? torrentIndex, year;
   final int bytes, durationMs, number, disc;
   Duration get duration => Duration(milliseconds: durationMs);
@@ -110,6 +117,9 @@ class Track {
     String? torrentAlbumPath,
     TrackAlbumSource? albumSource,
     bool? albumArtistFromTags,
+    TrackCatalogLink? catalogLink,
+    bool clearCatalogLink = false,
+    bool? catalogMatchingDisabled,
   }) => Track(
     id: id,
     title: title ?? this.title,
@@ -134,6 +144,22 @@ class Track {
     torrentAlbumPath: torrentAlbumPath ?? this.torrentAlbumPath,
     albumSource: albumSource ?? this.albumSource,
     albumArtistFromTags: albumArtistFromTags ?? this.albumArtistFromTags,
+    catalogMatchingDisabled:
+        catalogMatchingDisabled ?? this.catalogMatchingDisabled,
+    catalogLink: clearCatalogLink
+        ? null
+        : catalogLink ??
+              ((title != null &&
+                          catalogText(title) != catalogText(this.title)) ||
+                      (artist != null &&
+                          catalogText(artist) != catalogText(this.artist)) ||
+                      (album != null &&
+                          catalogText(album) != catalogText(this.album)) ||
+                      (durationMs != null &&
+                          this.durationMs > 0 &&
+                          (durationMs - this.durationMs).abs() > 2500)
+                  ? null
+                  : this.catalogLink),
   );
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -160,6 +186,8 @@ class Track {
     if (torrentAlbumPath != null) 'torrentAlbumPath': torrentAlbumPath,
     if (albumSource != null) 'albumSource': albumSource!.name,
     if (albumArtistFromTags) 'albumArtistFromTags': true,
+    if (catalogLink != null) 'catalogLink': catalogLink!.toJson(),
+    if (catalogMatchingDisabled) 'catalogMatchingDisabled': true,
   };
   factory Track.fromJson(Map<String, dynamic> j) => Track(
     id: j['id'] as String,
@@ -187,6 +215,12 @@ class Track {
         .where((source) => source.name == j['albumSource'])
         .firstOrNull,
     albumArtistFromTags: j['albumArtistFromTags'] == true,
+    catalogMatchingDisabled: j['catalogMatchingDisabled'] == true,
+    catalogLink: j['catalogLink'] == null
+        ? null
+        : TrackCatalogLink.fromJson(
+            Map<String, dynamic>.from(j['catalogLink'] as Map),
+          ),
   );
 }
 

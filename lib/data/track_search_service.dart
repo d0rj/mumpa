@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../domain/models.dart';
 import '../domain/music_metadata.dart';
+import '../domain/catalog_matching.dart';
 import 'media_cache.dart';
 import 'source_operation.dart';
 import 'torrent_metainfo.dart';
@@ -134,10 +135,12 @@ class TrackSearchService {
           final tracks = torrents.tracks(
             info,
             album: identity?.album ?? release.title,
-            artist: artist,
+            artist: identity?.artist ?? inferredReleaseArtist(release.title),
             link: release.link,
           );
           for (final track in tracks) {
+            // Artist evidence comes from this release/folder, never the query.
+            if (!catalogArtistMatches(track.artist, recording)) continue;
             if (!matchesRecordingFilename(track.torrentPath!, recording)) {
               continue;
             }

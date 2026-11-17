@@ -476,6 +476,14 @@ class LibraryRepository extends ChangeNotifier {
           item = item.copyWith(downloadedAt: old.downloadedAt);
         }
       }
+      if (old != null &&
+          item.catalogEvidenceKey == old.catalogEvidenceKey &&
+          item.catalogLink == null) {
+        item = item.copyWith(
+          catalogLink: old.catalogLink,
+          catalogMatchingDisabled: old.catalogMatchingDisabled,
+        );
+      }
       indexed[t.id] = applyMetadataEdits(item);
       if (old == null) features.added[t.id] = DateTime.now().toUtc();
       if (addToLibrary) _retainedTrackIds.add(t.id);
@@ -486,6 +494,35 @@ class LibraryRepository extends ChangeNotifier {
     await _prepareTracks();
     notifyListeners();
     await _save();
+  }
+
+  /// Compare the original metadata again after asynchronous catalogue lookup.
+  /// Never restore a deleted file or overwrite a more recent user decision.
+  Future<bool> setCatalogLink(
+    String id,
+    TrackCatalogLink? link, {
+    required String expectedEvidenceKey,
+    bool automatic = false,
+  }) async {
+    final current = byId(id);
+    if (current == null ||
+        current.catalogEvidenceKey != expectedEvidenceKey ||
+        (automatic &&
+            (current.catalogLink != null ||
+                current.catalogMatchingDisabled ||
+                settings['catalogAutoMatch'] == false))) {
+      return false;
+    }
+    final updated = current.copyWith(
+      catalogLink: link,
+      clearCatalogLink: link == null,
+      catalogMatchingDisabled: link == null,
+    );
+    _tracks = _tracks.map((t) => t.id == id ? updated : t).toList();
+    await _prepareTracks();
+    await _save();
+    notifyListeners();
+    return true;
   }
 
   Future<void> removeTracks(Iterable<String> ids) async {

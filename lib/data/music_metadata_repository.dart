@@ -240,7 +240,7 @@ class MusicMetadataRepository {
     );
     _checkGeneration(generation);
     final candidates = (result['artists'] as List? ?? []).whereType<Map>();
-    final candidate = candidates.where((item) {
+    final matching = candidates.where((item) {
       final names = [
         item['name'],
         item['sort-name'],
@@ -251,10 +251,10 @@ class MusicMetadataRepository {
       return names.whereType<String>().any(
         (n) => normalizeMusicName(n) == normalizeMusicName(name),
       );
-    }).firstOrNull;
-    // Do not silently attach a different similarly named band.
-    if (candidate == null) return null;
-    final id = candidate['id'] as String;
+    }).toList();
+    // Equal names do not identify homonymous artists. Explicit IDs still work.
+    if (matching.length != 1) return null;
+    final id = matching.single['id'] as String;
     return artistById(id, operation: operation);
   }
 
@@ -346,6 +346,23 @@ class MusicMetadataRepository {
         .toList();
   }
 
+  Future<List<MusicRecording>> findRecordings(
+    String artist,
+    String title, {
+    SourceOperation? operation,
+  }) async {
+    final result = await _api('recording', {
+      'query':
+          'recording:"${musicSearchPhrase(title)}" AND artist:"${musicSearchPhrase(artist)}"',
+      'limit': '25',
+    }, operation: operation);
+    return List.unmodifiable(
+      (result['recordings'] as List? ?? []).whereType<Map>().map(
+        (j) => _recording(j),
+      ),
+    );
+  }
+
   Future<MusicRecording> recordingWithAlbums(
     MusicRecording recording, {
     SourceOperation? operation,
@@ -354,7 +371,7 @@ class MusicMetadataRepository {
     if (recording.albumTitles.isNotEmpty) return recording;
     final data = await _api(
       'recording/${recording.id}',
-      {'inc': 'artists+releases'},
+      {'inc': 'artists+releases+isrcs'},
       operation: operation,
       expectedGeneration: generation,
     );
@@ -400,6 +417,26 @@ class MusicMetadataRepository {
       primaryArtist:
           (credits.firstOrNull?['artist'] as Map?)?['name'] as String? ??
           fallbackArtist,
+      artistCredits: List.unmodifiable(
+        credits.map((credit) {
+          final artist = credit['artist'] as Map? ?? const {};
+          return CatalogArtist(
+            id: artist['id'] as String? ?? fallbackId ?? '',
+            name:
+                artist['name'] as String? ??
+                credit['name'] as String? ??
+                fallbackArtist,
+            aliases: List.unmodifiable([
+              if (credit['name'] is String) credit['name'] as String,
+              ...(artist['aliases'] as List? ?? [])
+                  .whereType<Map>()
+                  .map((alias) => alias['name'])
+                  .whereType<String>(),
+            ]),
+          );
+        }),
+      ),
+      isrcs: List<String>.unmodifiable(j['isrcs'] as List? ?? []),
       durationMs: (j['length'] as num?)?.toInt() ?? 0,
       disambiguation: j['disambiguation'] as String? ?? '',
       albumTitles: List.unmodifiable(

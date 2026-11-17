@@ -256,9 +256,9 @@ class _ArtistPage extends StatelessWidget {
         if (profile != null) ...[
           SectionTitle(
             tr("Об исполнителе"),
-            subtitle: tr(
-              "Метаданные: MusicBrainz · обложки: Cover Art Archive",
-            ),
+            subtitle: profile.provider == 'deezer'
+                ? 'Deezer'
+                : tr("Метаданные: MusicBrainz · обложки: Cover Art Archive"),
           ),
           if (profile.aliases.isNotEmpty)
             Text(

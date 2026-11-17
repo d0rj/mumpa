@@ -182,6 +182,7 @@ class ProfileTransfer {
     final result = <String, dynamic>{};
     for (final key in [
       'autoCache',
+      'catalogAutoMatch',
       'autoplayRadio',
       'checkAppUpdates',
       'equalizerEnabled',

@@ -139,6 +139,22 @@ class TrackMatchIndex {
     Set<String> preferred = const {},
     Map<String, String> sourceDescriptions = const {},
   }) : _tracksById = {for (final track in tracks) track.id: track} {
+    // Union only confirmed provider links; text-only files never bridge two
+    // distinct catalogue identities with the same artist/title spelling.
+    final parents = <String, String>{};
+    String root(String key) {
+      final parent = parents.putIfAbsent(key, () => key);
+      return parent == key ? key : parents[key] = root(parent);
+    }
+
+    for (final track in tracks) {
+      final recording = track.catalogLink?.recording;
+      if (recording == null) continue;
+      for (final key in recording.keys) {
+        final a = root(recording.key), b = root(key);
+        if (a != b) parents[b] = a;
+      }
+    }
     final buckets = <String, List<Track>>{};
     final censoredSources = sourceDescriptions.map(
       (hash, description) => MapEntry(
@@ -154,6 +170,8 @@ class TrackMatchIndex {
       }
       final key = excluded.contains(track.id)
           ? 'file:${track.id}'
+          : track.catalogLink != null
+          ? 'catalog:${root(track.catalogLink!.recording.key)}'
           : identity.key;
       buckets.putIfAbsent(key, () => []).add(track);
     }

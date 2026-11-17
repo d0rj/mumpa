@@ -39,19 +39,20 @@ Uint8List encode(Object value) {
   ]);
 }
 
-Uint8List metainfo(String filename) => encode(<String, Object>{
-  'info': <String, Object>{
-    'name': 'Band - Album',
-    'piece length': 16384,
-    'pieces': Uint8List(20),
-    'files': [
-      <String, Object>{
-        'length': 1234,
-        'path': [filename],
+Uint8List metainfo(String filename, {String folder = 'Band - Album'}) =>
+    encode(<String, Object>{
+      'info': <String, Object>{
+        'name': folder,
+        'piece length': 16384,
+        'pieces': Uint8List(20),
+        'files': [
+          <String, Object>{
+            'length': 1234,
+            'path': [filename],
+          },
+        ],
       },
-    ],
-  },
-});
+    });
 
 void main() {
   late Directory root;
@@ -528,6 +529,7 @@ void main() {
               '<item><title>Band - Album MP3 Clean</title><link>http://localhost/mp3.torrent</link></item>'
               '<item><title>Band - Album FLAC Uncensored</title><link>http://localhost/flac.torrent</link></item>'
               '<item><title>Band - Album FLAC</title><link>http://localhost/false.torrent</link></item>'
+              '<item><title>Unrelated Band - Album</title><link>http://localhost/wrong-artist.torrent</link></item>'
               '</channel></rss>',
               200,
             );
@@ -536,9 +538,18 @@ void main() {
           final filename = switch (request.url.path) {
             '/mp3.torrent' => '01 - Song (Clean).mp3',
             '/flac.torrent' => '01 - Song (Explicit).flac',
+            '/wrong-artist.torrent' => '01 - Song.flac',
             _ => '01 - Different Song.flac',
           };
-          return http.Response.bytes(metainfo(filename), 200);
+          return http.Response.bytes(
+            metainfo(
+              filename,
+              folder: request.url.path == '/wrong-artist.torrent'
+                  ? 'Unrelated Band - Album'
+                  : 'Band - Album',
+            ),
+            200,
+          );
         }),
       );
       final torrents = TorrentService(
@@ -573,7 +584,11 @@ void main() {
         isTrue,
       );
       expect(engineRequests, 0);
-      expect(torrentRequests, 3);
+      expect(
+        results.every((variant) => variant.track.artist == 'Band'),
+        isTrue,
+      );
+      expect(torrentRequests, 4);
       expect(
         (await service.find(
           recording,
@@ -583,7 +598,7 @@ void main() {
         )).length,
         2,
       );
-      expect(torrentRequests, 3);
+      expect(torrentRequests, 4);
       indexer.dispose();
       torrents.dispose();
     },

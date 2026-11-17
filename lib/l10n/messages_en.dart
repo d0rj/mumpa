@@ -1,6 +1,32 @@
 import 'features_en.dart';
 
 const englishMessages = <String, String>{
+  'Треки в музыкальных каталогах': 'Tracks in music catalogues',
+  'Сохранённые привязки остаются в медиатеке после очистки кеша.':
+      'Saved links stay in your library after clearing the cache.',
+
+  'Привязка к каталогу': 'Catalogue link',
+  'Сохранено': 'Saved',
+  'Выбрано вручную': 'Chosen manually',
+  'Совпали метаданные': 'Metadata matched',
+  'Музыкальный каталог сейчас недоступен.':
+      'The music catalogue is unavailable right now.',
+  'Не удалось сохранить привязку. Трек мог измениться; открой окно заново.':
+      'Could not save the link. The track may have changed; reopen this dialog.',
+  'Часть каталогов недоступна: {0}': 'Some catalogues are unavailable: {0}',
+  'Подходящие записи не найдены. Проверь метаданные трека.':
+      'No matching recordings found. Check the track metadata.',
+  'Метаданные согласуются': 'Metadata agrees',
+  'Есть различия: {0}': 'Differences: {0}',
+  'Связать с этой записью': 'Link to this recording',
+  'Удалить привязку': 'Remove link',
+  'исполнитель': 'artist',
+  'название': 'title',
+  'длительность': 'duration',
+  'версия': 'version',
+  'Автоматически сопоставлять воспроизводимые треки':
+      'Automatically match playing tracks',
+
   'Поделиться': 'Share',
   'Поделиться музыкой': 'Share music',
   'Выбери раздачу': 'Choose a release',
