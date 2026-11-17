@@ -27,6 +27,13 @@ class _Catalog extends CatalogRepository {
   final called = Completer<void>();
   final response = Completer<CatalogMatchResult>();
   int calls = 0;
+  bool closed = false;
+  @override
+  void dispose() {
+    closed = true;
+    super.dispose();
+  }
+
   @override
   Future<CatalogMatchResult> match(Track track, {SourceOperation? operation}) {
     calls++;
@@ -37,78 +44,81 @@ class _Catalog extends CatalogRepository {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  for (final disableWhileLoading in [false, true]) {
-    test(
-      'playing track enriches once; respects a late opt-out=$disableWhileLoading',
-      () async {
-        final root = await Directory.systemTemp.createTemp(
-          'mumpa-catalog-playing-',
-        );
-        final library = LibraryRepository(root);
-        await library.load();
-        final media = await File(
-          '${root.path}/test.mp3',
-        ).writeAsBytes([1, 2, 3]);
-        final track = song.copyWith(localPath: media.path);
-        await library.upsert([track]);
-        final torrents = TorrentService(
-          endpoint: () async => 'http://localhost',
-        );
-        final audio = _Audio();
-        final playback = PlaybackController(
-          library: library,
-          torrents: torrents,
-          backend: audio,
-        );
-        await playback.initialize(platformAudio: false);
-        final metadata = MusicMetadataRepository(
-          cache: DiskMediaCache(Directory('${root.path}/metadata')),
-        );
-        final catalog = _Catalog(metadata);
-        final app = AppController(
-          library: library,
-          playback: playback,
-          downloads: DownloadRepository(library, torrents),
-          torrents: torrents,
-          engine: TorrentEngine(root),
-          metadata: metadata,
-          musicCatalog: catalog,
-        );
-        try {
-          await playback.playTracks([track]);
-          await audio.seek(const Duration(seconds: 12));
-          expect(catalog.calls, 0);
-          await audio.seek(const Duration(seconds: 16));
-          await catalog.called.future.timeout(const Duration(seconds: 3));
-          await audio.seek(const Duration(seconds: 18));
-          expect(catalog.calls, 1);
-          if (disableWhileLoading) {
-            await library.setSetting('catalogAutoMatch', false);
-          }
-          catalog.response.complete(
-            CatalogMatchResult(rankCatalogMatches(track, [recording]), []),
-          );
-          // Poll a bounded asynchronous operation, without any network or real audio.
-          for (
-            var i = 0;
-            i < 50 && library.byId(track.id)!.catalogLink == null;
-            i++
-          ) {
-            await Future<void>.delayed(const Duration(milliseconds: 10));
-          }
-          final saved = library.byId(track.id)!.catalogLink;
-          if (disableWhileLoading) {
-            expect(saved, isNull);
-          } else {
-            expect(saved!.recording.key, recording.key);
-            expect(saved.manual, isFalse);
-          }
-        } finally {
-          await app.shutdown();
-          library.dispose();
-          await root.delete(recursive: true);
+  for (final outcome in ['accept', 'disable', 'shutdown']) {
+    test('playing track enriches once; pending outcome=$outcome', () async {
+      final root = await Directory.systemTemp.createTemp(
+        'mumpa-catalog-playing-',
+      );
+      final library = LibraryRepository(root);
+      await library.load();
+      final media = await File('${root.path}/test.mp3').writeAsBytes([1, 2, 3]);
+      final track = song.copyWith(localPath: media.path);
+      await library.upsert([track]);
+      final torrents = TorrentService(endpoint: () async => 'http://localhost');
+      final audio = _Audio();
+      final playback = PlaybackController(
+        library: library,
+        torrents: torrents,
+        backend: audio,
+      );
+      await playback.initialize(platformAudio: false);
+      final metadata = MusicMetadataRepository(
+        cache: DiskMediaCache(Directory('${root.path}/metadata')),
+      );
+      final catalog = _Catalog(metadata);
+      final app = AppController(
+        library: library,
+        playback: playback,
+        downloads: DownloadRepository(library, torrents),
+        torrents: torrents,
+        engine: TorrentEngine(root),
+        metadata: metadata,
+        musicCatalog: catalog,
+      );
+      try {
+        await playback.playTracks([track]);
+        await audio.seek(const Duration(seconds: 12));
+        expect(catalog.calls, 0);
+        await audio.seek(const Duration(seconds: 16));
+        await catalog.called.future.timeout(const Duration(seconds: 3));
+        await audio.seek(const Duration(seconds: 18));
+        expect(catalog.calls, 1);
+        if (outcome == 'disable') {
+          await library.setSetting('catalogAutoMatch', false);
         }
-      },
-    );
+        Future<void>? shutdown;
+        if (outcome == 'shutdown') {
+          shutdown = app.shutdown();
+          expect(
+            catalog.closed,
+            isTrue,
+            reason: 'Cancel before the first shutdown await',
+          );
+        }
+        catalog.response.complete(
+          CatalogMatchResult(rankCatalogMatches(track, [recording]), []),
+        );
+        await shutdown;
+        // Poll a bounded asynchronous operation, without any network or real audio.
+        for (
+          var i = 0;
+          i < 50 && library.byId(track.id)!.catalogLink == null;
+          i++
+        ) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        final saved = library.byId(track.id)!.catalogLink;
+        if (outcome != 'accept') {
+          expect(saved, isNull);
+        } else {
+          expect(saved!.recording.key, recording.key);
+          expect(saved.manual, isFalse);
+        }
+      } finally {
+        await app.shutdown();
+        library.dispose();
+        await root.delete(recursive: true);
+      }
+    });
   }
 }

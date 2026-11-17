@@ -281,6 +281,9 @@ class AppController extends ChangeNotifier {
   Future<void>? _catalogDisposal, _jackettStop, _flaresolverrStop;
   Future<void> shutdown() => _shutdown ??= _shutdownApplication();
   Future<void> _shutdownApplication() async {
+    // Stop metadata writers before flushing and releasing the profile lock.
+    catalogEnrichment.dispose();
+    musicCatalog.dispose();
     // A failed save or service must not prevent the remaining resources from
     // being released, or leave the Windows quit handshake permanently blocked.
     prefetch.close();

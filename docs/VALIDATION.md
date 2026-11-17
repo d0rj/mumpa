@@ -2,7 +2,7 @@
 
 ## Persistent catalogue identities and Deezer — 1.3.5+43 (2026-11-17)
 
-- Full Flutter unit/widget suite: **660 passed, 10 opt-in checks skipped**.
+- Full Flutter unit/widget suite: **661 passed, 10 opt-in checks skipped**.
 - Static analysis of `lib`, `test` and `integration_test` reports no issues;
   Dart formatting passes. The final focused metadata/search suite passes 12
   checks, including an unrelated artist's identically named filename.
@@ -12,6 +12,8 @@
   versions, ISRC conflicts and same-name artists.
 - Manual selection/removal works at 320×640 and 1200×800. Playback starts one
   lookup after 15 seconds and respects an opt-out while the response is pending.
+- Shutdown cancels catalogue writers before the first awaited cleanup step,
+  so a late response cannot write after the profile lock is released.
 - A public live MusicBrainz/Deezer batch produced 11 automatic selections out
   of 16 (7/12 Russian). Five cases abstained. A separate Russian duet joined
   both providers' recording IDs via ISRC while preserving both performers.
