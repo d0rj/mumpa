@@ -653,10 +653,17 @@ class LibraryRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<MusicPlaylist> createPlaylist(String name) async {
+  Future<MusicPlaylist> createPlaylist(String name) =>
+      createPlaylistWithTracks(name, trackIds: const []);
+
+  Future<MusicPlaylist> createPlaylistWithTracks(
+    String name, {
+    required Iterable<String> trackIds,
+  }) async {
     final playlist = MusicPlaylist(
-      id: stableId(DateTime.now().toIso8601String()),
+      id: stableId(DateTime.now().microsecondsSinceEpoch.toString()),
       name: name.trim(),
+      trackIds: trackIds.toSet().toList(),
     );
     _playlists.add(playlist);
     notifyListeners();
@@ -731,6 +738,21 @@ class LibraryRepository extends ChangeNotifier {
   Future<void> removeFromPlaylist(String id, String track) =>
       removePlaylistTracks(id, [track]);
 
+  Future<void> replacePlaylistTracks(
+    String id,
+    Iterable<String> trackIds,
+  ) async {
+    _playlists = [
+      for (final playlist in _playlists)
+        if (playlist.id == id)
+          playlist.copyWith(trackIds: trackIds.toSet().toList())
+        else
+          playlist,
+    ];
+    notifyListeners();
+    await _save();
+  }
+
   /// Move one saved occurrence to its final index, retaining every file ID.
   Future<void> movePlaylistTrack(String id, int from, int to) async {
     final index = _playlists.indexWhere((playlist) => playlist.id == id);
@@ -799,13 +821,16 @@ class LibraryRepository extends ChangeNotifier {
     List<String> paths, {
     bool copy = false,
     void Function(int, int)? progress,
+    void Function()? checkCancelled,
   }) async {
     final files = <String>[];
     for (final path in paths) {
+      checkCancelled?.call();
       if (await FileSystemEntity.isDirectory(path)) {
         await for (final entity in Directory(
           path,
         ).list(recursive: true, followLinks: false)) {
+          checkCancelled?.call();
           if (entity is File && isAudioPath(entity.path)) {
             files.add(entity.path);
           }
@@ -817,6 +842,7 @@ class LibraryRepository extends ChangeNotifier {
     files.sort();
     final imported = <Track>[];
     for (var i = 0; i < files.length; i++) {
+      checkCancelled?.call();
       var path = files[i];
       if (copy) {
         final input = File(path);
@@ -834,6 +860,7 @@ class LibraryRepository extends ChangeNotifier {
       }
       progress?.call(i + 1, files.length);
     }
+    checkCancelled?.call();
     // Metadata-only profile transfers keep IDs used by favorites/playlists.
     // Reattach a uniquely matching local file instead of adding a second row.
     final claimed = <String>{};

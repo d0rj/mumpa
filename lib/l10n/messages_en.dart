@@ -1,6 +1,16 @@
 import 'features_en.dart';
 
 const englishMessages = <String, String>{
+  'Доступ для агентов (MCP)': 'Agent access (MCP)',
+  'Управление музыкой из локальных MCP-клиентов':
+      'Control your music from local MCP clients',
+  'Разрешить управление через MCP': 'Allow MCP control',
+  'Ключ даёт доступ к плееру и медиатеке. Сервер доступен только на этом компьютере.':
+      'The access key grants control over the player and library. The server is available on this computer only.',
+  'Скопировать ключ MCP': 'Copy MCP access key',
+  'Ключ MCP скопирован': 'MCP access key copied',
+  'Не удалось запустить MCP. Проверь, свободен ли порт 37145, и повтори попытку.':
+      'Could not start MCP. Check that port 37145 is free and try again.',
   'Треки в музыкальных каталогах': 'Tracks in music catalogues',
   'Сохранённые привязки остаются в медиатеке после очистки кеша.':
       'Saved links stay in your library after clearing the cache.',

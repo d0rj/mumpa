@@ -34,13 +34,19 @@ Future<AppController> createApplication({
   ApplicationProfile? profile;
   if (dataDirectory == null && Platform.isWindows) {
     final home = Platform.environment['USERPROFILE'] ?? '';
+    Directory? legacySupport;
+    try {
+      legacySupport = Directory(
+        p.join((await getApplicationSupportDirectory()).path, 'Mumpa'),
+      );
+    } on MissingPlatformDirectoryException {
+      // The Windows known folder is only an optional legacy import source.
+    }
     profile = await ApplicationProfile.open(
       home: home,
       legacyRoots: await ApplicationProfile.legacyWindowsRoots(
         home,
-        Directory(
-          p.join((await getApplicationSupportDirectory()).path, 'Mumpa'),
-        ),
+        legacySupport,
       ),
     );
   }
@@ -90,14 +96,13 @@ Future<AppController> _createApplication({
     if (identified.isNotEmpty) await library.upsert(identified);
     // A stable executable identity prevents repeated Windows Firewall prompts
     // when tests use isolated library/state folders.
-    final support = await getApplicationSupportDirectory();
     final runtime = Directory(
       p.join(
         Platform.isWindows
             ? ApplicationProfile.windowsRoot(
                 Platform.environment['USERPROFILE'] ?? '',
               ).path
-            : p.join(support.path, 'Mumpa'),
+            : p.join((await getApplicationSupportDirectory()).path, 'Mumpa'),
         'runtime',
       ),
     );
@@ -195,6 +200,11 @@ Future<AppController> _createApplication({
       controller.windowsPlayer = shell;
       startupCleanup.add(shell.close);
       await shell.initialize();
+      try {
+        await controller.mcp.restore();
+      } on SocketException {
+        debugPrint('Mumpa MCP: could not bind the local endpoint.');
+      }
     }
     if (catalogEnabled) {
       if (!controller.usesIndexer) unawaited(controller.initializeCatalog());

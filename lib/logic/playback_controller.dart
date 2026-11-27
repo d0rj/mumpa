@@ -971,18 +971,23 @@ class PlaybackController extends ChangeNotifier {
     await _open();
   }
 
-  void enqueue(Track track, {bool next = false}) {
-    if (_closed) return;
+  void enqueue(Track track, {bool next = false}) =>
+      enqueueTracks([track], next: next);
+
+  void enqueueTracks(List<Track> tracks, {bool next = false}) {
+    if (_closed || tracks.isEmpty) return;
     _cancelRadio(preservePlayback: true);
-    _original.add(track);
+    final start = _original.length;
+    _original.addAll(tracks);
+    final slots = List.generate(tracks.length, (index) => start + index);
     if (next && _cursor >= 0) {
-      _order.insert(_cursor + 1, _original.length - 1);
+      _order.insertAll(_cursor + 1, slots);
     } else {
-      _order.add(_original.length - 1);
+      _order.addAll(slots);
     }
     if (_cursor < 0) _cursor = 0;
     if (shuffle) {
-      _unshuffledOrder.add(_original.length - 1);
+      _unshuffledOrder.addAll(slots);
     } else {
       _unshuffledOrder = List.of(_order);
     }

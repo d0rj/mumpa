@@ -33,6 +33,7 @@ import '../domain/music_share_link.dart';
 import '../domain/music_metadata.dart';
 import '../domain/collection_filter.dart';
 import '../domain/local_music_results.dart';
+import '../mcp/mumpa_mcp.dart';
 import 'corrected_music_search.dart';
 import 'playback_controller.dart';
 import 'queue_prefetch.dart';
@@ -274,6 +275,7 @@ class AppController extends ChangeNotifier {
   }
 
   WindowsPlayerService? windowsPlayer;
+  late final mcp = MumpaMcp(this);
   late final updates = AppUpdateService(
     Directory('${library.root.path}/updates'),
   );
@@ -281,9 +283,11 @@ class AppController extends ChangeNotifier {
   Future<void>? _catalogDisposal, _jackettStop, _flaresolverrStop;
   Future<void> shutdown() => _shutdown ??= _shutdownApplication();
   Future<void> _shutdownApplication() async {
+    cancelPendingCollectionPlayback();
     // Stop metadata writers before flushing and releasing the profile lock.
     catalogEnrichment.dispose();
     musicCatalog.dispose();
+    await _shutdownStep('MCP', mcp.close);
     // A failed save or service must not prevent the remaining resources from
     // being released, or leave the Windows quit handshake permanently blocked.
     prefetch.close();
@@ -1033,6 +1037,8 @@ class AppController extends ChangeNotifier {
   }
 
   int _collectionPlayRequest = 0;
+  void cancelPendingCollectionPlayback() => _collectionPlayRequest++;
+
   Future<void> playCollection(
     List<Track> tracks, {
     int index = 0,
@@ -1279,15 +1285,9 @@ class AppController extends ChangeNotifier {
     try {
       recording = await musicCatalog.details(recording, operation: operation);
       if (!_disposed && id == _versionRequest) selectedRecording = recording;
-      final service = TrackSearchService(
-        indexer: indexer,
-        torrents: torrents,
-        cache: metadata.cache,
-        workDirectory: Directory('${library.root.path}/source-search-temp'),
-      );
       final results = await operation
           .wait(
-            service.find(
+            trackSearch.find(
               recording,
               endpoint: sourceEndpoint,
               key: sourceKey,
@@ -1344,72 +1344,84 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  TrackSearchService get trackSearch => TrackSearchService(
+    indexer: indexer,
+    torrents: torrents,
+    cache: metadata.cache,
+    workDirectory: Directory('${library.root.path}/source-search-temp'),
+  );
+
   Future<({MusicPlaylist playlist, List<Track> tracks, Track selected})?>
   _importVariant(TrackVariant variant) =>
-      run(tr("Открываем выбранную версию…"), () async {
-        var source = variant.source;
-        if (!source.startsWith('magnet:') && !await File(source).exists()) {
-          final resolved = await indexer.resolve(
-            variant.release.link,
-            Directory('${library.root.path}/torrents'),
-            preferCachedMetainfo: usesAutomaticSource,
-          );
-          source = resolved.source;
-        }
-        final info = source.startsWith('magnet:')
-            ? await torrents.add(source)
-            : await torrents.upload(source);
-        // The metainfo ordinal is not a stream ID: TorrServer sorts its file
-        // list. Match immutable content identity, then use its returned ID.
-        final readyMatches = info.files
-            .where(
-              (file) =>
-                  file.path == variant.track.torrentPath &&
-                  file.bytes == variant.track.bytes &&
-                  isAudioPath(file.path),
-            )
-            .toList();
-        if (info.hash != variant.info.hash || readyMatches.length != 1) {
-          throw FormatException(
-            tr("Список файлов раздачи изменился. Повтори поиск версий."),
-          );
-        }
-        final readyAudio = readyMatches.single;
-        final tracks = torrents.tracks(
-          info,
-          album: variant.track.album,
-          artist: variant.track.artist,
-          link: source.startsWith('magnet:') ? source : null,
-        );
-        final playlist = await library.openSourceCollection(
-          hash: info.hash,
-          name: variant.release.title,
-          tracks: tracks,
-        );
-        final savedTracks = playlist.trackIds
-            .map(library.byId)
-            .whereType<Track>()
-            .toList();
-        final savedMatches = library.tracks
-            .where(
-              (track) =>
-                  track.torrentHash == info.hash &&
-                  track.torrentIndex == readyAudio.index &&
-                  track.torrentPath == readyAudio.path,
-            )
-            .toList();
-        if (savedMatches.length != 1) {
-          throw FormatException(tr("Трек отсутствует в коллекции."));
-        }
-        final selected = savedMatches.single;
-        // Source-playlist edits remain persistent. Explicitly choosing a
-        // removed file may still play it or enqueue it without restoring it
-        // to that playlist; include it only in this playback queue snapshot.
-        if (!savedTracks.any((track) => track.id == selected.id)) {
-          savedTracks.add(selected);
-        }
-        return (playlist: playlist, tracks: savedTracks, selected: selected);
-      });
+      run(tr("Открываем выбранную версию…"), () => importTrackVariant(variant));
+
+  Future<({MusicPlaylist playlist, List<Track> tracks, Track selected})>
+  importTrackVariant(TrackVariant variant, {SourceOperation? operation}) async {
+    var source = variant.source;
+    if (!source.startsWith('magnet:') && !await File(source).exists()) {
+      final resolved = await indexer.resolve(
+        variant.release.link,
+        Directory('${library.root.path}/torrents'),
+        preferCachedMetainfo: usesAutomaticSource,
+        operation: operation,
+      );
+      source = resolved.source;
+    }
+    final info = source.startsWith('magnet:')
+        ? await torrents.add(source, operation: operation)
+        : await torrents.upload(source, operation: operation);
+    // The metainfo ordinal is not a stream ID: TorrServer sorts its file
+    // list. Match immutable content identity, then use its returned ID.
+    final readyMatches = info.files
+        .where(
+          (file) =>
+              file.path == variant.track.torrentPath &&
+              file.bytes == variant.track.bytes &&
+              isAudioPath(file.path),
+        )
+        .toList();
+    if (info.hash != variant.info.hash || readyMatches.length != 1) {
+      throw FormatException(
+        tr("Список файлов раздачи изменился. Повтори поиск версий."),
+      );
+    }
+    final readyAudio = readyMatches.single;
+    final tracks = torrents.tracks(
+      info,
+      album: variant.track.album,
+      artist: variant.track.artist,
+      link: source.startsWith('magnet:') ? source : null,
+    );
+    operation?.check();
+    final playlist = await library.openSourceCollection(
+      hash: info.hash,
+      name: variant.release.title,
+      tracks: tracks,
+    );
+    final savedTracks = playlist.trackIds
+        .map(library.byId)
+        .whereType<Track>()
+        .toList();
+    final savedMatches = library.tracks
+        .where(
+          (track) =>
+              track.torrentHash == info.hash &&
+              track.torrentIndex == readyAudio.index &&
+              track.torrentPath == readyAudio.path,
+        )
+        .toList();
+    if (savedMatches.length != 1) {
+      throw FormatException(tr("Трек отсутствует в коллекции."));
+    }
+    final selected = savedMatches.single;
+    // Source-playlist edits remain persistent. Explicitly choosing a
+    // removed file may still play it or enqueue it without restoring it
+    // to that playlist; include it only in this playback queue snapshot.
+    if (!savedTracks.any((track) => track.id == selected.id)) {
+      savedTracks.add(selected);
+    }
+    return (playlist: playlist, tracks: savedTracks, selected: selected);
+  }
 
   Future<void> playTrackVariant(TrackVariant variant) async {
     final imported = await _importVariant(variant);
@@ -1757,14 +1769,9 @@ class AppController extends ChangeNotifier {
     try {
       late List<SearchRelease> items;
       if (usesIndexer) {
-        final result = await searchMusicWithCorrections(
-          query: requestedQuery,
-          knownNames: _knownSearchNames(),
+        final result = await lookupIndexedReleases(
+          requestedQuery,
           operation: operation,
-          search: (phrase) =>
-              indexer.search(endpoint, sourceKey, phrase, operation: operation),
-          suggestArtists: (phrase) =>
-              metadata.suggestArtistNames(phrase, operation: operation),
           onCorrectionAttempt: (phrase) {
             if (_disposed || id != _searchId) return;
             searchCorrectionCandidate = phrase;
@@ -1802,6 +1809,24 @@ class AppController extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  Future<CorrectedMusicSearchResult> lookupIndexedReleases(
+    String query, {
+    required SourceOperation operation,
+    void Function(String)? onCorrectionAttempt,
+  }) {
+    final endpoint = sourceEndpoint, key = sourceKey;
+    return searchMusicWithCorrections(
+      query: query,
+      knownNames: _knownSearchNames(),
+      operation: operation,
+      search: (phrase) =>
+          indexer.search(endpoint, key, phrase, operation: operation),
+      suggestArtists: (phrase) =>
+          metadata.suggestArtistNames(phrase, operation: operation),
+      onCorrectionAttempt: onCorrectionAttempt,
+    );
   }
 
   Future<void> initializeSources() async {
@@ -2099,56 +2124,17 @@ class AppController extends ChangeNotifier {
       notifyListeners();
     }
 
-    Future<({TorrentInfo info, String? link})> inspect() async {
-      if (release.rutracker) {
-        final link = await operation.wait(catalog.magnet(release));
-        return (
-          info: await torrents.add(
-            link,
-            title: release.title,
-            operation: operation,
-            onProgress: progress,
-          ),
-          link: link,
-        );
-      }
-      progress(
-        tr("Получаем torrent-файл из {0}…", [
-          release.indexerName.isEmpty ? 'Jackett' : release.indexerName,
-        ]),
-      );
-      final resolved = await indexer.resolve(
-        release.link,
-        Directory('${library.root.path}/torrents'),
-        operation: operation,
-        preferCachedMetainfo: usesAutomaticSource,
-      );
-      if (resolved.file) {
-        return (
-          info: await torrents.upload(
-            resolved.source,
-            operation: operation,
-            onProgress: progress,
-          ),
-          link: null,
-        );
-      }
-      return (
-        info: await torrents.add(
-          resolved.source,
-          title: release.title,
-          operation: operation,
-          onProgress: progress,
-        ),
-        link: resolved.source,
-      );
-    }
-
     try {
       return await run(
         tr("Открываем альбом…"),
         () => operation
-            .wait(inspect())
+            .wait(
+              resolveRelease(
+                release,
+                operation: operation,
+                onProgress: progress,
+              ),
+            )
             .timeout(
               const Duration(seconds: 60),
               onTimeout: () {
@@ -2168,6 +2154,55 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<({TorrentInfo info, String? link})> resolveRelease(
+    SearchRelease release, {
+    required SourceOperation operation,
+    void Function(String)? onProgress,
+  }) async {
+    if (release.rutracker) {
+      final link = await operation.wait(catalog.magnet(release));
+      return (
+        info: await torrents.add(
+          link,
+          title: release.title,
+          operation: operation,
+          onProgress: onProgress,
+        ),
+        link: link,
+      );
+    }
+    onProgress?.call(
+      tr("Получаем torrent-файл из {0}…", [
+        release.indexerName.isEmpty ? 'Jackett' : release.indexerName,
+      ]),
+    );
+    final resolved = await indexer.resolve(
+      release.link,
+      Directory('${library.root.path}/torrents'),
+      operation: operation,
+      preferCachedMetainfo: usesAutomaticSource,
+    );
+    if (resolved.file) {
+      return (
+        info: await torrents.upload(
+          resolved.source,
+          operation: operation,
+          onProgress: onProgress,
+        ),
+        link: null,
+      );
+    }
+    return (
+      info: await torrents.add(
+        resolved.source,
+        title: release.title,
+        operation: operation,
+        onProgress: onProgress,
+      ),
+      link: resolved.source,
+    );
+  }
+
   Future<void> checkEngine() async {
     await run(tr("Проверяем торрент-движок"), () async {
       engineVersion = await torrents.version();
@@ -2179,6 +2214,7 @@ class AppController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    unawaited(mcp.close());
     if (Platform.isAndroid) _deviceChannel.setMethodCallHandler(null);
     _musicLinkOperation?.cancel();
     if (_musicLinksInitialized) {

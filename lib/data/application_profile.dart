@@ -23,10 +23,10 @@ class ApplicationProfile {
 
   static Future<List<Directory>> legacyWindowsRoots(
     String home,
-    Directory support,
+    Directory? support,
   ) async {
     final roots = [
-      support,
+      ?support,
       Directory(
         p.join(home, 'AppData', 'Roaming', 'app.mumpa', 'mumpa', 'Mumpa'),
       ),

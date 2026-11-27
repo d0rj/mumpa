@@ -52,6 +52,11 @@ enum _SettingsSection {
     'Кнопки мультимедиа, панель задач и работа в трее',
     Icons.desktop_windows_outlined,
   ),
+  mcp(
+    'Доступ для агентов (MCP)',
+    'Управление музыкой из локальных MCP-клиентов',
+    Icons.hub_outlined,
+  ),
   about(
     'О приложении',
     'Обновления, лицензии и расположение медиатеки',
@@ -171,6 +176,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   String? _loadedSection;
+  bool _changingMcp = false, _mcpFailed = false;
 
   @override
   void initState() {
@@ -228,7 +234,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<_SettingsSection> get _sections => [
     for (final section in _SettingsSection.values)
-      if (section != _SettingsSection.windowsPlayer ||
+      if ((section != _SettingsSection.windowsPlayer &&
+              section != _SettingsSection.mcp) ||
           widget.app.windowsPlayer != null)
         section,
   ];
@@ -367,10 +374,69 @@ class _SettingsPageState extends State<SettingsPage> {
         _SettingsSection.metadata => _metadataControls(),
         _SettingsSection.profile => _profileControls(),
         _SettingsSection.windowsPlayer => _windowsControls(),
+        _SettingsSection.mcp => _mcpControls(),
         _SettingsSection.about => _aboutControls(),
       }),
     ],
   );
+
+  Future<void> _setMcp(bool value) async {
+    setState(() {
+      _changingMcp = true;
+      _mcpFailed = false;
+    });
+    try {
+      await widget.app.mcp.setEnabled(value);
+    } catch (_) {
+      if (mounted) _mcpFailed = true;
+    } finally {
+      if (mounted) setState(() => _changingMcp = false);
+    }
+  }
+
+  List<Widget> _mcpControls() {
+    final mcp = widget.app.mcp;
+    final key = mcp.accessKey;
+    return [
+      SwitchListTile.adaptive(
+        key: const ValueKey('mcp-access'),
+        contentPadding: EdgeInsets.zero,
+        title: Text(tr('Разрешить управление через MCP')),
+        subtitle: Text(
+          tr(
+            'Ключ даёт доступ к плееру и медиатеке. Сервер доступен только на этом компьютере.',
+          ),
+        ),
+        value: mcp.enabled,
+        onChanged: _changingMcp ? null : _setMcp,
+      ),
+      if (key != null) ...[
+        const SizedBox(height: 12),
+        const SelectableText(MumpaMcp.endpoint),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: key));
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(tr('Ключ MCP скопирован'))),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: Text(tr('Скопировать ключ MCP')),
+          ),
+        ),
+      ],
+      if (_mcpFailed || (mcp.configured && !mcp.enabled && !_changingMcp))
+        Text(
+          tr(
+            'Не удалось запустить MCP. Проверь, свободен ли порт 37145, и повтори попытку.',
+          ),
+        ),
+    ];
+  }
 
   List<Widget> _playbackControls() => [
     SwitchListTile(
